@@ -1,0 +1,27 @@
+---
+# Jellyfin Plugin Manifest
+# Used by the Jellyfin Plugin Repository system.
+# See: https://jellyfin.org/docs/general/server/plugins/
+
+name: JellyTrend
+guid: d3b07384-d9a1-4e2b-8c3f-1234567890ab
+description: >
+  Syncs TMDB trending movies & TV shows with your local library and
+  provides a Netflix-style banner carousel on the home screen.
+
+overview: >
+  JellyTrend automatically matches TMDB trending content against your
+  Jellyfin library using provider IDs. Matched items are surfaced in a
+  full-width banner carousel on the home screen.
+
+category: General
+owner: jorge.chavez@nezter.com
+imageUrl: ""           # optional: URL to a 256x256 plugin logo
+
+versions:
+  - version: 1.0.0.0
+    changelog: Initial release
+    targetAbi: "10.10.0.0"   # minimum Jellyfin server ABI
+    sourceUrl: ""             # optional: direct download URL for the .zip
+    checksum: ""              # optional: MD5 of the .zip
+    timestamp: "2026-04-20T00:00:00Z"

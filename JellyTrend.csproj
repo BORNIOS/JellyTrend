@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Jellyfin.Plugin.JellyTrend</AssemblyName>
+    <RootNamespace>Jellyfin.Plugin.JellyTrend</RootNamespace>
+    <TargetFramework>net9.0</TargetFramework>
+    <Version>1.0.0.0</Version>
+      <GenerateDocumentationFile>false</GenerateDocumentationFile>
+      <Nullable>enable</Nullable>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!--
+      Set this to your Jellyfin server version.
+      Check https://www.nuget.org/packages/Jellyfin.Controller/ for available versions.
+    -->
+    <JellyfinVersion>10.11.0</JellyfinVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      ExcludeAssets="runtime" prevents Jellyfin assemblies from being bundled into
+      the plugin .dll — the server provides them at runtime via its own assembly loader.
+    -->
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinVersion)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinVersion)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Data" Version="$(JellyfinVersion)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ASP.NET Core types (ControllerBase, etc.) — part of the shared runtime, not bundled -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- All files under Web/ are embedded into the assembly as resources -->
+    <EmbeddedResource Include="Web\**\*" />
+  </ItemGroup>
+
+</Project>

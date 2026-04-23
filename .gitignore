@@ -1,0 +1,57 @@
+# Build Folders
+bin/
+obj/
+
+# IA Assistant
+.claude/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+# Visual Studio cache/options
+*.aps
+*.cache
+*.dbmdl
+*.bak
+*.backup
+*.log
+*.vspscc
+*.vssscc
+
+# User-specific files
+*.user
+*.suo
+*.userprefs
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Publish output
+*.publish.xml
+
+# Local secrets
+secrets.json
+.local.settings.json

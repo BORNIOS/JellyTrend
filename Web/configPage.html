@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>JellyTrend</title>
+</head>
+<body>
+<div id="jellyTrendConfigPage"
+     data-role="page"
+     data-pluginuniqueid="d3b07384-d9a1-4e2b-8c3f-1234567890ab"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-select,emby-checkbox">
+
+    <div data-role="content">
+        <div class="content-primary">
+
+            <!-- ── Header ──────────────────────────────────────────────── -->
+            <div class="verticalSection">
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle">JellyTrend</h2>
+                </div>
+                <p style="color:var(--text-color-secondary)">
+                    Syncs TMDB trending movies &amp; TV shows with your library and
+                    displays a Netflix-style banner carousel on the home screen.
+                </p>
+            </div>
+
+            <!-- ── Settings form ───────────────────────────────────────── -->
+            <form id="jellyTrendConfigForm" onsubmit="return false;">
+                <div class="verticalSection">
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="tmdbApiKey">
+                            TMDB API Key
+                        </label>
+                        <input id="tmdbApiKey"
+                               type="password"
+                               is="emby-input"
+                               placeholder="Paste your TMDB v3 API key here" />
+                        <div class="fieldDescription">
+                            Required. Obtain a free key at
+                            <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">
+                                themoviedb.org/settings/api
+                            </a>.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="syncIntervalHours">
+                            Sync Interval (hours)
+                        </label>
+                        <input id="syncIntervalHours"
+                               type="number"
+                               is="emby-input"
+                               min="1"
+                               max="168"
+                               value="24" />
+                        <div class="fieldDescription">
+                            How often to re-fetch trending content from TMDB (1–168 h).
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="maxItems">
+                            Max Items
+                        </label>
+                        <input id="maxItems"
+                               type="number"
+                               is="emby-input"
+                               min="5"
+                               max="100"
+                               value="20" />
+                        <div class="fieldDescription">
+                            Maximum number of trending items per media type (movies + shows each).
+                        </div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input id="enableBannerMode"
+                                   type="checkbox"
+                                   is="emby-checkbox" />
+                            <span>Enable Banner Carousel on Home Screen</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            When enabled, the carousel script is automatically injected into index.html.
+                        </div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input id="enableChannel"
+                                   type="checkbox"
+                                   is="emby-checkbox" />
+                            <span>Habilitar Canal "Trending Now" (Roku / todos los clientes)</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Crea un canal bajo <strong>Canales</strong> visible en la barra lateral de
+                            todos los clientes, incluyendo Roku y Android TV. Muestra las películas en
+                            tendencia reproducibles directamente — sin archivos físicos ni duplicados.
+                            El canal se actualiza automáticamente tras cada sync.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="tmdbLanguage">
+                            Idioma TMDB
+                        </label>
+                        <input id="tmdbLanguage"
+                               type="text"
+                               is="emby-input"
+                               placeholder="es-MX" />
+                        <div class="fieldDescription">
+                            Etiqueta BCP-47 para el idioma de los metadatos devueltos por TMDB
+                            (títulos, sinopsis). Ejemplos: <code>es-MX</code>, <code>es-ES</code>,
+                            <code>en-US</code>, <code>pt-BR</code>. Deja vacío para el idioma por
+                            defecto de TMDB (inglés).
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="tmdbRegion">
+                            Región TMDB
+                        </label>
+                        <input id="tmdbRegion"
+                               type="text"
+                               is="emby-input"
+                               placeholder="MX" />
+                        <div class="fieldDescription">
+                            Código ISO 3166-1 alpha-2 de país. Filtra los trending a contenido
+                            disponible/popular en esa región. Ejemplos: <code>MX</code>,
+                            <code>US</code>, <code>ES</code>, <code>BR</code>. Deja vacío para
+                            trending global.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="channelName">
+                            Nombre del Canal
+                        </label>
+                        <input id="channelName"
+                               type="text"
+                               is="emby-input"
+                               placeholder="JellyTrend - Trending Now" />
+                        <div class="fieldDescription">
+                            Nombre que aparece en la sección <strong>Canales</strong> de todos los clientes
+                            (Roku, Android TV, iOS, web).
+                        </div>
+                    </div>
+
+                </div>
+
+                <div>
+                    <button is="emby-button"
+                            type="button"
+                            id="jellyTrendSaveBtn"
+                            class="raised button-submit block emby-button">
+                        <span>Save</span>
+                    </button>
+                </div>
+                <div id="jtSaveStatus" style="margin-top:.5em;min-height:1.2em;font-size:.9em;"></div>
+            </form>
+
+            <!-- ── Status panel ────────────────────────────────────────── -->
+            <div class="verticalSection" style="margin-top:2em">
+                <h3 class="sectionTitle">Status</h3>
+                <div id="jtStatusInfo" style="margin-bottom:1em;color:var(--text-color-secondary)">
+                    Loading…
+                </div>
+                <button id="jtRunNow" is="emby-button" type="button" class="raised emby-button">
+                    Run Sync Now
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script type="text/javascript">
+(function () {
+    'use strict';
+
+    var pluginId = 'd3b07384-d9a1-4e2b-8c3f-1234567890ab';
+    var state = { wired: false, bootstrapped: false, lastBootstrapAt: 0, retryTimer: null };
+
+    // ── DOM helpers ─────────────────────────────────────────────────────────
+
+    function findPage() {
+        var pages = document.querySelectorAll('#jellyTrendConfigPage');
+        return pages.length ? pages[pages.length - 1] : null;
+    }
+
+    function q(id) {
+        var page = findPage();
+        return page ? page.querySelector('#' + id) : null;
+    }
+
+    function hasDom() {
+        return !!(q('jellyTrendConfigForm') && q('jellyTrendSaveBtn') && q('tmdbApiKey'));
+    }
+
+    function tryGet(fn) {
+        try { return fn(); } catch (_) { return null; }
+    }
+
+    // ── ApiClient / Dashboard resolution ────────────────────────────────────
+    // The config page can be loaded inside an iframe or a dynamic panel;
+    // ApiClient may live in the parent window rather than the local one.
+
+    function getApiClient() {
+        if (typeof ApiClient !== 'undefined' && ApiClient) return ApiClient;
+        if (typeof globalThis !== 'undefined' && globalThis.ApiClient) return globalThis.ApiClient;
+        var p = tryGet(function () { return window.parent && window.parent.ApiClient ? window.parent.ApiClient : null; });
+        if (p) return p;
+        var t = tryGet(function () { return window.top && window.top.ApiClient ? window.top.ApiClient : null; });
+        return t || null;
+    }
+
+    function getDashboard() {
+        if (typeof Dashboard !== 'undefined' && Dashboard) return Dashboard;
+        if (typeof globalThis !== 'undefined' && globalThis.Dashboard) return globalThis.Dashboard;
+        var p = tryGet(function () { return window.parent && window.parent.Dashboard ? window.parent.Dashboard : null; });
+        if (p) return p;
+        var t = tryGet(function () { return window.top && window.top.Dashboard ? window.top.Dashboard : null; });
+        return t || null;
+    }
+
+    function getAccessToken() {
+        var api = getApiClient();
+        if (api && typeof api.accessToken === 'function') {
+            var tok = api.accessToken();
+            if (tok) return tok;
+        }
+        if (api && api._serverInfo && api._serverInfo.AccessToken) return api._serverInfo.AccessToken;
+        return '';
+    }
+
+    // ── Config REST calls ────────────────────────────────────────────────────
+    // Prefer ApiClient methods; fall back to direct fetch so the page works
+    // even when ApiClient is unavailable or lacks the helper methods.
+
+    function configUrl() {
+        var base = '/Plugins/' + encodeURIComponent(pluginId) + '/Configuration';
+        var token = getAccessToken();
+        return token ? base + '?api_key=' + encodeURIComponent(token) : base;
+    }
+
+    function getConfig() {
+        var api = getApiClient();
+        if (api && typeof api.getPluginConfiguration === 'function') {
+            return api.getPluginConfiguration(pluginId);
+        }
+        return fetch(configUrl(), { method: 'GET', credentials: 'include' })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            });
+    }
+
+    function saveConfig(cfg) {
+        var api = getApiClient();
+        if (api && typeof api.updatePluginConfiguration === 'function') {
+            return api.updatePluginConfiguration(pluginId, cfg);
+        }
+        return fetch(configUrl(), {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cfg)
+        }).then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r;
+        });
+    }
+
+    // ── Status indicator ─────────────────────────────────────────────────────
+
+    function setStatus(msg, isError) {
+        var el = q('jtSaveStatus');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = isError ? '#f44336' : '#4caf50';
+    }
+
+    // ── Load / Save ──────────────────────────────────────────────────────────
+
+    function load() {
+        var dash = getDashboard();
+        if (dash && dash.showLoadingMsg) dash.showLoadingMsg();
+
+        getConfig()
+            .then(function (cfg) {
+                var apiKey      = q('tmdbApiKey');
+                var interval    = q('syncIntervalHours');
+                var max         = q('maxItems');
+                var banner      = q('enableBannerMode');
+                var channel     = q('enableChannel');
+                var virtualLib  = q('enableVirtualLibrary');
+                var virtualName = q('virtualLibraryName');
+                var tmdbLang    = q('tmdbLanguage');
+                var tmdbRegion  = q('tmdbRegion');
+                var channelName = q('channelName');
+
+                if (apiKey)      apiKey.value        = cfg.TmdbApiKey           || '';
+                if (interval)    interval.value       = cfg.SyncIntervalHours    || 24;
+                if (max)         max.value            = cfg.MaxItems             || 20;
+                if (banner)      banner.checked       = cfg.EnableBannerMode     !== false;
+                if (channel)     channel.checked      = cfg.EnableChannel        !== false;
+                if (virtualLib)  virtualLib.checked   = cfg.EnableVirtualLibrary !== false;
+                if (virtualName) virtualName.value    = cfg.VirtualLibraryName   || 'Trending';
+                if (tmdbLang)    tmdbLang.value        = cfg.TmdbLanguage         || 'es-MX';
+                if (tmdbRegion)  tmdbRegion.value      = cfg.TmdbRegion           || 'MX';
+                if (channelName) channelName.value    = cfg.ChannelName          || 'JellyTrend - Trending Now';
+            })
+            .catch(function (err) {
+                setStatus('Failed to load configuration: ' + (err && err.message || err), true);
+            })
+            .finally(function () {
+                if (dash && dash.hideLoadingMsg) dash.hideLoadingMsg();
+            });
+    }
+
+    function save() {
+        var dash = getDashboard();
+        if (dash && dash.showLoadingMsg) dash.showLoadingMsg();
+
+        getConfig()
+            .then(function (cfg) {
+                var apiKey      = q('tmdbApiKey');
+                var interval    = q('syncIntervalHours');
+                var max         = q('maxItems');
+                var banner      = q('enableBannerMode');
+                var channel     = q('enableChannel');
+                var virtualLib  = q('enableVirtualLibrary');
+                var virtualName = q('virtualLibraryName');
+                var tmdbLang    = q('tmdbLanguage');
+                var tmdbRegion  = q('tmdbRegion');
+                var channelName = q('channelName');
+
+                cfg.TmdbApiKey           = apiKey      ? apiKey.value                                              : cfg.TmdbApiKey;
+                cfg.SyncIntervalHours    = interval    ? (Number.parseInt(interval.value, 10) || 24)               : cfg.SyncIntervalHours;
+                cfg.MaxItems             = max         ? (Number.parseInt(max.value, 10) || 20)                    : cfg.MaxItems;
+                cfg.EnableBannerMode     = banner      ? banner.checked                                            : cfg.EnableBannerMode;
+                cfg.EnableChannel        = channel     ? channel.checked                                           : cfg.EnableChannel;
+                cfg.EnableVirtualLibrary = virtualLib  ? virtualLib.checked                                        : cfg.EnableVirtualLibrary;
+                cfg.VirtualLibraryName   = virtualName ? (virtualName.value.trim() || 'Trending')                  : cfg.VirtualLibraryName;
+                cfg.TmdbLanguage         = tmdbLang    ? tmdbLang.value.trim()                                     : cfg.TmdbLanguage;
+                cfg.TmdbRegion           = tmdbRegion  ? tmdbRegion.value.trim().toUpperCase()                     : cfg.TmdbRegion;
+                cfg.ChannelName          = channelName ? (channelName.value.trim() || 'JellyTrend - Trending Now') : cfg.ChannelName;
+
+                return saveConfig(cfg);
+            })
+            .then(function (result) {
+                var dash2 = getDashboard();
+                if (dash2 && dash2.processPluginConfigurationUpdateResult) {
+                    dash2.processPluginConfigurationUpdateResult(result);
+                } else {
+                    setStatus('Settings saved.', false);
+                }
+            })
+            .catch(function (err) {
+                setStatus('Failed to save: ' + (err && err.message || err), true);
+            })
+            .finally(function () {
+                if (dash && dash.hideLoadingMsg) dash.hideLoadingMsg();
+            });
+    }
+
+    function triggerSync() {
+        var token = getAccessToken();
+        var headers = token ? { 'Authorization': 'MediaBrowser Token="' + token + '"' } : {};
+
+        fetch('/ScheduledTasks', { credentials: 'include', headers: headers })
+            .then(function (r) { return r.json(); })
+            .then(function (tasks) {
+                var task = null;
+                for (var t of tasks) {
+                    if (t.Key === 'JellyTrendSync') { task = t; break; }
+                }
+                if (!task) throw new Error('Task JellyTrendSync no encontrada en el scheduler');
+                return fetch('/ScheduledTasks/Running/' + task.Id, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: headers
+                });
+            })
+            .then(function () { setStatus('Sync iniciado.', false); loadStatus(); })
+            .catch(function (err) { setStatus('No se pudo iniciar el sync: ' + (err && err.message || err), true); });
+    }
+
+    function loadStatus() {
+        var token = getAccessToken();
+        fetch('/JellyTrend/Status', {
+            credentials: 'include',
+            headers: token ? { 'Authorization': 'MediaBrowser Token="' + token + '"' } : {}
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (s) {
+            var el = q('jtStatusInfo');
+            if (!el) return;
+            el.innerHTML =
+                '<table style="border-spacing:.4em 0">' +
+                row('Version',      s.Version || '—') +
+                row('TMDB key set', s.TmdbKeyConfigured ? '&#10004; Yes' : '&#10008; Not set') +
+                row('Cached items', s.CachedItemCount  || 0) +
+                row('Last sync',    s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : 'Never') +
+                '</table>';
+        })
+        .catch(function () {
+            var el = q('jtStatusInfo');
+            if (el) el.textContent = 'Could not load status.';
+        });
+    }
+
+    function row(label, value) {
+        return '<tr><td style="opacity:.7;padding-right:.8em">' + label + '</td><td>' + value + '</td></tr>';
+    }
+
+    // ── UI wiring ────────────────────────────────────────────────────────────
+
+    function bindUi() {
+        if (state.wired) return;
+
+        var saveBtn = q('jellyTrendSaveBtn');
+        var runBtn  = q('jtRunNow');
+
+        if (!saveBtn || !runBtn) return;
+
+        saveBtn.addEventListener('click', save);
+        runBtn.addEventListener('click', triggerSync);
+        state.wired = true;
+    }
+
+    // ── Bootstrap ────────────────────────────────────────────────────────────
+
+    function scheduleRetry() {
+        if (state.retryTimer) return;
+        state.retryTimer = setTimeout(function () {
+            state.retryTimer = null;
+            bootstrap();
+        }, 280);
+    }
+
+    function bootstrap() {
+        if (!findPage()) { scheduleRetry(); return; }
+        if (!hasDom())   { scheduleRetry(); return; }
+
+        var now = Date.now();
+        if (state.bootstrapped && (now - state.lastBootstrapAt) < 1200) return;
+        state.lastBootstrapAt = now;
+
+        // Read pluginId from markup in case it was overridden
+        var page = findPage();
+        if (page && page.dataset && page.dataset.pluginuniqueid) {
+            pluginId = page.dataset.pluginuniqueid;
+        }
+
+        bindUi();
+
+        if (!state.bootstrapped) {
+            state.bootstrapped = true;
+        }
+
+        load();
+        loadStatus();
+    }
+
+    function bindPageShow() {
+        var page = findPage();
+        if (!page) { scheduleRetry(); return; }
+        if (page.dataset && page.dataset.jtBound === '1') return;
+        if (page.dataset) page.dataset.jtBound = '1';
+
+        page.addEventListener('pageshow', function () {
+            bootstrap();
+        });
+    }
+
+    // Run immediately, via DOMContentLoaded, via pageshow, and on hash navigation.
+    bindPageShow();
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            bindPageShow();
+            bootstrap();
+        });
+    } else {
+        bootstrap();
+    }
+
+    globalThis.addEventListener('hashchange', function () {
+        if (globalThis.location && globalThis.location.hash &&
+            globalThis.location.hash.includes('configurationpage?name=JellyTrend')) {
+            bindPageShow();
+            bootstrap();
+        }
+    });
+})();
+    </script>
+</div>
+</body>
+</html>

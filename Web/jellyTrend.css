@@ -1,0 +1,317 @@
+/* ============================================================
+   JellyTrend – Trending Banner Carousel
+   Uses Jellyfin CSS variables so the banner adapts automatically
+   to dark / light / purple-haze / blue-radiance themes.
+   ============================================================ */
+
+/* ── Section wrapper + Jellyfin theme variable fallbacks ──── */
+.jt-section {
+    /* Map Jellyfin's --jf-palette-* vars to local shorthands.
+       Defaults cover themes that pre-date the jf-palette naming scheme. */
+    --jt-bg:          var(--jf-palette-background-default, #101010);
+    --jt-text:        var(--jf-palette-text-primary,        #ffffff);
+    --jt-text-muted:  var(--jf-palette-text-secondary,      rgba(255,255,255,.65));
+    --jt-accent:      var(--jf-palette-primary-main,        #00a4dc);
+    --jt-accent-text: var(--jf-palette-primary-contrastText,#ffffff);
+    --jt-paper:       var(--jf-palette-background-paper,    #202020);
+    --jt-divider:     var(--jf-palette-divider,             rgba(255,255,255,.12));
+    /* Height matches Jellyfin's standard section rows — not full-screen */
+    --jt-height:      clamp(180px, 28vw, 380px);
+    --jt-speed:       0.85s;
+    --jt-ease:        cubic-bezier(.4, 0, .2, 1);
+
+    position: relative;
+    /* Respect Jellyfin's standard page padding (~1.5 em on each side) */
+    margin: 0 1.5em 1.5em;
+    border-radius: 0.5rem;
+    overflow: hidden;          /* clip slides to rounded corners */
+    background: var(--jt-bg);
+    font-family: inherit;
+}
+
+
+/* ── Swiper container ────────────────────────────────────── */
+.jt-swiper {
+    position: relative;
+    width: 100%;
+    height: var(--jt-height);
+    overflow: hidden;
+}
+
+.jt-swiper .swiper-wrapper {
+    height: 100%;
+}
+
+/* ── Slides ──────────────────────────────────────────────── */
+.jt-slide {
+    position: absolute !important; /* override Swiper's transform-based positioning */
+    inset: 0;
+    opacity: 0;
+    transition: opacity var(--jt-speed) var(--jt-ease);
+    will-change: opacity;
+}
+
+/* Active slide — set by both real Swiper (.swiper-slide-active) and fallback (.jt-slide-active) */
+.jt-slide.swiper-slide-active,
+.jt-slide.jt-slide-active {
+    opacity: 1;
+    z-index: 2;
+}
+
+/* Background image — Ken Burns pan+zoom effect on active slide */
+.jt-slide-bg {
+    position: absolute;
+    inset: 0;
+    background-image: var(--jt-backdrop, none);
+    background-size: cover;
+    background-position: center 20%;
+    /* Start: zoomed-in + panned left — animates to natural position */
+    transform: scale(1.12) translateX(-2.5%);
+    transition: transform 9s cubic-bezier(.25, .46, .45, .94);
+    will-change: transform;
+}
+
+.jt-slide.swiper-slide-active .jt-slide-bg,
+.jt-slide.jt-slide-active      .jt-slide-bg {
+    transform: scale(1) translateX(0);
+}
+
+/* ── Gradient overlay ────────────────────────────────────── */
+.jt-overlay {
+    position: absolute;
+    inset: 0;
+    /* Left vignette for text legibility */
+    background:
+        linear-gradient(to right,
+            rgba(0,0,0,.90)  0%,
+            rgba(0,0,0,.55) 42%,
+            transparent     65%),
+        /* Bottom scrim to blend into the page */
+        linear-gradient(to top,
+            rgba(0,0,0,.80)  0%,
+            transparent     40%);
+}
+
+/* ── Text content ────────────────────────────────────────── */
+.jt-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    padding: clamp(.8rem, 3vw, 2.5rem) clamp(1rem, 5vw, 4rem);
+    max-width: 52%;
+    color: var(--jt-text);
+    z-index: 3;
+}
+
+.jt-title {
+    font-size: clamp(1.3rem, 3.2vw, 2.8rem);
+    font-weight: 700;
+    margin: 0 0 .4em;
+    line-height: 1.1;
+    text-shadow: 0 2px 12px rgba(0,0,0,.7);
+    color: var(--jt-text);
+}
+
+.jt-overview {
+    font-size: clamp(.78rem, 1.1vw, .96rem);
+    line-height: 1.55;
+    color: var(--jt-text-muted);
+    margin: 0 0 .8em;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-shadow: 0 1px 4px rgba(0,0,0,.6);
+}
+
+.jt-meta {
+    display: flex;
+    align-items: center;
+    gap: .6em;
+    margin-bottom: .9em;
+    font-size: .86rem;
+    color: var(--jt-text-muted);
+}
+
+.jt-rating {
+    color: #f5c518;
+    font-weight: 600;
+}
+
+.jt-badge {
+    background: var(--jt-divider);
+    border: 1px solid var(--jt-divider);
+    border-radius: 3px;
+    padding: .1em .5em;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--jt-text-muted);
+}
+
+/* ── Action buttons ──────────────────────────────────────── */
+.jt-actions {
+    display: flex;
+    gap: .6em;
+    flex-wrap: wrap;
+}
+
+.jt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .35em;
+    padding: .5em 1.6em;
+    border-radius: 4px;
+    font-size: .92rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    border: none;
+    transition: filter .2s, transform .15s;
+    white-space: nowrap;
+}
+
+.jt-btn:hover { filter: brightness(1.18); transform: translateY(-1px); }
+.jt-btn:active { transform: translateY(0); }
+
+.jt-btn-play {
+    background: var(--jt-accent);       /* Jellyfin's primary blue / theme color */
+    color:      var(--jt-accent-text);
+}
+
+.jt-btn-play:hover {
+    background: var(--jt-accent);
+    filter: brightness(1.25);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 164, 220, .45);
+}
+
+.jt-btn-info {
+    background: rgba(109,109,110,.65);
+    color: var(--jt-text);
+    backdrop-filter: blur(4px);
+}
+
+/* ── Navigation arrows (custom styling + Swiper compat) ───── */
+.jt-prev,
+.jt-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    background: rgba(0,0,0,.38);
+    color: var(--jt-text);
+    border: none;
+    width: 2.8rem;
+    height: 5.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .2s;
+    /* Reset Swiper's default arrow content — we use the button element itself */
+    font-size: 1.8rem;
+}
+
+.jt-prev { left: 0;  border-radius: 0 4px 4px 0; }
+.jt-next { right: 0; border-radius: 4px 0 0 4px; }
+
+.jt-prev:hover,
+.jt-next:hover { background: rgba(0,0,0,.65); }
+
+/* Suppress Swiper's default ::before/::after arrow icons */
+.jt-prev::after,
+.jt-next::after { display: none; }
+
+/* Draw arrows with pure CSS borders instead */
+.jt-prev::before {
+    content: '';
+    display: block;
+    width: .55rem;
+    height: .55rem;
+    border-left:  2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg) translateX(2px);
+}
+.jt-next::before {
+    content: '';
+    display: block;
+    width: .55rem;
+    height: .55rem;
+    border-right: 2px solid currentColor;
+    border-top:   2px solid currentColor;
+    transform: rotate(45deg) translateX(-2px);
+}
+
+/* ── Pagination bullets ──────────────────────────────────── */
+.jt-pagination {
+    position: absolute;
+    bottom: .9em;
+    right: 1.5em;
+    display: flex;
+    gap: .4em;
+    z-index: 10;
+    /* Override Swiper's default pagination positioning */
+    width: auto !important;
+    left: auto !important;
+}
+
+.jt-bullet {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.35);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: background .25s, transform .25s;
+    /* Swiper compatibility */
+    display: inline-block;
+    opacity: 1;
+}
+
+.jt-bullet.jt-bullet-active,
+.jt-bullet.swiper-pagination-bullet-active {
+    background: var(--jt-accent);
+    transform: scale(1.4);
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 700px) {
+    .jt-section {
+        margin: 0 0.5em 1em;
+        border-radius: 0.35rem;
+    }
+
+    .jt-content {
+        max-width: 88%;
+        padding: .8rem 1rem;
+    }
+
+    .jt-overview {
+        display: none;
+    }
+
+    .jt-prev,
+    .jt-next {
+        display: none;
+    }
+
+    /* On small screens, use a bottom-up gradient instead of side gradient */
+    .jt-overlay {
+        background: linear-gradient(to top,
+            rgba(0,0,0,.88) 0%,
+            rgba(0,0,0,.25) 55%,
+            transparent 100%);
+    }
+}
+
+/* ── Light-theme override ────────────────────────────────── */
+/* Jellyfin's light theme sets --jf-palette-background-default to a light value.
+   The overlay keeps text readable regardless of theme. */
+@media (prefers-color-scheme: light) {
+    .jt-btn-play {
+        background: var(--jt-bg);
+        color: var(--jt-text);
+    }
+}
