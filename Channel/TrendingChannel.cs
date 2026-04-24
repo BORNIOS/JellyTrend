@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.JellyTrend.Configuration;
 using Jellyfin.Plugin.JellyTrend.ScheduledTask;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Channels;
@@ -48,7 +50,7 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
 
     // ── IChannel properties ───────────────────────────────────────────────────
 
-    public string Name        => Plugin.Instance?.Configuration.ChannelName ?? "JellyTrend - Trending Now";
+    public string Name        => Plugin.Instance?.Configuration.ChannelName ?? PluginConfiguration.DefaultChannelName;
     public string Description => "Películas en tendencia según TMDB, actualizadas semanalmente.";
     public string HomePageUrl => string.Empty;
     public ChannelParentalRating ParentalRating => ChannelParentalRating.GeneralAudience;
@@ -169,11 +171,10 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
         {
             var item = _libraryManager.GetItemById(id);
             if (item is null) continue;
-
             if (string.IsNullOrEmpty(item.Path) || !File.Exists(item.Path))
                 continue;
 
-            result.Add(new ChannelItemInfo
+            var info = new ChannelItemInfo
             {
                 Id              = item.Id.ToString(),
                 Name            = item.Name,
@@ -186,8 +187,25 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
                 CommunityRating = item.CommunityRating,
                 RunTimeTicks    = item.RunTimeTicks,
                 DateModified    = item.DateModified,
-                ProviderIds     = new Dictionary<string, string>(item.ProviderIds),
-            });
+                DateCreated     = item.DateCreated,
+                PremiereDate    = item.PremiereDate,
+                OriginalTitle   = item.OriginalTitle,
+                OfficialRating  = item.OfficialRating,
+                Genres          = item.Genres is { Length: > 0 } g ? [.. g] : [],
+                Studios         = item.Studios is { Length: > 0 } s ? [.. s] : [],
+                ProviderIds     = new Dictionary<string, string>(item.ProviderIds)
+            };
+
+            var cast = _libraryManager.GetPeople(item)
+                .Where(p => p.Type == PersonKind.Actor)
+                .OrderBy(p => p.SortOrder ?? int.MaxValue)
+                .Take(24)
+                .ToList();
+            if (cast.Count > 0)
+            {
+                info.People = cast;
+            }
+            result.Add(info);
         }
 
         _logger.LogInformation("JellyTrend Canal: {Count} películas en el canal.", result.Count);

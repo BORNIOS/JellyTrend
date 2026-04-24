@@ -4,6 +4,8 @@ namespace Jellyfin.Plugin.JellyTrend.Configuration;
 
 public class PluginConfiguration : BasePluginConfiguration
 {
+    public const string DefaultChannelName = "JellyTrend - Trending Now";
+
     public string TmdbApiKey { get; set; } = string.Empty;
 
     public int SyncIntervalHours { get; set; } = 24;
@@ -19,7 +21,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool EnableChannel { get; set; } = true;
 
     /// <summary>Nombre del canal que aparece en la sección Canales de Jellyfin.</summary>
-    public string ChannelName { get; set; } = "JellyTrend - Trending Now";
+    public string ChannelName { get; set; } = DefaultChannelName;
 
     /// <summary>
     /// BCP-47 language tag passed to TMDB (e.g. es-MX, en-US, pt-BR).

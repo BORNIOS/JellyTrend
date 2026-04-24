@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.JellyTrend.ExternalAPI;
+using Jellyfin.Plugin.JellyTrend.Sync;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Tasks;
@@ -79,6 +80,10 @@ public sealed class TrendingSyncTask : IScheduledTask
             dataPath,
             JsonSerializer.Serialize(cache, new JsonSerializerOptions { WriteIndented = true }),
             cancellationToken).ConfigureAwait(false);
+
+        await TrendingShadowMetadataSync
+            .SyncAllAsync(_libraryManager, matchedIds, _logger, cancellationToken)
+            .ConfigureAwait(false);
 
         progress.Report(100);
         _logger.LogInformation("JellyTrend: Sync completo — {Count} películas en caché.", matchedIds.Count);
