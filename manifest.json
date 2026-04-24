@@ -1,0 +1,20 @@
+{
+  "id": "d3b07384-d9a1-4e2b-8c3f-1234567890ab",
+  "name": "JellyTrend",
+  "description": "Syncs TMDB trending movies & TV shows with your local library and provides a Netflix-style banner carousel on the home screen.",
+  "overview": "JellyTrend automáticamente empareja contenido en tendencia de TMDB con tu biblioteca Jellyfin usando provider IDs. Los ítems coincidentes se muestran en un carrusel de banners en la pantalla principal.",
+  "category": "General",
+  "owner": "bornios@gmail.com",
+  "imageUrl": "",
+  "repository": "https://github.com/BORNIOS/JellyTrend",
+  "versions": [
+    {
+      "version": "1.0.0.0",
+      "changelog": "Initial release",
+      "targetAbi": "10.11.0.0",
+      "sourceUrl": "",
+      "checksum": "",
+      "timestamp": "2026-04-20T00:00:00Z"
+    }
+  ]
+}

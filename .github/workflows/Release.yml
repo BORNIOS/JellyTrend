@@ -1,0 +1,85 @@
+name: Manual Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Versión del release (ej: 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restaurar dependencias
+        run: dotnet restore JellyTrend.sln
+
+      - name: Compilar plugin
+        run: dotnet build JellyTrend.sln --configuration Release --no-restore
+
+      - name: Publicar plugin
+        run: dotnet publish JellyTrend.sln --configuration Release --output publish --no-build
+
+      - name: Empaquetar DLL en ZIP
+        run: |
+          cd publish
+          zip Jellyfin.Plugin.JellyTrend-${{ github.event.inputs.release_version }}.zip Jellyfin.Plugin.JellyTrend.dll
+          cd ..
+
+      - name: Calcular checksum SHA256
+        id: checksum
+        run: |
+          CHECKSUM=$(sha256sum publish/Jellyfin.Plugin.JellyTrend-${{ github.event.inputs.release_version }}.zip | awk '{print $1}')
+          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+
+      - name: Obtener changelog del release
+        id: changelog
+        run: |
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "${{ github.event.head_commit.message }}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+
+      - name: Actualizar manifest.json y build.yaml
+        id: manifest
+        run: |
+          VERSION=${{ github.event.inputs.release_version }}
+          ZIP_NAME=Jellyfin.Plugin.JellyTrend-${{ github.event.inputs.release_version }}.zip
+          SOURCE_URL="https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.release_version }}/${ZIP_NAME}"
+          CHECKSUM=${{ steps.checksum.outputs.checksum }}
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          CHANGELOG="${{ github.event.head_commit.message }}"
+          # Actualizar manifest.json
+          jq \
+            --arg version "$VERSION" \
+            --arg changelog "$CHANGELOG" \
+            --arg targetAbi "10.11.0.0" \
+            --arg sourceUrl "$SOURCE_URL" \
+            --arg checksum "$CHECKSUM" \
+            --arg timestamp "$TIMESTAMP" \
+            '.versions += [{version: $version, changelog: $changelog, targetAbi: $targetAbi, sourceUrl: $sourceUrl, checksum: $checksum, timestamp: $timestamp}]' \
+            manifest.json > manifest.tmp.json
+          mv manifest.tmp.json manifest.json
+          cp manifest.json publish/manifest.json
+          # Actualizar build.yaml
+          python3 -c "import yaml,sys; f='build.yaml'; d=yaml.safe_load(open(f)); d['versions'].append({'version': '$VERSION', 'changelog': '$CHANGELOG', 'targetAbi': '10.11.0.0', 'sourceUrl': '$SOURCE_URL', 'checksum': '$CHECKSUM', 'timestamp': '$TIMESTAMP'}); open(f,'w').write(yaml.dump(d, sort_keys=False, allow_unicode=True))"
+
+      - name: Crear release en GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.release_version }}
+          name: Release ${{ github.event.inputs.release_version }}
+          files: |
+            publish/Jellyfin.Plugin.JellyTrend-${{ github.event.inputs.release_version }}.zip
+            publish/manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
