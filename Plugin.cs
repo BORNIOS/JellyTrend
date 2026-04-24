@@ -46,7 +46,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             new PluginPageInfo
             {
                 Name = "JellyTrend",
-                EmbeddedResourcePath = $"{ns}.Web.configPage.html"
+                DisplayName = "JellyTrend",
+                EmbeddedResourcePath = $"{ns}.Web.configPage.html",
+                EnableInMainMenu = true
             }
         ];
     }
