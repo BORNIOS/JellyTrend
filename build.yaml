@@ -4,7 +4,7 @@
 # See: https://jellyfin.org/docs/general/server/plugins/
 name: "JellyTrend"
 guid: "d3b07384-d9a1-4e2b-8c3f-1234567890ab"
-version: "2.0.0.0"
+version: "2.0.1.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Syncs TMDB trending movies & shows with the local library and provides a Netflix-style banner carousel."
@@ -17,4 +17,7 @@ owner: ".:BORNIOS:."
 artifacts:
   - "Jellyfin.Plugin.JellyTrend.dll"
 changelog: >
-  changelog
+  Correcciones:
+  - Canal Recomendados vacío en la fila de inicio (el canal ahora resuelve al usuario autenticado).
+  - Logs en nivel Debug y sin ids de usuario crudos.
+  - Banner móvil: altura del hero, sinopsis visible, botones compactos y paginación reposicionada.
