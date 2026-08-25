@@ -101,7 +101,11 @@ From the plugin page you can configure:
 
 <br>
 
-![JellyTrend Settings](Screenshots/Settings.png)
+<p align="center">
+  <img alt="JellyTrend Settings 1" src="Screenshots/Settings1.png" width="45%" />
+  &nbsp;
+  <img alt="JellyTrend Settings 2" src="Screenshots/Settings2.png" width="45%" />
+</p>
 
 ---
 
