@@ -67,7 +67,7 @@ internal static class RecommendationEngine
         {
             User = user,
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
+            IncludeItemTypes = [BaseItemKind.Movie],
             IsResumable = true
         })
         .Select(static i => i.Id)
@@ -83,7 +83,7 @@ internal static class RecommendationEngine
         {
             User = user,
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
+            IncludeItemTypes = [BaseItemKind.Movie],
             IsPlayed = true,
             Limit = MaxAffinityItems
         });
@@ -92,7 +92,7 @@ internal static class RecommendationEngine
         {
             User = user,
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
+            IncludeItemTypes = [BaseItemKind.Movie],
             IsResumable = true,
             Limit = MaxAffinityItems
         });
@@ -176,7 +176,7 @@ internal static class RecommendationEngine
             {
                 User = user,
                 Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
+                IncludeItemTypes = [BaseItemKind.Movie],
                 IsPlayed = false,
                 Genres = facets.Genres,
                 Limit = MaxCandidatesPerFacet
@@ -189,7 +189,7 @@ internal static class RecommendationEngine
             {
                 User = user,
                 Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
+                IncludeItemTypes = [BaseItemKind.Movie],
                 IsPlayed = false,
                 PersonIds = facets.PersonIds.ToArray(),
                 Limit = MaxCandidatesPerFacet
@@ -202,7 +202,7 @@ internal static class RecommendationEngine
             {
                 User = user,
                 Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
+                IncludeItemTypes = [BaseItemKind.Movie],
                 IsPlayed = false,
                 Tags = facets.Tags.ToArray(),
                 Limit = MaxCandidatesPerFacet
@@ -375,7 +375,7 @@ internal static class RecommendationEngine
         {
             User = user,
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
+            IncludeItemTypes = [BaseItemKind.Movie],
             IsPlayed = false,
             OrderBy = [(ItemSortBy.Random, SortOrder.Descending)],
             Limit = ColdStartSample

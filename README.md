@@ -39,7 +39,7 @@ recomendaciones personalizadas por usuario.
 - 🎥 **Carrusel estilo Netflix** en la pantalla de inicio de Jellyfin Web, personalizado por usuario (oculta lo que ya viste).
 - 📡 **Dos canales** en la sección *Canales*: **Trendings** (tendencias de TMDB que **ya tienes en tu biblioteca**) y **Recomendados** (sugerencias personalizadas por usuario).
 - ▶️ **Reproducción 100 % local** — TMDB solo alimenta las listas; la fuente siempre es tu servidor.
-- 📚 **Navegación por temporadas** en los canales (serie → temporada → episodio) para empezar a ver desde la temporada que quieras.
+- 📚 **Navegación por temporadas** en el canal de **Trendings** (serie → temporada → episodio) para empezar a ver desde la temporada que quieras.
 - 🎯 **Recomendaciones personalizadas** por usuario: priorizan las mejores calificaciones de TMDB, limitan sagas (máx. 2 por franquicia) y ocultan lo ya visto / en progreso.
 - 🔄 **Sincronización bidireccional** biblioteca ↔ canal: estado visto, progreso, favoritos y valoración.
 - 🔍 **Metadatos enriquecidos** — géneros, reparto, estudios, tags y clasificación tomados del ítem de biblioteca (los canales no parecen una «copia»).
@@ -133,8 +133,8 @@ Roku, Android TV, iOS, etc.):
 
 ### 🎯 Recomendados
 - Fila/fuente **por usuario** generada a partir del historial de cada usuario.
+- Contenido: **solo películas** (sin series).
 - Prioriza las **mejores calificaciones de TMDB**, limita sagas y **oculta lo ya visto y lo en progreso**.
-- Las series también se navegan por temporadas.
 
 <br>
 
@@ -256,10 +256,10 @@ Consulta la sección **«Personalizar las imágenes de los canales»**.
 </details>
 
 <details>
-<summary><b>¿La navegación por temporadas está en los dos canales?</b></summary>
+<summary><b>¿En qué canal está la navegación por temporadas?</b></summary>
 
-Sí: tanto **Trendings** como **Recomendados** permiten navegar las series por
-**serie → temporada → episodio**.
+Solo en **Trendings** (serie → temporada → episodio). **Recomendados** incluye únicamente
+**películas**, por lo que no hay temporadas.
 </details>
 
 <details>
@@ -338,17 +338,6 @@ warnings-as-errors. Mantén el build limpio:
 ```bash
 dotnet build Jellyfin.Plugin.JellyTrend.sln -c Release   # debe reportar 0 warnings / 0 errores
 ```
-
-### Publicar un release
-
-1. Asegúrate de que `main` está en verde (CI `build.yaml`).
-2. Ve a **Actions → 📦 Release Plugin → Run workflow** y escribe la versión (ej. `2.0.0`).
-3. El workflow: fija la versión en `Directory.Build.props`, compila, genera el `ZIP` + `checksum` (**MD5**, el formato que valida Jellyfin), **actualiza y commitea `manifest.json` y `build.yaml` a `main`**, y crea el **Release de GitHub con changelog autogenerado** adjuntando el ZIP y el manifest.
-4. La nueva versión queda disponible para instalar desde el repositorio en Jellyfin.
-
-> Jellyfin lee el repositorio directamente desde la URL del manifest
-> (`https://raw.githubusercontent.com/BORNIOS/JellyTrend/main/manifest.json`); el `manifest.json`
-> de la raíz se mantiene actualizado automáticamente con cada release.
 
 ---
 

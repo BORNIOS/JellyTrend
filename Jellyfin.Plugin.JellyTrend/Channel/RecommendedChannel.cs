@@ -11,7 +11,6 @@ using Jellyfin.Plugin.JellyTrend.ScheduledTask;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Channels;
@@ -27,8 +26,7 @@ namespace Jellyfin.Plugin.JellyTrend.Channel;
 /// Exposes a per-user personalized "Recomendados" row as a Jellyfin channel, visible under
 /// "Channels" in ALL clients and on the home screen via ISupportsLatestMedia. Recommendations
 /// are generated weekly by RecommendationSyncTask and stored per user; each user only ever
-/// sees their own unwatched, in-progress-free recommendations. Series reuse the SERIES root
-/// artwork (never an episode), consistent with the trending channel.
+/// sees their own unwatched, in-progress-free recommendations (movies only).
 /// </summary>
 public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequiresMediaInfoCallback
 {
@@ -177,23 +175,7 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         foreach (var id in data.ItemIds)
         {
             var item = _libraryManager.GetItemById(id);
-            if (item is null)
-            {
-                continue;
-            }
-
-            if (item is Series)
-            {
-                var folder = ChannelItemFactory.BuildSeriesFolderItem(_libraryManager, _appHost, item, null, null);
-                if (folder is not null)
-                {
-                    result.Add(folder);
-                }
-
-                continue;
-            }
-
-            if (string.IsNullOrEmpty(item.Path) || !File.Exists(item.Path))
+            if (item is null || string.IsNullOrEmpty(item.Path) || !File.Exists(item.Path))
             {
                 continue;
             }

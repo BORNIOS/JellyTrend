@@ -39,7 +39,7 @@ recommendations per user.
 - 🎥 **Netflix-style banner carousel** on the Jellyfin Web home screen, per-user (hides what you already watched).
 - 📡 **Two channels** under *Channels*: **Trending** (TMDB trends you **already have in your library**) and **Recommended** (personalized suggestions per user).
 - ▶️ **100 % local playback** — TMDB only feeds the lists; your server is always the source.
-- 📚 **Season navigation** in the channels (series → season → episode) to start from whichever season you want.
+- 📚 **Season navigation** in the **Trending** channel (series → season → episode) to start from whichever season you want.
 - 🎯 **Personalized recommendations** per user: prioritize the best TMDB ratings, cap sagas (max 2 per franchise) and hide watched / in-progress items.
 - 🔄 **Two-way sync** library ↔ channel: watched state, resume position, favorites, and ratings.
 - 🔍 **Enriched metadata** — genres, cast, studios, tags, and parental rating from the library item (channels don't look like a "copy").
@@ -132,8 +132,8 @@ Roku, Android TV, iOS, etc.):
 
 ### 🎯 Recommended
 - Per-user row/source built from each user's watch history.
+- Content: **movies only** (no shows).
 - Prioritizes the **best TMDB ratings**, caps sagas and **hides watched and in-progress items**.
-- Shows are also browsable by season.
 
 <br>
 
@@ -253,9 +253,10 @@ Yes. Replace the image file under `{DataDir}/metadata/channels/` and restart Jel
 </details>
 
 <details>
-<summary><b>Is season navigation available in both channels?</b></summary>
+<summary><b>Which channel has season navigation?</b></summary>
 
-Yes: both **Trending** and **Recommended** let you browse shows by **series → season → episode**.
+Only **Trending** (series → season → episode). **Recommended** contains **movies only**, so there
+are no seasons.
 </details>
 
 <details>
@@ -334,17 +335,6 @@ warnings-as-errors. Keep the build clean:
 ```bash
 dotnet build Jellyfin.Plugin.JellyTrend.sln -c Release   # must report 0 warnings / 0 errors
 ```
-
-### Publishing a release
-
-1. Make sure `main` is green (CI `build.yaml`).
-2. Go to **Actions → 📦 Release Plugin → Run workflow** and enter the version (e.g. `2.0.0`).
-3. The workflow: pins the version in `Directory.Build.props`, builds, produces the `ZIP` + `checksum` (**MD5**, the format Jellyfin validates), **updates and commits `manifest.json` and `build.yaml` back to `main`**, and creates the **GitHub Release with an auto-generated changelog**, attaching the ZIP and the manifest.
-4. The new version becomes installable from the repository inside Jellyfin.
-
-> Jellyfin reads the repository directly from the manifest URL
-> (`https://raw.githubusercontent.com/BORNIOS/JellyTrend/main/manifest.json`); the root
-> `manifest.json` is kept up to date automatically with every release.
 
 ---
 
