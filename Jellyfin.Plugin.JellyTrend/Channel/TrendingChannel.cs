@@ -223,7 +223,7 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
             result.Add(BuildMovieChannelItem(item, cacheItem));
         }
 
-        _logger.LogInformation("JellyTrend Canal: {Count} títulos en el canal.", result.Count);
+        _logger.LogDebug("JellyTrend Canal: {Count} títulos en el canal.", result.Count);
         return result;
     }
 
