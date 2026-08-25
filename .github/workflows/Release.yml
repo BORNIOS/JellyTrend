@@ -1,85 +1,103 @@
-name: Manual Release Build
+name: '📦 Release Plugin'
 
 on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: 'Versión del release (ej: 1.0.0)'
+        description: 'Versión del release (ej: 2.0.0 o 2.0.0.0)'
         required: true
         type: string
+      prerelease:
+        description: 'Publicar como prerelease (para pruebas)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
 
 jobs:
-  build-and-release:
+  release:
+    name: Build & Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout código
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # necesario para el changelog autogenerado entre tags
 
-      - name: Configurar .NET
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Restaurar dependencias
-        run: dotnet restore JellyTrend.sln
+      - name: Normalizar versión (4 partes)
+        id: version
+        run: |
+          V="${{ github.event.inputs.release_version }}"
+          PARTS=$(echo "$V" | awk -F. '{print NF}')
+          if [ "$PARTS" -eq 1 ]; then V="${V}.0.0.0"
+          elif [ "$PARTS" -eq 2 ]; then V="${V}.0.0"
+          elif [ "$PARTS" -eq 3 ]; then V="${V}.0"
+          fi
+          echo "full=$V" >> "$GITHUB_OUTPUT"
 
-      - name: Compilar plugin
-        run: dotnet build JellyTrend.sln --configuration Release --no-restore
+      - name: Fijar versión en Directory.Build.props
+        run: |
+          sed -i "s#<Version>[^<]*</Version>#<Version>${{ steps.version.outputs.full }}</Version>#" Directory.Build.props
+          sed -i "s#<AssemblyVersion>[^<]*</AssemblyVersion>#<AssemblyVersion>${{ steps.version.outputs.full }}</AssemblyVersion>#" Directory.Build.props
+          sed -i "s#<FileVersion>[^<]*</FileVersion>#<FileVersion>${{ steps.version.outputs.full }}</FileVersion>#" Directory.Build.props
+
+      - name: Restore
+        run: dotnet restore Jellyfin.Plugin.JellyTrend.sln
+
+      - name: Build (Release)
+        run: dotnet build Jellyfin.Plugin.JellyTrend.sln -c Release --no-restore
 
       - name: Publicar plugin
-        run: dotnet publish JellyTrend.sln --configuration Release --output publish --no-build
+        run: dotnet publish Jellyfin.Plugin.JellyTrend/Jellyfin.Plugin.JellyTrend.csproj -c Release --no-build -o publish
 
-      - name: Empaquetar DLL en ZIP
+      - name: Empaquetar ZIP + checksum
+        id: package
         run: |
           cd publish
-          zip Jellyfin.Plugin.JellyTrend-${{ github.event.inputs.release_version }}.zip Jellyfin.Plugin.JellyTrend.dll
+          zip -r "../Jellyfin.Plugin.JellyTrend-${{ steps.version.outputs.full }}.zip" Jellyfin.Plugin.JellyTrend.dll
           cd ..
+          CHECKSUM=$(sha256sum "Jellyfin.Plugin.JellyTrend-${{ steps.version.outputs.full }}.zip" | awk '{print $1}')
+          echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
 
-      - name: Calcular checksum SHA256
-        id: checksum
+      - name: Actualizar manifest.json (repo)
         run: |
-          CHECKSUM=$(sha256sum publish/Jellyfin.Plugin.JellyTrend-${{ github.event.inputs.release_version }}.zip | awk '{print $1}')
-          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
-
-      - name: Obtener changelog del release
-        id: changelog
-        run: |
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "${{ github.event.head_commit.message }}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-
-      - name: Actualizar manifest.json y build.yaml
-        id: manifest
-        run: |
-          VERSION=${{ github.event.inputs.release_version }}
-          ZIP_NAME=Jellyfin.Plugin.JellyTrend-${{ github.event.inputs.release_version }}.zip
-          SOURCE_URL="https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.release_version }}/${ZIP_NAME}"
-          CHECKSUM=${{ steps.checksum.outputs.checksum }}
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          CHANGELOG="${{ github.event.head_commit.message }}"
-          # Actualizar manifest.json
-          jq \
-            --arg version "$VERSION" \
-            --arg changelog "$CHANGELOG" \
-            --arg targetAbi "10.11.0.0" \
-            --arg sourceUrl "$SOURCE_URL" \
-            --arg checksum "$CHECKSUM" \
-            --arg timestamp "$TIMESTAMP" \
-            '.versions += [{version: $version, changelog: $changelog, targetAbi: $targetAbi, sourceUrl: $sourceUrl, checksum: $checksum, timestamp: $timestamp}]' \
-            manifest.json > manifest.tmp.json
-          mv manifest.tmp.json manifest.json
+          VERSION="${{ steps.version.outputs.full }}"
+          ZIP="Jellyfin.Plugin.JellyTrend-${VERSION}.zip"
+          URL="https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.release_version }}/${ZIP}"
+          CHECKSUM="${{ steps.package.outputs.checksum }}"
+          TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          jq --arg v "$VERSION" --arg url "$URL" --arg sum "$CHECKSUM" --arg ts "$TS" \
+            '.[0].versions = (([.[0].versions[] | select(.version != $v)]) + [{version: $v, changelog: "Ver release notes en GitHub", targetAbi: "10.11.0.0", sourceUrl: $url, checksum: $sum, timestamp: $ts}])' \
+            manifest.json > manifest.tmp.json && mv manifest.tmp.json manifest.json
           cp manifest.json publish/manifest.json
-          # Actualizar build.yaml
-          python3 -c "import yaml,sys; f='build.yaml'; d=yaml.safe_load(open(f)); d['versions'].append({'version': '$VERSION', 'changelog': '$CHANGELOG', 'targetAbi': '10.11.0.0', 'sourceUrl': '$SOURCE_URL', 'checksum': '$CHECKSUM', 'timestamp': '$TIMESTAMP'}); open(f,'w').write(yaml.dump(d, sort_keys=False, allow_unicode=True))"
+
+      - name: Actualizar build.yaml
+        run: |
+          sed -i "s/^version:.*/version: \"${{ steps.version.outputs.full }}\"/" build.yaml
+
+      - name: Commit manifest actualizado
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json build.yaml
+          git diff --cached --quiet || git commit -m "chore: actualizar manifest a v${{ steps.version.outputs.full }}"
+          git push
 
       - name: Crear release en GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.release_version }}
-          name: Release ${{ github.event.inputs.release_version }}
+          name: JellyTrend ${{ github.event.inputs.release_version }}
+          generate_release_notes: true
+          prerelease: ${{ github.event.inputs.prerelease }}
           files: |
-            publish/Jellyfin.Plugin.JellyTrend-${{ github.event.inputs.release_version }}.zip
+            Jellyfin.Plugin.JellyTrend-${{ steps.version.outputs.full }}.zip
             publish/manifest.json
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
