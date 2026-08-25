@@ -50,8 +50,19 @@ project.fragment.lock.json
 artifacts/
 
 # Publish output
+publish/
+publish-check/
+publish-final/
+
+# Publish output
 *.publish.xml
 
 # Local secrets
 secrets.json
 .local.settings.json
+
+# Local dev config (paths de Jellyfin portable) — copia desde .env.example
+.env
+
+# Temp / scratch
+.tmp/

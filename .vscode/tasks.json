@@ -1,0 +1,76 @@
+{
+  // Flujo local de desarrollo: las rutas viven en el .env de la raíz (copia .env.example).
+  // Las tareas cargan .env por sí solas con PowerShell — no dependen de ningún script externo.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Compila en Debug y copia el DLL (+PDB) al plugin dir de Jellyfin.
+      // IMPORTANTE: detén Jellyfin antes (el DLL queda bloqueado en Windows).
+      "label": "build-and-copy",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "$r='${workspaceFolder}'; dotnet build \"$r/Jellyfin.Plugin.JellyTrend.sln\" -c Debug; if($LASTEXITCODE -ne 0){ exit 1 }; $e=@{}; if(Test-Path \"$r/.env\"){ Get-Content \"$r/.env\" | ForEach-Object { $t=$_.Trim(); if($t -and $t -notmatch '^#' -and $t -match '='){ $kv=$t -split '=',2; $e[$kv[0].Trim()]=$kv[1].Trim().Trim('\"').Trim(\"'\") } } }; $name=$e['PLUGIN_NAME']; if(-not $name){$name='Jellyfin.Plugin.JellyTrend'}; $data=$e['JELLYFIN_DATA_DIR']; if(-not $data){$data=\"$r/data\"}; $src=\"$r/$name/bin/Debug/net9.0/$name.dll\"; if(-not (Test-Path $src)){ Write-Host \"No hay salida de build en $src\"; exit 1 }; $dst=Join-Path $data \"plugins/$name\"; New-Item -ItemType Directory -Force -Path $dst | Out-Null; Copy-Item -Force $src $dst; $pdb=\"$r/$name/bin/Debug/net9.0/$name.pdb\"; if(Test-Path $pdb){ Copy-Item -Force $pdb $dst }; Write-Host \"[JellyTrend] DLL+PDB copiados a $dst\""
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      // Solo compila (sin copiar).
+      "label": "build",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "dotnet build '${workspaceFolder}/Jellyfin.Plugin.JellyTrend.sln' -c Debug; exit $LASTEXITCODE"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
+      // Arranca la instalación portable de Jellyfin (rutas desde .env).
+      // Luego usa F5 (Attach to Jellyfin) para conectar el depurador.
+      "label": "start-server",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "$r='${workspaceFolder}'; $e=@{}; if(Test-Path \"$r/.env\"){ Get-Content \"$r/.env\" | ForEach-Object { $t=$_.Trim(); if($t -and $t -notmatch '^#' -and $t -match '='){ $kv=$t -split '=',2; $e[$kv[0].Trim()]=$kv[1].Trim().Trim('\"').Trim(\"'\") } } }; $srv=$e['JELLYFIN_SERVER_DIR']; if(-not $srv){$srv=\"$r/data\"}; $exe=Join-Path $srv 'jellyfin.exe'; $dll=Join-Path $srv 'jellyfin.dll'; if(Test-Path $exe){ & $exe } elseif(Test-Path $dll){ Push-Location $srv; try { dotnet $dll } finally { Pop-Location } } else { Write-Host \"No hay jellyfin.exe/jellyfin.dll en $srv\"; exit 1 }"
+      ],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      // Muestra las rutas resueltas desde .env y valida que existan.
+      "label": "dev-info",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "$r='${workspaceFolder}'; $e=@{}; if(Test-Path \"$r/.env\"){ Get-Content \"$r/.env\" | ForEach-Object { $t=$_.Trim(); if($t -and $t -notmatch '^#' -and $t -match '='){ $kv=$t -split '=',2; $e[$kv[0].Trim()]=$kv[1].Trim().Trim('\"').Trim(\"'\") } } }; function P($n,$d){ $val=if($e[$n]){$e[$n]}else{$d}; $ok=if(Test-Path $val){'OK'}else{'NO EXISTE'}; \"$n : $val  ($ok)\" }; P 'PLUGIN_NAME' 'Jellyfin.Plugin.JellyTrend'; P 'JELLYFIN_SERVER_DIR' '(no .env)'; P 'JELLYFIN_WEB_DIR' '(no .env)'; P 'JELLYFIN_DATA_DIR' '(no .env)'"
+      ],
+      "presentation": {
+        "reveal": "always"
+      }
+    }
+  ]
+}

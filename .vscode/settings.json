@@ -1,0 +1,6 @@
+{
+  // Las rutas locales de Jellyfin se configuran en el .env de la raíz del repo
+  // (copia .env.example a .env y ajusta). Las tareas de VS Code (tasks.json)
+  // cargan .env y orquestan build/copy/run — no hay scripts externos.
+  "pluginName": "Jellyfin.Plugin.JellyTrend"
+}

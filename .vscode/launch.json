@@ -1,0 +1,20 @@
+{
+  // Depuración por ATTACH: arranca Jellyfin (task "start-server" o como quieras)
+  // y pulsa F5 -> elige el proceso "jellyfin". No necesita rutas en este archivo:
+  // todo se configura en el .env de la raíz.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "coreclr",
+      "name": "Attach to Jellyfin",
+      "request": "attach",
+      "processId": "${command:pickProcess}",
+      "justMyCode": false,
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/Jellyfin.Plugin.JellyTrend/bin/Debug/net9.0/"
+        ]
+      }
+    }
+  ]
+}
