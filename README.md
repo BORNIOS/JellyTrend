@@ -59,10 +59,10 @@ y ofrece un carrusel estilo Netflix en la pantalla de inicio.
 ### Opción A — Desde el repositorio (recomendada)
 
 1. En Jellyfin ve a **Panel → Avanzado → Repositorios de plugins**.
-2. Pulsa **Añadir repositorio** y usa la URL:
+2. Pulsa **Añadir repositorio** y usa la URL del manifest:
 
    ```
-   https://github.com/BORNIOS/JellyTrend
+   https://raw.githubusercontent.com/BORNIOS/JellyTrend/main/manifest.json
    ```
 
 3. Guarda y ve a **Catálogo**, busca **JellyTrend** e **Instala**.
@@ -206,8 +206,9 @@ dotnet build Jellyfin.Plugin.JellyTrend.sln -c Release   # debe reportar 0 warni
    con changelog autogenerado** (a partir de los PRs/commits) adjuntando el ZIP y el manifest.
 4. La nueva versión queda disponible para instalar desde el repositorio en Jellyfin.
 
-> El `manifest.json` de la raíz es el que Jellyfin lee al añadir `https://github.com/BORNIOS/JellyTrend`
-> como repositorio; se mantiene actualizado automáticamente con cada release.
+> Jellyfin lee el repositorio directamente desde la URL del manifest
+> (`https://raw.githubusercontent.com/BORNIOS/JellyTrend/main/manifest.json`); el `manifest.json`
+> de la raíz se mantiene actualizado automáticamente con cada release.
 
 ---
 

@@ -63,7 +63,8 @@ jobs:
           cd publish
           zip -r "../Jellyfin.Plugin.JellyTrend-${{ steps.version.outputs.full }}.zip" Jellyfin.Plugin.JellyTrend.dll
           cd ..
-          CHECKSUM=$(sha256sum "Jellyfin.Plugin.JellyTrend-${{ steps.version.outputs.full }}.zip" | awk '{print $1}')
+          # Jellyfin valida el checksum con MD5 (InstallationManager.PerformPackageInstallation).
+          CHECKSUM=$(md5sum "Jellyfin.Plugin.JellyTrend-${{ steps.version.outputs.full }}.zip" | awk '{print $1}')
           echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
 
       - name: Actualizar manifest.json (repo)
