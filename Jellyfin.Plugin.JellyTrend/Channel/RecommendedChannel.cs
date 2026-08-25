@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.JellyTrend.Api;
@@ -18,6 +19,7 @@ using MediaBrowser.Model.Drawing;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.MediaInfo;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.JellyTrend.Channel;
@@ -33,6 +35,7 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
     private readonly ILibraryManager _libraryManager;
     private readonly IMediaSourceManager _mediaSourceManager;
     private readonly IServerApplicationHost _appHost;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<RecommendedChannel> _logger;
 
     /// <summary>
@@ -41,16 +44,19 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
     /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
     /// <param name="mediaSourceManager">Instance of the <see cref="IMediaSourceManager"/> interface.</param>
     /// <param name="appHost">Instance of the <see cref="IServerApplicationHost"/> interface.</param>
+    /// <param name="httpContextAccessor">Instance of the <see cref="IHttpContextAccessor"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{RecommendedChannel}"/> interface.</param>
     public RecommendedChannel(
         ILibraryManager libraryManager,
         IMediaSourceManager mediaSourceManager,
         IServerApplicationHost appHost,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<RecommendedChannel> logger)
     {
         _libraryManager = libraryManager;
         _mediaSourceManager = mediaSourceManager;
         _appHost = appHost;
+        _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
 
@@ -138,7 +144,6 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         }
 
         var items = BuildChannelItems(query.UserId);
-        _logger.LogDebug("JellyTrend Recomendados: devolviendo {Count} items.", items.Count);
         return Task.FromResult(new ChannelItemResult
         {
             Items = items,
@@ -150,9 +155,12 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
     public Task<IEnumerable<ChannelItemInfo>> GetLatestMedia(
         ChannelLatestMediaSearch request, CancellationToken cancellationToken)
     {
+        // Both paths go through BuildChannelItems: an unparseable/empty user id falls back
+        // to any stored recommendations (same as the Trending channel), so the row never
+        // reports empty when data exists.
         var items = Guid.TryParse(request.UserId, out var userId)
             ? BuildChannelItems(userId)
-            : [];
+            : BuildChannelItems(Guid.Empty);
         return Task.FromResult<IEnumerable<ChannelItemInfo>>(items);
     }
 
@@ -163,11 +171,38 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         return Task.FromResult(ChannelItemFactory.GetMediaInfo(_libraryManager, _mediaSourceManager, id));
     }
 
+    /// <summary>
+    /// Resolves the authenticated user from the current HTTP request. Every Jellyfin client
+    /// sends its access token, so the authenticated user is the real viewer — unlike the
+    /// <c>query.UserId</c> that Jellyfin passes as <see cref="Guid.Empty"/> on the home-row
+    /// refresh. The channel therefore decides by itself what to send to the user.
+    /// </summary>
+    /// <param name="fallback">The user id passed by Jellyfin, used when no authenticated user is available.</param>
+    /// <returns>The authenticated user id when available, otherwise <paramref name="fallback"/>.</returns>
+    private Guid ResolveUserId(Guid fallback)
+    {
+        var http = _httpContextAccessor.HttpContext;
+        var idText = http?.User?.FindFirstValue("Jellyfin-UserId")
+            ?? http?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!string.IsNullOrEmpty(idText) && Guid.TryParse(idText, out var userId) && userId != Guid.Empty)
+        {
+            return userId;
+        }
+
+        return fallback;
+    }
+
     private List<ChannelItemInfo> BuildChannelItems(Guid userId)
     {
-        var data = RecommendationStorage.Read(userId);
+        // Jellyfin calls the channel with an empty user id (Guid.Empty) on the home-row refresh.
+        // Resolve the authenticated user from the HTTP request instead, falling back to the stored
+        // recommendations only when there is no authenticated context.
+        var resolved = ResolveUserId(userId);
+        var data = RecommendationStorage.Read(resolved) ?? RecommendationStorage.ReadAny();
         if (data is null || data.ItemIds.Count == 0)
         {
+            _logger.LogDebug("JellyTrend Recomendados: sin datos para userId={UserId} (archivo ausente o vacío).", resolved);
             return [];
         }
 
@@ -183,6 +218,7 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
             result.Add(ChannelItemFactory.BuildMovieItem(_libraryManager, _appHost, item, null, null));
         }
 
+        _logger.LogDebug("JellyTrend Recomendados: leídos {Total} ids, devueltos {Count} para userId={UserId}.", data.ItemIds.Count, result.Count, resolved);
         return result;
     }
 }

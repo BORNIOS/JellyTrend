@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: 'Versión del release (ej: 2.0.0 o 2.0.0.0)'
+        description: 'Versión del release (ej: 2.0.1 o 2.0.1.0)'
+        required: true
+        type: string
+      changelog:
+        description: 'Notas de la versión (se muestran en el catálogo de Jellyfin y en el release)'
         required: true
         type: string
       prerelease:
@@ -74,8 +78,9 @@ jobs:
           URL="https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.release_version }}/${ZIP}"
           CHECKSUM="${{ steps.package.outputs.checksum }}"
           TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq --arg v "$VERSION" --arg url "$URL" --arg sum "$CHECKSUM" --arg ts "$TS" \
-            '.[0].versions = (([.[0].versions[] | select(.version != $v)]) + [{version: $v, changelog: "Ver release notes en GitHub", targetAbi: "10.11.0.0", sourceUrl: $url, checksum: $sum, timestamp: $ts}])' \
+          CHANGELOG="${{ github.event.inputs.changelog }}"
+          jq --arg v "$VERSION" --arg url "$URL" --arg sum "$CHECKSUM" --arg ts "$TS" --arg changelog "$CHANGELOG" \
+            '.[0].versions = (([.[0].versions[] | select(.version != $v)]) + [{version: $v, changelog: $changelog, targetAbi: "10.11.0.0", sourceUrl: $url, checksum: $sum, timestamp: $ts}])' \
             manifest.json > manifest.tmp.json && mv manifest.tmp.json manifest.json
           cp manifest.json publish/manifest.json
 
@@ -91,12 +96,15 @@ jobs:
           git diff --cached --quiet || git commit -m "chore: actualizar manifest a v${{ steps.version.outputs.full }}"
           git push
 
+      - name: Preparar notas del release
+        run: printf '%s' "${{ github.event.inputs.changelog }}" > release-notes.md
+
       - name: Crear release en GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.release_version }}
           name: JellyTrend ${{ github.event.inputs.release_version }}
-          generate_release_notes: true
+          body_path: release-notes.md
           prerelease: ${{ github.event.inputs.prerelease }}
           files: |
             Jellyfin.Plugin.JellyTrend-${{ steps.version.outputs.full }}.zip

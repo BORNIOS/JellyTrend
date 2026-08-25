@@ -44,6 +44,40 @@ public static class RecommendationStorage
     }
 
     /// <summary>
+    /// Reads the most recently written recommendation file regardless of user. Jellyfin often
+    /// queries channels with an empty user id (Guid.Empty), so a strict per-user lookup would
+    /// return nothing and leave the channel empty. Falling back to any stored file mirrors how
+    /// the Trending channel uses its shared cache: the channel always has content when
+    /// recommendations exist.
+    /// </summary>
+    /// <returns>The stored recommendations, or <c>null</c> when no recommendation file exists.</returns>
+    public static UserRecommendations? ReadAny()
+    {
+        var folder = Folder;
+        if (!Directory.Exists(folder))
+        {
+            return null;
+        }
+
+        var file = Directory.GetFiles(folder, "*.json")
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (file is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<UserRecommendations>(File.ReadAllText(file));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Writes the recommendations for a user.
     /// </summary>
     /// <param name="userId">The user id.</param>

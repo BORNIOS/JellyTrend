@@ -314,17 +314,27 @@
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 700px) {
     .jt-section {
+        /* Altura hero en móvil: 28vw era minúsculo en pantallas angostas.
+           Ahora domina la altura de la pantalla (52vh) con mínimo de 230px. */
+        --jt-height: clamp(230px, 52vh, 340px);
         margin: 0 0.5em 1em;
         border-radius: 0.35rem;
     }
 
     .jt-content {
-        max-width: 88%;
-        padding: .8rem 1rem;
+        max-width: 92%;
+        /* Padding inferior extra para que los botones queden sobre la paginación */
+        padding: .9rem 1rem 2.7rem;
     }
 
+    /* Descripción visible en móvil (antes se ocultaba) — 2 líneas máx */
     .jt-overview {
-        display: none;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin: 0 0 .55em;
+        font-size: .78rem;
     }
 
     .jt-type-badge {
@@ -332,6 +342,18 @@
         right: .6rem;
         padding: .35em .85em;
         font-size: .68rem;
+    }
+
+    /* Botones más compactos en móvil para que no desborden */
+    .jt-btn {
+        padding: .45em 1.1em;
+        font-size: .8rem;
+    }
+
+    /* Paginación en su esquina, sin encimarse con los botones */
+    .jt-pagination {
+        bottom: .6em;
+        right: .7em;
     }
 
     .jt-prev,
