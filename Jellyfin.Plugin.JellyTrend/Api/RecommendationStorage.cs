@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -103,5 +104,43 @@ public static class RecommendationStorage
 
         var files = Directory.GetFiles(folder, "*.json");
         return files.Length == 0 ? DateTime.MinValue : files.Max(File.GetLastWriteTimeUtc);
+    }
+
+    /// <summary>
+    /// Returns every recommended library item id across all users (de-duplicated). Used to
+    /// sync the channel shadow items of the recommendations channel on server startup.
+    /// </summary>
+    /// <returns>The unique recommended item ids.</returns>
+    public static IReadOnlyList<Guid> ReadAllItemIds()
+    {
+        var folder = Folder;
+        if (!Directory.Exists(folder))
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var result = new HashSet<Guid>();
+        foreach (var file in Directory.GetFiles(folder, "*.json"))
+        {
+            try
+            {
+                var data = JsonSerializer.Deserialize<UserRecommendations>(File.ReadAllText(file));
+                if (data is null)
+                {
+                    continue;
+                }
+
+                foreach (var id in data.ItemIds)
+                {
+                    result.Add(id);
+                }
+            }
+            catch
+            {
+                // Un solo archivo corrupto no debe impedir leer el resto.
+            }
+        }
+
+        return result.ToList();
     }
 }

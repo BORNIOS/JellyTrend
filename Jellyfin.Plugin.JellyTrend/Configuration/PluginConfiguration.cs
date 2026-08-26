@@ -23,11 +23,6 @@ public class PluginConfiguration : BasePluginConfiguration
     public string TmdbApiKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the sync interval in hours.
-    /// </summary>
-    public int SyncIntervalHours { get; set; } = 24;
-
-    /// <summary>
     /// Gets or sets the maximum number of trending items to keep.
     /// </summary>
     public int MaxItems { get; set; } = 20;
@@ -36,6 +31,12 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether the home banner carousel is enabled.
     /// </summary>
     public bool EnableBannerMode { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether TV series are shown in the trending channel and home
+    /// banner alongside movies. When false, only movies are shown.
+    /// </summary>
+    public bool EnableTrendingSeries { get; set; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether the channel is visible under Channels in all clients
@@ -61,11 +62,6 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the maximum number of recommended items generated per user.
     /// </summary>
     public int RecommendationMaxItems { get; set; } = 20;
-
-    /// <summary>
-    /// Gets or sets the interval in hours between recommendation syncs (default: weekly = 168 h).
-    /// </summary>
-    public int RecommendationSyncIntervalHours { get; set; } = 168;
 
     /// <summary>
     /// Gets or sets the BCP-47 language tag passed to TMDB (e.g. es-MX, en-US, pt-BR).

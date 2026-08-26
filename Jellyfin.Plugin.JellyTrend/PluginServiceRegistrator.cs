@@ -43,5 +43,10 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         // JellyTrendStartupFilter wraps the app builder to prepend ScriptInjectionMiddleware.
         serviceCollection.AddTransient<IStartupFilter, JellyTrendStartupFilter>();
         serviceCollection.AddTransient<ScriptInjectionMiddleware>();
+
+        // Initializes the plugin's dedicated file logger (log/JellyTrend-YYYYMM.log)
+        // when the server starts, and flushes it on shutdown.
+        serviceCollection.AddSingleton<JellyTrendLogInitializer>();
+        serviceCollection.AddSingleton<IHostedService>(sp => sp.GetRequiredService<JellyTrendLogInitializer>());
     }
 }

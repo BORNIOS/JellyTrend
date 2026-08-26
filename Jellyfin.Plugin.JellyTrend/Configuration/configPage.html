@@ -94,17 +94,14 @@
                         <div class="fieldDescription" data-jt-html="true" data-jt="descMaxItems_html"></div>
                     </div>
 
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="syncIntervalHours">
-                            <span data-jt="lblSyncInterval"></span>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input id="enableTrendingSeries"
+                                   type="checkbox"
+                                   is="emby-checkbox" />
+                            <span data-jt="lblTrendingSeries"></span>
                         </label>
-                        <input id="syncIntervalHours"
-                               type="number"
-                               is="emby-input"
-                               min="1"
-                               max="168"
-                               value="24" />
-                        <div class="fieldDescription" data-jt-html="true" data-jt="descSyncInterval_html"></div>
+                        <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descTrendingSeries_html"></div>
                     </div>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -151,19 +148,6 @@
                                max="100"
                                value="20" />
                         <div class="fieldDescription" data-jt-html="true" data-jt="descRecommendationMaxItems_html"></div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="recommendationSyncIntervalHours">
-                            <span data-jt="lblRecommendationSyncInterval"></span>
-                        </label>
-                        <input id="recommendationSyncIntervalHours"
-                               type="number"
-                               is="emby-input"
-                               min="1"
-                               max="720"
-                               value="168" />
-                        <div class="fieldDescription" data-jt-html="true" data-jt="descRecommendationSyncInterval_html"></div>
                     </div>
 
                 </div>
@@ -229,8 +213,8 @@
             descChannelName_html: 'Name shown under <strong>Channels</strong> in all clients.',
             lblMaxItems: 'Max trending items',
             descMaxItems_html: 'Maximum number of trending titles kept in the channel list.',
-            lblSyncInterval: 'Trending sync interval (hours)',
-            descSyncInterval_html: 'How often the Trending channel refreshes its data from TMDB (1–168 h).',
+            lblTrendingSeries: 'Show TV series in Trending',
+            descTrendingSeries_html: 'When enabled, TV series from your library appear alongside movies in the Trending channel and the home banner. Uncheck to show movies only.',
             lblBanner: 'Enable banner carousel on home',
             descBanner_html: 'When enabled, the JellyTrend script is injected into the web client home page.',
             lblRecommendationRow: 'Enable “Recomendados” row (all clients)',
@@ -240,8 +224,6 @@
             descRecommendationChannelName_html: 'Name shown under <strong>Channels</strong> in all clients.',
             lblRecommendationMaxItems: 'Max recommendations per user',
             descRecommendationMaxItems_html: 'Maximum number of recommended items generated per user.',
-            lblRecommendationSyncInterval: 'Recommendations sync interval (hours)',
-            descRecommendationSyncInterval_html: 'How often personalized recommendations are rebuilt for every user (1–720 h).',
             btnSave: 'Save',
             btnRunSync: 'Sync trending now',
             btnRunRecommendations: 'Build recommendations now',
@@ -288,8 +270,8 @@
             descChannelName_html: 'Nombre que aparece en <strong>Canales</strong> en todos los clientes.',
             lblMaxItems: 'Máximo de ítems de Trendings',
             descMaxItems_html: 'Número máximo de títulos en tendencia que se guardan en la lista del canal.',
-            lblSyncInterval: 'Intervalo de sincronización de Trendings (horas)',
-            descSyncInterval_html: 'Cada cuánto el canal de Trendings refresca sus datos desde TMDB (1–168 h).',
+            lblTrendingSeries: 'Mostrar series de TV en Trendings',
+            descTrendingSeries_html: 'Si está activado, las series de TV de tu biblioteca aparecen junto a las películas en el canal de Trendings y en el carrusel de inicio. Desactívalo para mostrar solo películas.',
             lblBanner: 'Activar carrusel en la página de inicio',
             descBanner_html: 'Si está activado, se inyecta el script de JellyTrend en la página de inicio del cliente web.',
             lblRecommendationRow: 'Activar fila de Recomendaciones (todos los clientes)',
@@ -299,8 +281,6 @@
             descRecommendationChannelName_html: 'Nombre que aparece en <strong>Canales</strong> en todos los clientes.',
             lblRecommendationMaxItems: 'Máximo de recomendaciones por usuario',
             descRecommendationMaxItems_html: 'Número máximo de recomendaciones generadas por usuario.',
-            lblRecommendationSyncInterval: 'Intervalo de sincronización de Recomendaciones (horas)',
-            descRecommendationSyncInterval_html: 'Cada cuánto se regeneran las recomendaciones personalizadas para cada usuario (1–720 h).',
             btnSave: 'Guardar',
             btnRunSync: 'Sincronizar Trendings ahora',
             btnRunRecommendations: 'Generar Recomendaciones ahora',
@@ -569,30 +549,28 @@
         getConfig()
             .then(function (cfg) {
                 var apiKey = q('tmdbApiKey');
-                var interval = q('syncIntervalHours');
                 var max = q('maxItems');
                 var banner = q('enableBannerMode');
                 var channel = q('enableChannel');
                 var tmdbLang = q('tmdbLanguage');
                 var tmdbRegion = q('tmdbRegion');
                 var channelName = q('channelName');
+                var trendingSeries = q('enableTrendingSeries');
                 var recRow = q('enableRecommendationRow');
                 var recChannelName = q('recommendationChannelName');
                 var recMax = q('recommendationMaxItems');
-                var recSync = q('recommendationSyncIntervalHours');
 
                 if (apiKey) apiKey.value = cfg.TmdbApiKey || '';
-                if (interval) interval.value = cfg.SyncIntervalHours || 24;
                 if (max) max.value = cfg.MaxItems || 20;
                 if (banner) banner.checked = cfg.EnableBannerMode !== false;
                 if (channel) channel.checked = cfg.EnableChannel !== false;
                 if (tmdbLang) tmdbLang.value = cfg.TmdbLanguage || 'es-MX';
                 if (tmdbRegion) tmdbRegion.value = cfg.TmdbRegion || 'MX';
                 if (channelName) channelName.value = cfg.ChannelName || 'JellyTrend - Trending Now';
+                if (trendingSeries) trendingSeries.checked = cfg.EnableTrendingSeries !== false;
                 if (recRow) recRow.checked = cfg.EnableRecommendationRow !== false;
                 if (recChannelName) recChannelName.value = cfg.RecommendationChannelName || 'Recomendados';
                 if (recMax) recMax.value = cfg.RecommendationMaxItems || 20;
-                if (recSync) recSync.value = cfg.RecommendationSyncIntervalHours || 168;
             })
             .catch(function (err) {
                 setStatus(t('errLoadCfg') + (err && err.message || err), true);
@@ -609,30 +587,28 @@
         getConfig()
             .then(function (cfg) {
                 var apiKey = q('tmdbApiKey');
-                var interval = q('syncIntervalHours');
                 var max = q('maxItems');
                 var banner = q('enableBannerMode');
                 var channel = q('enableChannel');
                 var tmdbLang = q('tmdbLanguage');
                 var tmdbRegion = q('tmdbRegion');
                 var channelName = q('channelName');
+                var trendingSeries = q('enableTrendingSeries');
                 var recRow = q('enableRecommendationRow');
                 var recChannelName = q('recommendationChannelName');
                 var recMax = q('recommendationMaxItems');
-                var recSync = q('recommendationSyncIntervalHours');
 
                 cfg.TmdbApiKey = apiKey ? apiKey.value : cfg.TmdbApiKey;
-                cfg.SyncIntervalHours = interval ? (Number.parseInt(interval.value, 10) || 24) : cfg.SyncIntervalHours;
                 cfg.MaxItems = max ? (Number.parseInt(max.value, 10) || 20) : cfg.MaxItems;
                 cfg.EnableBannerMode = banner ? banner.checked : cfg.EnableBannerMode;
                 cfg.EnableChannel = channel ? channel.checked : cfg.EnableChannel;
                 cfg.TmdbLanguage = tmdbLang ? tmdbLang.value.trim() : cfg.TmdbLanguage;
                 cfg.TmdbRegion = tmdbRegion ? tmdbRegion.value.trim().toUpperCase() : cfg.TmdbRegion;
                 cfg.ChannelName = channelName ? (channelName.value.trim() || 'JellyTrend - Trending Now') : cfg.ChannelName;
+                cfg.EnableTrendingSeries = trendingSeries ? trendingSeries.checked : cfg.EnableTrendingSeries;
                 cfg.EnableRecommendationRow = recRow ? recRow.checked : cfg.EnableRecommendationRow;
                 cfg.RecommendationChannelName = recChannelName ? (recChannelName.value.trim() || 'Recomendados') : cfg.RecommendationChannelName;
                 cfg.RecommendationMaxItems = recMax ? (Number.parseInt(recMax.value, 10) || 20) : cfg.RecommendationMaxItems;
-                cfg.RecommendationSyncIntervalHours = recSync ? (Number.parseInt(recSync.value, 10) || 168) : cfg.RecommendationSyncIntervalHours;
 
                 return saveConfig(cfg);
             })

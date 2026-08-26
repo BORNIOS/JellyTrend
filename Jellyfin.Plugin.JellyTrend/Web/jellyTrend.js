@@ -306,6 +306,20 @@
     };
 
     // ── Swiper config ────────────────────────────────────────────────────────
+    // Actualiza el contador compacto "n / total" del pie (visible en móvil).
+    function updateCounter(swiperEl, current, total) {
+        const count = swiperEl.querySelector('.jt-count');
+        if (count) count.textContent = `${current} / ${total}`;
+    }
+
+    // En loop, Swiper añade clones con la clase swiper-slide-duplicate; se filtran
+    // para contar solo las diapositivas reales. realIndex ya es el índice real.
+    function updateSwiperCounter(swiper) {
+        const total = Array.from(swiper.slides || [])
+            .filter(s => !s.classList.contains('swiper-slide-duplicate')).length;
+        updateCounter(swiper.el, swiper.realIndex + 1, total);
+    }
+
     const SWIPER_OPTIONS = {
         loop: true,
         speed: 900,
@@ -320,7 +334,12 @@
             bulletActiveClass: 'jt-bullet-active',
             renderBullet: (_i, cls) => `<button class="${cls}" aria-label="Go to slide"></button>`
         },
-        keyboard: { enabled: true }
+        keyboard: { enabled: true },
+        touchMoveStopPropagation: true,
+        on: {
+            init: updateSwiperCounter,
+            slideChange: updateSwiperCounter
+        }
     };
 
     // ── HTML builders ─────────────────────────────────────────────────────────
@@ -332,6 +351,7 @@
     <button class="jt-prev swiper-button-prev" aria-label="Previous slide"></button>
     <button class="jt-next swiper-button-next" aria-label="Next slide"></button>
     <div class="jt-pagination swiper-pagination" role="tablist" aria-label="Slides"></div>
+    <div class="jt-count" aria-live="polite"></div>
   </div>
 </section>`;
     }
@@ -380,6 +400,8 @@
             this._bullets = [];
             this._idx    = 0;
             this._timer  = null;
+            this._touchX = null;
+            this._touchY = null;
             this._init();
         }
 
@@ -409,6 +431,40 @@
                 if (e.key === 'ArrowRight') this._step(+1);
             });
 
+            // Touch swipe: el gesto HORIZONTAL lo reclamamos para el carrusel y NO debe
+            // llegar a Jellyfin (su swipe nativo derecha→izquierda cambia a Favoritos).
+            // stopPropagation impide que el evento burbujee a los handlers del cliente;
+            // preventDefault (solo en movimiento horizontal) evita el scroll/panning del
+            // navegador. El scroll VERTICAL de la página sigue intacto.
+            this._el.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+                if (e.touches.length !== 1) return;
+                this._touchX = e.touches[0].clientX;
+                this._touchY = e.touches[0].clientY;
+            }, { passive: true });
+            this._el.addEventListener('touchmove', (e) => {
+                e.stopPropagation();
+                if (this._touchX === null || e.touches.length !== 1) return;
+                const dx = e.touches[0].clientX - this._touchX;
+                const dy = e.touches[0].clientY - this._touchY;
+                if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+                    e.preventDefault();
+                    this._touchX = e.touches[0].clientX;
+                    this._touchY = e.touches[0].clientY;
+                }
+            }, { passive: false });
+            this._el.addEventListener('touchend', (e) => {
+                e.stopPropagation();
+                if (this._touchX === null) return;
+                const dx = e.changedTouches[0].clientX - this._touchX;
+                const dy = e.changedTouches[0].clientY - this._touchY;
+                this._touchX = null;
+                this._touchY = null;
+                if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+                    this._step(dx < 0 ? 1 : -1);
+                }
+            });
+
             this._goTo(0, false);
             this._startTimer();
         }
@@ -423,6 +479,7 @@
                 b.classList.toggle('jt-bullet-active', i === this._idx);
                 b.setAttribute('aria-selected', String(i === this._idx));
             });
+            updateCounter(this._el, this._idx + 1, this._slides.length);
             if (resetTimer) this._resetTimer();
         }
 

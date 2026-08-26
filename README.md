@@ -341,6 +341,34 @@ dotnet build Jellyfin.Plugin.JellyTrend.sln -c Release   # debe reportar 0 warni
 
 ---
 
+## 📜 Historial de versiones
+
+### v2.0.2 — Contenido de canales corregido
+
+Correcciones sobre la base de **2.0.1** (y cierre del trabajo iniciado en **2.0.0**):
+
+**Contenido y reproducción (el problema principal)**
+- **Series con temporadas de nuevo**: el emparejamiento por TMDB podía devolver la *sombra* del canal en lugar del ítem real de la librería (el filtro `IsVirtualItem` no las excluye con Postgres), dejando carpetas de serie vacías y sin reproducción. Ahora la resolución excluye los ítems de canal y valida el tipo.
+- **Identidad estable por TMDB**: el GUID de librería es volátil (cambia al re-importar o migrar la base de datos). Cuando el GUID guardado ya no existe, el plugin re-matchea por TMDB id, así las series siguen navegando a sus temporadas y las películas siguen siendo reproducibles.
+- **Jamás episodios en la fila de Trendings**: se limpian los sombras de episodio en cada sincronización.
+- **Imágenes locales de series**: el sync copia las imágenes de la biblioteca también a las sombras de serie (antes solo películas).
+- **Sync optimizado**: solo persiste cuando hay cambios → el segundo sync en adelante es mucho más rápido y evita los timeouts de Postgres.
+
+**Recomendados**
+- Canal alineado con Trendings: caché por usuario, filtro de ya vistos, imágenes y metadatos locales.
+
+**Configuración**
+- Eliminados los intervalos de la página de configuración (ahora se gestionan en *Dashboard → Tareas*).
+- Nuevo checkbox **«Mostrar series en Trendings»** aplicado al canal, la fila del home y el banner.
+
+**Banner móvil**
+- Swipe horizontal corregido (ya no dispara el menú de Favoritos) y paginación por contador en móvil.
+
+**Logs**
+- Logger propio con archivo mensual `log/JellyTrend-YYYYMM.log`.
+
+---
+
 ## 🤝 Comunidad
 
 ¿Dudas, sugerencias o has encontrado un bug? Abre un [issue](https://github.com/BORNIOS/JellyTrend/issues) o únete a la comunidad oficial de Jellyfin:
