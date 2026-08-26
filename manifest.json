@@ -4,7 +4,7 @@
     "name": "JellyTrend",
     "description": "Syncs TMDB trending movies & TV shows with your local library and provides a Netflix-style banner carousel on the home screen.",
     "overview": "JellyTrend empareja contenido en tendencia de TMDB con tu biblioteca Jellyfin usando provider IDs, genera recomendaciones personalizadas por usuario y lo muestra en un carrusel de banners y en canales para todos los clientes.",
-    "owner": "bornios@gmail.com",
+    "owner": ".:BORNIOS:.",
     "category": "MoviesAndShows",
     "imageUrl": "https://raw.githubusercontent.com/BORNIOS/JellyTrend/main/Jellyfin.Plugin.JellyTrend/Resources/logo.png",
     "versions": [
