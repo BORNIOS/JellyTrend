@@ -32,6 +32,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Serilog is the logging library Jellyfin itself uses. The plugin builds its own
+      logger with a file sink so it writes to a dedicated per-month log file
+      (log/JellyTrend-YYYYMM.log) inside the server's official log directory.
+      Versions match the local server runtime (Serilog 4.2.0).
+    -->
+    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Code analysis packages (build-time only, never shipped with the plugin) -->
     <PackageReference Include="SerilogAnalyzer" Version="0.15.0" PrivateAssets="All" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="All" />

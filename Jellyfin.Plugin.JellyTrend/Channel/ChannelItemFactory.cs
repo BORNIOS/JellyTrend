@@ -95,6 +95,7 @@ internal static class ChannelItemFactory
         {
             Id = item.Id.ToString(),
             Name = item.Name,
+            SeriesName = item.Name,
             Overview = item.Overview,
             Type = ChannelItemType.Folder,
             FolderType = ChannelFolderType.Series,
@@ -353,7 +354,12 @@ internal static class ChannelItemFactory
                 SupportsDirectStream = true,
                 SupportsTranscoding = true,
                 RunTimeTicks = item.RunTimeTicks,
-                Container = Path.GetExtension(item.Path)?.TrimStart('.') ?? string.Empty,
+                Container = item.Container ?? Path.GetExtension(item.Path)?.TrimStart('.') ?? string.Empty,
+
+                // Las pistas de audio/subtítulos se propagan también en el fallback para que
+                // el selector de idioma del cliente (OSD) tenga siempre los MediaStreams de la
+                // película de biblioteca, igual que en la ruta principal GetStaticMediaSources.
+                MediaStreams = mediaSourceManager.GetMediaStreams(item.Id),
             }
         ];
     }

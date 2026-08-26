@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.JellyTrend.Configuration;
 using Jellyfin.Plugin.JellyTrend.ScheduledTask;
+using Jellyfin.Plugin.JellyTrend.Sync;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Entities;
@@ -35,6 +36,10 @@ namespace Jellyfin.Plugin.JellyTrend.Channel;
 /// </summary>
 public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISupportsLatestMedia
 {
+    // Bump cuando cambia la lógica de generación de items del canal (p. ej. resolución de librería)
+    // para forzar a Jellyfin a re-fetch y re-materializar las sombras con los ExternalId correctos.
+    private const string DataVersionSchema = "3";
+
     private readonly ILibraryManager _libraryManager;
     private readonly IMediaSourceManager _mediaSourceManager;
     private readonly IServerApplicationHost _appHost;
@@ -74,18 +79,31 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
     public ChannelParentalRating ParentalRating => ChannelParentalRating.GeneralAudience;
 
     /// <summary>
-    /// Gets a version string that changes whenever the trending data changes, forcing
-    /// Jellyfin to re-fetch channel items. Derived from trending.json mtime so the
-    /// channel refreshes automatically after every sync.
+    /// Gets a version string that changes whenever the trending data changes OR the plugin
+    /// configuration is saved, forcing Jellyfin to re-fetch channel items. Derived from
+    /// trending.json mtime (data changes) plus the plugin config file mtime (every save,
+    /// including the series toggle). Including the config mtime guarantees a NEW cache
+    /// version on every toggle so Jellyfin always re-fetches and purges the old series
+    /// shadow items — a plain -s0/-s1 toggle could reuse an older on-disk cache and keep
+    /// serving stale shadows on the home row.
     /// </summary>
     public string DataVersion
     {
         get
         {
             var path = Path.Combine(Plugin.Instance!.PluginFolder, "trending.json");
-            return File.Exists(path)
+            var dataTicks = File.Exists(path)
                 ? File.GetLastWriteTimeUtc(path).Ticks.ToString(CultureInfo.InvariantCulture)
                 : "1";
+
+            var configPath = Plugin.Instance?.ConfigurationFilePath;
+            var configTicks = !string.IsNullOrEmpty(configPath) && File.Exists(configPath)
+                ? File.GetLastWriteTimeUtc(configPath).Ticks.ToString(CultureInfo.InvariantCulture)
+                : "0";
+
+            var showSeries = Plugin.Instance?.Configuration.EnableTrendingSeries == true;
+            var pluginVersion = typeof(TrendingChannel).Assembly.GetName().Version?.ToString() ?? "0";
+            return $"{pluginVersion}-{DataVersionSchema}-{dataTicks}-{configTicks}-s{(showSeries ? "1" : "0")}";
         }
     }
 
@@ -190,11 +208,17 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
 
         cache.Normalize();
 
+        var showSeries = Plugin.Instance?.Configuration.EnableTrendingSeries ?? true;
+
         var result = new List<ChannelItemInfo>(cache.Items.Count);
 
         foreach (var cacheItem in cache.Items)
         {
-            var item = _libraryManager.GetItemById(cacheItem.ItemId);
+            // Resolución canónica: el GUID de librería es solo fast-path; si quedó stale (librería
+            // re-importada/migrada) se re-matchea por TMDB al item actual, así las series navegan
+            // a sus temporadas y las películas siguen siendo reproducibles.
+            var item = TrendingItemResolver.ResolveCurrentItem(
+                _libraryManager, cacheItem.ItemId, cacheItem.TmdbId, cacheItem.MediaType == TrendingMediaType.Series);
             if (item is null)
             {
                 continue;
@@ -202,6 +226,12 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
 
             if (cacheItem.MediaType == TrendingMediaType.Series)
             {
+                // Cuando el admin desactiva las series, el canal muestra solo películas.
+                if (!showSeries)
+                {
+                    continue;
+                }
+
                 // Series appear in the row as folders, always using the SERIES root
                 // metadata and artwork (a season is the only image fallback — never
                 // an episode).
