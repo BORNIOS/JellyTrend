@@ -338,34 +338,6 @@ dotnet build Jellyfin.Plugin.JellyTrend.sln -c Release   # must report 0 warning
 
 ---
 
-## 📜 Version history
-
-### v2.0.2 — Channel content fixed
-
-Fixes on top of **2.0.1** (completing the work started in **2.0.0**):
-
-**Content and playback (the main issue)**
-- **Series seasons work again**: the TMDB match could return the channel *shadow* instead of the real library item (the `IsVirtualItem` filter does not exclude them on Postgres), leaving series folders empty and unplayable. Resolution now excludes channel items and validates the type.
-- **Stable identity by TMDB**: the library GUID is volatile (it changes when the library is re-imported or the database is migrated). When the stored GUID no longer exists, the plugin re-matches by TMDB id so series keep navigating to their seasons and movies stay playable.
-- **Never episodes in the Trending row**: episode shadows are cleaned on every sync.
-- **Series local images**: the sync now copies the library images to series shadows too (previously only movies).
-- **Optimized sync**: only persists when something changed → subsequent syncs are much faster and avoid Postgres timeouts.
-
-**Recommended**
-- Channel aligned with Trending: per-user cache, already-watched filter, local images and metadata.
-
-**Settings**
-- Removed the sync intervals from the config page (now managed under *Dashboard → Tasks*).
-- New **“Show TV series in Trending”** checkbox applied to the channel, the home row and the banner.
-
-**Mobile banner**
-- Fixed horizontal swipe (no longer triggers the Favorites menu) and counter pagination on mobile.
-
-**Logging**
-- Dedicated logger with a monthly file `log/JellyTrend-YYYYMM.log`.
-
----
-
 ## 🤝 Community
 
 Found a bug or have a suggestion? Open an [issue](https://github.com/BORNIOS/JellyTrend/issues) or join the official Jellyfin community:
