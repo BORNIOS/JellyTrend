@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend;
+using Jellyfin.Plugin.JellyTrend.Api;
 using Jellyfin.Plugin.JellyTrend.ScheduledTask;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Events;
@@ -72,21 +73,7 @@ public sealed class TrendingLibraryLinkService
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(40), CancellationToken.None).ConfigureAwait(false);
-                    var cache = ReadTrendingCache();
-                    if (cache is null)
-                    {
-                        return;
-                    }
-
-                    cache.Normalize();
-                    if (cache.Items.Count == 0)
-                    {
-                        return;
-                    }
-
-                    await TrendingShadowMetadataSync
-                        .SyncAllAsync(_libraryManager, cache.Items.Select(static item => item.ItemId).ToList(), _logger, CancellationToken.None)
-                        .ConfigureAwait(false);
+                    await RunStartupSyncAsync().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -96,6 +83,32 @@ public sealed class TrendingLibraryLinkService
             CancellationToken.None);
 
         return Task.CompletedTask;
+    }
+
+    private async Task RunStartupSyncAsync()
+    {
+        // Sombra de TENDENCIAS: copiar metadatos/reparto/imágenes locales.
+        var cache = ReadTrendingCache();
+        if (cache is not null)
+        {
+            cache.Normalize();
+            if (cache.Items.Count > 0)
+            {
+                await TrendingShadowMetadataSync
+                    .SyncAllAsync(_libraryManager, cache.Items, _logger, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        // Sombra de RECOMENDACIONES: mismo tratamiento para que las tarjetas
+        // muestren el poster local y el estado visto quede sincronizado.
+        var recommendedIds = RecommendationStorage.ReadAllItemIds();
+        if (recommendedIds.Count > 0)
+        {
+            await TrendingShadowMetadataSync
+                .SyncAllAsync(_libraryManager, recommendedIds, _logger, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -195,16 +208,13 @@ public sealed class TrendingLibraryLinkService
                 }
                 else if (IsTrendingLibraryMovie(playedItem))
                 {
-                    var shadow = TrendingShadowMetadataSync.FindShadowMovie(_libraryManager, playedItem.Id);
-                    if (shadow is null)
+                    foreach (var shadow in FindShadows(playedItem.Id))
                     {
-                        continue;
+                        var copy = CloneForTarget(user, sourceData, shadow);
+                        ApplyPlaybackHints(copy, playedItem, playbackPositionTicks, playedToCompletion);
+                        copy.PlaybackPositionTicks = 0;
+                        SaveMirrored(user, shadow, copy);
                     }
-
-                    var copy = CloneForTarget(user, sourceData, shadow);
-                    ApplyPlaybackHints(copy, playedItem, playbackPositionTicks, playedToCompletion);
-                    copy.PlaybackPositionTicks = 0;
-                    SaveMirrored(user, shadow, copy);
                 }
             }
             catch (Exception ex)
@@ -243,15 +253,12 @@ public sealed class TrendingLibraryLinkService
         }
         else if (IsTrendingLibraryMovie(args.Item))
         {
-            var shadow = TrendingShadowMetadataSync.FindShadowMovie(_libraryManager, args.Item.Id);
-            if (shadow is null)
+            foreach (var shadow in FindShadows(args.Item.Id))
             {
-                return;
+                var data = CloneForTarget(user, args.UserData, shadow);
+                data.PlaybackPositionTicks = 0;
+                SaveMirrored(user, shadow, data);
             }
-
-            var data = CloneForTarget(user, args.UserData, shadow);
-            data.PlaybackPositionTicks = 0;
-            SaveMirrored(user, shadow, data);
         }
     }
 
@@ -342,11 +349,22 @@ public sealed class TrendingLibraryLinkService
             return false;
         }
 
-        var folderId = ChannelIdentity.GetPluginChannelFolderId(_libraryManager);
-        return item.ChannelId == folderId;
+        return ChannelIdentity.IsJellyTrendChannelId(item.ChannelId, _libraryManager);
     }
 
-    private bool IsTrendingLibraryMovie(BaseItem item)
+    private IEnumerable<BaseItem> FindShadows(Guid libraryMovieId)
+    {
+        foreach (var channelFolderId in ChannelIdentity.GetAllChannelFolderIds(_libraryManager))
+        {
+            var shadow = TrendingShadowMetadataSync.FindShadowMovie(_libraryManager, channelFolderId, libraryMovieId);
+            if (shadow is not null)
+            {
+                yield return shadow;
+            }
+        }
+    }
+
+    private static bool IsTrendingLibraryMovie(BaseItem item)
     {
         if (item.ChannelId != Guid.Empty || string.IsNullOrEmpty(item.Path))
         {

@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend.Api;
+using Jellyfin.Plugin.JellyTrend.Sync;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
@@ -22,7 +23,7 @@ public sealed class RecommendationSyncTask : IScheduledTask
     private readonly ILibraryManager _libraryManager;
     private readonly IUserManager _userManager;
     private readonly IUserDataManager _userDataManager;
-    private readonly ILogger<RecommendationSyncTask> _logger;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RecommendationSyncTask"/> class.
@@ -30,17 +31,18 @@ public sealed class RecommendationSyncTask : IScheduledTask
     /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
     /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
     /// <param name="userDataManager">Instance of the <see cref="IUserDataManager"/> interface.</param>
-    /// <param name="logger">Instance of the <see cref="ILogger{RecommendationSyncTask}"/> interface.</param>
+    /// <param name="loggerFactory">Instance of the <see cref="ILoggerFactory"/> interface.</param>
     public RecommendationSyncTask(
         ILibraryManager libraryManager,
         IUserManager userManager,
         IUserDataManager userDataManager,
-        ILogger<RecommendationSyncTask> logger)
+        ILoggerFactory loggerFactory)
     {
+        JellyTrendLog.Initialize(loggerFactory);
         _libraryManager = libraryManager;
         _userManager = userManager;
         _userDataManager = userDataManager;
-        _logger = logger;
+        _logger = JellyTrendLog.CreateLogger("Recommendations");
     }
 
     /// <inheritdoc />
@@ -56,68 +58,99 @@ public sealed class RecommendationSyncTask : IScheduledTask
     public string Key => "JellyTrendRecommendations";
 
     /// <inheritdoc />
-    public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
+    public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
         var config = Plugin.Instance!.Configuration;
         if (!config.EnableRecommendationRow)
         {
-            _logger.LogInformation("JellyTrend: fila de recomendaciones desactivada — tarea omitida.");
-            return Task.CompletedTask;
+            _logger.LogInformation("Fila de recomendaciones desactivada — tarea omitida.");
+            return;
         }
 
-        var trendingItemIds = LoadTrendingItemIds();
         var users = _userManager.GetUsers().ToList();
         if (users.Count == 0)
         {
-            _logger.LogInformation("JellyTrend: sin usuarios — tarea de recomendaciones omitida.");
-            return Task.CompletedTask;
+            _logger.LogInformation("Sin usuarios — tarea de recomendaciones omitida.");
+            return;
         }
 
-        progress.Report(0);
-        for (var i = 0; i < users.Count; i++)
+        using var scope = JellyTrendLog.TaskScope.Begin(_logger, "Recomendaciones semanales");
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var user = users[i];
+            var trendingItemIds = LoadTrendingItemIds();
+            progress.Report(0);
 
-            try
+            var allRecommendedIds = new List<Guid>();
+            var generated = 0;
+            var failed = 0;
+            for (var i = 0; i < users.Count; i++)
             {
-                var ids = RecommendationEngine.BuildRecommendations(
-                    _libraryManager,
-                    _userDataManager,
-                    user,
-                    trendingItemIds,
-                    config.RecommendationMaxItems);
+                cancellationToken.ThrowIfCancellationRequested();
+                var user = users[i];
 
-                RecommendationStorage.Write(user.Id, new UserRecommendations
+                try
                 {
-                    ItemIds = ids,
-                    UpdatedAt = DateTime.UtcNow
-                });
+                    var ids = RecommendationEngine.BuildRecommendations(
+                        _libraryManager,
+                        _userDataManager,
+                        user,
+                        trendingItemIds,
+                        config.RecommendationMaxItems);
 
-                _logger.LogInformation("JellyTrend: {Count} recomendaciones para '{User}'.", ids.Count, user.Username);
+                    RecommendationStorage.Write(user.Id, new UserRecommendations
+                    {
+                        ItemIds = ids,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+
+                    allRecommendedIds.AddRange(ids);
+                    generated++;
+                    _logger.LogDebug("{Count} recomendaciones para '{User}'.", ids.Count, user.Username);
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    _logger.LogWarning(ex, "Fallo al generar recomendaciones para '{User}'.", user.Username);
+                }
+
+                progress.Report((i + 1) * 100d / users.Count);
             }
-            catch (Exception ex)
+
+            // Copiar metadatos, reparto e imágenes LOCALES a los items sombra del canal de
+            // Recomendados (mismo tratamiento que el canal de tendencias): así las tarjetas
+            // muestran el poster local y el detalle no queda como un item sombra pobre.
+            if (allRecommendedIds.Count > 0)
             {
-                _logger.LogWarning(ex, "JellyTrend: fallo al generar recomendaciones para '{User}'.", user.Username);
+                await TrendingShadowMetadataSync
+                    .SyncAllAsync(_libraryManager, allRecommendedIds, _logger, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
-            progress.Report((i + 1) * 100d / users.Count);
+            scope.Complete($"{generated} usuarios con recomendaciones, {failed} con errores de {users.Count}");
         }
-
-        _logger.LogInformation("JellyTrend: recomendaciones completadas para {Count} usuarios.", users.Count);
-        return Task.CompletedTask;
+        catch (OperationCanceledException)
+        {
+            scope.Cancel("cancelada (usuario o apagado del servidor)");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            scope.Fail(ex, "error al procesar recomendaciones");
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
     {
-        var intervalHours = Plugin.Instance?.Configuration.RecommendationSyncIntervalHours ?? 168;
+        // El horario real se gestiona desde Dashboard → Tareas; esto es solo el intervalo
+        // por defecto (semanal = 168 h) para la primera instalación.
         return
         [
             new TaskTriggerInfo
             {
                 Type = TaskTriggerInfoType.IntervalTrigger,
-                IntervalTicks = TimeSpan.FromHours(intervalHours).Ticks
+                IntervalTicks = TimeSpan.FromHours(168).Ticks
             }
         ];
     }

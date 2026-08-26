@@ -10,6 +10,8 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.JellyTrend.ExternalAPI;
 using Jellyfin.Plugin.JellyTrend.Sync;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
@@ -31,7 +33,7 @@ public sealed class TrendingSyncTask : IScheduledTask
     private readonly ILibraryManager _libraryManager;
     private readonly IProviderManager _providerManager;
     private readonly TmdbClient _tmdbClient;
-    private readonly ILogger<TrendingSyncTask> _logger;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TrendingSyncTask"/> class.
@@ -39,17 +41,18 @@ public sealed class TrendingSyncTask : IScheduledTask
     /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
     /// <param name="providerManager">Instance of the <see cref="IProviderManager"/> interface.</param>
     /// <param name="tmdbClient">The TMDB client.</param>
-    /// <param name="logger">Instance of the <see cref="ILogger{TrendingSyncTask}"/> interface.</param>
+    /// <param name="loggerFactory">Instance of the <see cref="ILoggerFactory"/> interface.</param>
     public TrendingSyncTask(
         ILibraryManager libraryManager,
         IProviderManager providerManager,
         TmdbClient tmdbClient,
-        ILogger<TrendingSyncTask> logger)
+        ILoggerFactory loggerFactory)
     {
+        JellyTrendLog.Initialize(loggerFactory);
         _libraryManager = libraryManager;
         _providerManager = providerManager;
         _tmdbClient = tmdbClient;
-        _logger = logger;
+        _logger = JellyTrendLog.CreateLogger("Sync");
     }
 
     /// <inheritdoc />
@@ -71,93 +74,103 @@ public sealed class TrendingSyncTask : IScheduledTask
 
         if (string.IsNullOrWhiteSpace(config.TmdbApiKey))
         {
-            _logger.LogWarning("JellyTrend: TMDB API key no configurada — sync omitido.");
+            _logger.LogWarning("TMDB API key no configurada — sync omitido.");
             return;
         }
 
-        progress.Report(0);
-        _logger.LogDebug("JellyTrend: Iniciando sync (máximo {Max} títulos por tipo desde TMDB).", config.MaxItems);
-
-        // ── 1. Obtener IDs trending de TMDB (semanal, películas y series) ──────
-        var trendingMovies = await _tmdbClient
-            .GetTrendingMoviesAsync(config.TmdbApiKey, config.MaxItems, config.TmdbLanguage, config.TmdbRegion, cancellationToken)
-            .ConfigureAwait(false);
-        var trendingShows = await _tmdbClient
-            .GetTrendingTvAsync(config.TmdbApiKey, config.MaxItems, config.TmdbLanguage, config.TmdbRegion, cancellationToken)
-            .ConfigureAwait(false);
-        progress.Report(30);
-
-        // ── 2. Emparejar con la librería local ─────────────────────────────────
-        var matchedItems = new List<TrendingCacheEntry>();
-
-        foreach (var tmdbItem in trendingMovies)
+        using var scope = JellyTrendLog.TaskScope.Begin(_logger, "Sync de tendencias TMDB");
+        try
         {
-            var tmdbId = tmdbItem.Id.ToString(CultureInfo.InvariantCulture);
-            var match = FindByTmdbId(tmdbId, BaseItemKind.Movie);
-            if (match is not null)
+            progress.Report(0);
+            _logger.LogDebug("Máximo {Max} títulos por tipo desde TMDB.", config.MaxItems);
+
+            // ── 1. Obtener IDs trending de TMDB (semanal, películas y series) ──
+            var trendingMovies = await _tmdbClient
+                .GetTrendingMoviesAsync(config.TmdbApiKey, config.MaxItems, config.TmdbLanguage, config.TmdbRegion, cancellationToken)
+                .ConfigureAwait(false);
+            var trendingShows = await _tmdbClient
+                .GetTrendingTvAsync(config.TmdbApiKey, config.MaxItems, config.TmdbLanguage, config.TmdbRegion, cancellationToken)
+                .ConfigureAwait(false);
+            progress.Report(30);
+
+            // ── 2. Emparejar con la librería local ─────────────────────────────
+            var matchedItems = new List<TrendingCacheEntry>();
+
+            foreach (var tmdbItem in trendingMovies)
             {
-                matchedItems.Add(new TrendingCacheEntry
+                var tmdbId = tmdbItem.Id.ToString(CultureInfo.InvariantCulture);
+                var match = FindByTmdbId(tmdbId, BaseItemKind.Movie);
+                if (match is not null)
                 {
-                    ItemId = match.Id,
-                    MediaType = TrendingMediaType.Movie,
-                    TmdbId = tmdbId,
-                    TmdbBackdropPath = tmdbItem.BackdropPath,
-                    TmdbPosterPath = tmdbItem.PosterPath
-                });
-                _logger.LogDebug("JellyTrend: Match '{Name}' (TMDB {Id})", match.Name, tmdbId);
+                    matchedItems.Add(new TrendingCacheEntry
+                    {
+                        ItemId = match.Id,
+                        MediaType = TrendingMediaType.Movie,
+                        TmdbId = tmdbId,
+                        TmdbBackdropPath = tmdbItem.BackdropPath,
+                        TmdbPosterPath = tmdbItem.PosterPath
+                    });
+                    _logger.LogDebug("Match '{Name}' (TMDB {Id})", match.Name, tmdbId);
+                }
             }
-        }
 
-        foreach (var tmdbItem in trendingShows)
-        {
-            var tmdbId = tmdbItem.Id.ToString(CultureInfo.InvariantCulture);
-            var match = FindByTmdbId(tmdbId, BaseItemKind.Series);
-            if (match is not null)
+            foreach (var tmdbItem in trendingShows)
             {
-                matchedItems.Add(new TrendingCacheEntry
+                var tmdbId = tmdbItem.Id.ToString(CultureInfo.InvariantCulture);
+                var match = FindByTmdbId(tmdbId, BaseItemKind.Series);
+                if (match is not null)
                 {
-                    ItemId = match.Id,
-                    MediaType = TrendingMediaType.Series,
-                    TmdbId = tmdbId,
-                    TmdbBackdropPath = tmdbItem.BackdropPath,
-                    TmdbPosterPath = tmdbItem.PosterPath
-                });
-                _logger.LogDebug("JellyTrend: Match serie '{Name}' (TMDB {Id})", match.Name, tmdbId);
+                    matchedItems.Add(new TrendingCacheEntry
+                    {
+                        ItemId = match.Id,
+                        MediaType = TrendingMediaType.Series,
+                        TmdbId = tmdbId,
+                        TmdbBackdropPath = tmdbItem.BackdropPath,
+                        TmdbPosterPath = tmdbItem.PosterPath
+                    });
+                    _logger.LogDebug("Match serie '{Name}' (TMDB {Id})", match.Name, tmdbId);
+                }
             }
+
+            progress.Report(70);
+
+            var movieCount = matchedItems.Count(static item => item.MediaType == TrendingMediaType.Movie);
+            var seriesCount = matchedItems.Count(static item => item.MediaType == TrendingMediaType.Series);
+
+            // ── 3. Completar imágenes locales faltantes (patrón oficial Jellyfin) ─
+            foreach (var matched in matchedItems)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await EnsureLocalImagesAsync(matched, cancellationToken).ConfigureAwait(false);
+            }
+
+            progress.Report(85);
+
+            // ── 4. Guardar caché JSON ───────────────────────────────────────────
+            var cache = new TrendingCache { Items = matchedItems, LastUpdated = DateTime.UtcNow };
+            var dataPath = Path.Combine(Plugin.Instance.PluginFolder, "trending.json");
+            await File.WriteAllTextAsync(
+                dataPath,
+                JsonSerializer.Serialize(cache, CacheJsonOptions),
+                cancellationToken).ConfigureAwait(false);
+
+            await TrendingShadowMetadataSync
+                .SyncAllAsync(_libraryManager, matchedItems, _logger, cancellationToken)
+                .ConfigureAwait(false);
+
+            progress.Report(100);
+            scope.Complete($"{movieCount} películas y {seriesCount} series emparejadas de {trendingMovies.Count}+{trendingShows.Count} de TMDB");
         }
-
-        progress.Report(70);
-
-        _logger.LogInformation(
-            "JellyTrend: {MatchedMovies} películas y {MatchedSeries} series emparejadas de {TotalMovies}+{TotalSeries} en TMDB trending semanal.",
-            matchedItems.Count(static item => item.MediaType == TrendingMediaType.Movie),
-            matchedItems.Count(static item => item.MediaType == TrendingMediaType.Series),
-            trendingMovies.Count,
-            trendingShows.Count);
-
-        // ── 3. Completar imágenes locales faltantes (patrón oficial Jellyfin) ─
-        foreach (var matched in matchedItems)
+        catch (OperationCanceledException)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            await EnsureLocalImagesAsync(matched, cancellationToken).ConfigureAwait(false);
+            scope.Cancel("cancelada (usuario o apagado del servidor)");
+            throw;
         }
-
-        progress.Report(85);
-
-        // ── 3. Guardar caché JSON ───────────────────────────────────────────────
-        var cache = new TrendingCache { Items = matchedItems, LastUpdated = DateTime.UtcNow };
-        var dataPath = Path.Combine(Plugin.Instance!.PluginFolder, "trending.json");
-        await File.WriteAllTextAsync(
-            dataPath,
-            JsonSerializer.Serialize(cache, CacheJsonOptions),
-            cancellationToken).ConfigureAwait(false);
-
-        await TrendingShadowMetadataSync
-            .SyncAllAsync(_libraryManager, matchedItems.Select(static item => item.ItemId).ToList(), _logger, cancellationToken)
-            .ConfigureAwait(false);
-
-        progress.Report(100);
-        _logger.LogInformation("JellyTrend: Sync completo — {Count} títulos en caché.", matchedItems.Count);
+        catch (Exception ex)
+        {
+            scope.Fail(ex, "error al sincronizar tendencias");
+            throw;
+        }
     }
 
     private async Task EnsureLocalImagesAsync(TrendingCacheEntry cacheEntry, CancellationToken cancellationToken)
@@ -191,7 +204,7 @@ public sealed class TrendingSyncTask : IScheduledTask
         {
             _logger.LogDebug(
                 ex,
-                "JellyTrend: no se pudieron completar imágenes para '{Name}' ({ItemId}).",
+                "No se pudieron completar imágenes para '{Name}' ({ItemId}).",
                 item.Name,
                 item.Id);
         }
@@ -210,22 +223,42 @@ public sealed class TrendingSyncTask : IScheduledTask
             HasAnyProviderId = new Dictionary<string, string> { ["Tmdb"] = tmdbId },
             IncludeItemTypes = [kind],
             IsVirtualItem = false,
-            Limit = 1
+            Limit = 10
         });
 
-        return items.Count > 0 ? items[0] : null;
+        foreach (var item in items)
+        {
+            // Excluir sombras de canal (copian el Tmdb provider id y no se marcan como virtuales)
+            // y validar que el tipo coincida: el provider puede ignorar IncludeItemTypes en algunas
+            // combinaciones de filtros.
+            if (item.ChannelId == Guid.Empty && MatchesKind(item, kind))
+            {
+                return item;
+            }
+        }
+
+        return null;
     }
+
+    private static bool MatchesKind(BaseItem item, BaseItemKind kind)
+        => kind switch
+        {
+            BaseItemKind.Movie => item is Movie,
+            BaseItemKind.Series => item is Series,
+            _ => true
+        };
 
     /// <inheritdoc />
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
     {
-        var intervalHours = Plugin.Instance?.Configuration.SyncIntervalHours ?? 24;
+        // El horario real se gestiona desde Dashboard → Tareas; esto es solo el intervalo
+        // por defecto (24 h) para la primera instalación.
         return
         [
             new TaskTriggerInfo
             {
                 Type = TaskTriggerInfoType.IntervalTrigger,
-                IntervalTicks = TimeSpan.FromHours(intervalHours).Ticks
+                IntervalTicks = TimeSpan.FromHours(24).Ticks
             }
         ];
     }

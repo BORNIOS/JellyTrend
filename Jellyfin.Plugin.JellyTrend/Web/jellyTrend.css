@@ -36,6 +36,10 @@
     width: 100%;
     height: var(--jt-height);
     overflow: hidden;
+    /* El banner maneja los gestos HORIZONTALES (cambiar de slide); el scroll
+       vertical de la página se deja al navegador/cliente. Así el swipe del
+       banner no dispara la navegación horizontal nativa de Jellyfin (Favoritos). */
+    touch-action: pan-y;
 }
 
 .jt-swiper .swiper-wrapper {
@@ -289,6 +293,17 @@
     /* Override Swiper's default pagination positioning */
     width: auto !important;
     left: auto !important;
+    /* Con muchos ítems la fila de bullets se desplaza en vez de desbordar el pie */
+    max-width: 55%;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.jt-pagination::-webkit-scrollbar { display: none; }
+
+/* Contador compacto "n / total" — oculto en desktop, visible solo en móvil */
+.jt-count {
+    display: none;
 }
 
 .jt-bullet {
@@ -350,15 +365,45 @@
         font-size: .8rem;
     }
 
-    /* Paginación en su esquina, sin encimarse con los botones */
+    /* Paginación: en móvil los bullets se sustituyen por un contador compacto
+       "n / total" para que el pie no se sature con la cantidad de ítems. */
     .jt-pagination {
-        bottom: .6em;
-        right: .7em;
+        display: none;
     }
 
+    .jt-count {
+        display: inline-flex;
+        align-items: center;
+        position: absolute;
+        bottom: .7em;
+        right: .9em;
+        z-index: 10;
+        font-size: .78rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--jt-text-muted);
+        background: rgba(0,0,0,.35);
+        padding: .25em .8em;
+        border-radius: 999px;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        pointer-events: none;
+    }
+
+    /* Flechas visibles y táctiles en móvil (área ≥ 44px) para poder pasar de
+       contenido sin depender del swipe */
     .jt-prev,
     .jt-next {
-        display: none;
+        width: 2.75rem;
+        height: 3.5rem;
+        background: rgba(0,0,0,.30);
+    }
+
+    .jt-prev::before,
+    .jt-next::before {
+        width: .5rem;
+        height: .5rem;
+        border-width: 2px;
     }
 
     /* On small screens, use a bottom-up gradient instead of side gradient */

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend.ScheduledTask;
+using Jellyfin.Plugin.JellyTrend.Sync;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
@@ -78,76 +79,86 @@ public sealed class TrendingController : ControllerBase
         }
 
         var viewer = ResolveCurrentUser();
+        var showSeries = Plugin.Instance?.Configuration.EnableTrendingSeries ?? true;
 
         cache.Normalize();
 
         var dtos = cache.Items
+            .Where(entry => showSeries || entry.MediaType != TrendingMediaType.Series)
             .Select(cacheEntry => new
             {
                 Entry = cacheEntry,
-                Item = _libraryManager.GetItemById(cacheEntry.ItemId)
+                Item = TrendingItemResolver.ResolveCurrentItem(
+                    _libraryManager, cacheEntry.ItemId, cacheEntry.TmdbId, cacheEntry.MediaType == TrendingMediaType.Series)
             })
             .Where(x => x.Item is not null)
-            .Select(x =>
-            {
-                var i = x.Item!;
-                var entry = x.Entry;
-                var logoUrl = i.HasImage(ImageType.Logo, 0) ? $"/Items/{i.Id}/Images/Logo/0" : null;
-                var discUrl = i.HasImage(ImageType.Disc, 0) ? $"/Items/{i.Id}/Images/Disc/0" : null;
-                var backdropUrl = ResolveImageUrl(i, ImageType.Backdrop, entry.TmdbBackdropPath, TmdbBackdropBaseUrl, 1920, 90);
-                var primaryUrl = ResolveImageUrl(i, ImageType.Primary, entry.TmdbPosterPath, TmdbPosterBaseUrl, 400, 85);
-
-                bool? played = null;
-                long? positionTicks = null;
-                if (viewer is not null)
-                {
-                    var ud = _userDataManager.GetUserData(viewer, i);
-                    if (ud is not null)
-                    {
-                        played = ud.Played;
-                        positionTicks = ud.PlaybackPositionTicks;
-                    }
-                }
-
-                var genres = i.Genres is { Length: > 0 } g ? new List<string>(g) : null;
-                var actors = _libraryManager.GetPeople(i)
-                    .Where(p => p.Type == PersonKind.Actor)
-                    .Select(p => p.Name)
-                    .Where(n => !string.IsNullOrWhiteSpace(n))
-                    .Take(20)
-                    .ToList();
-                if (actors.Count == 0)
-                {
-                    actors = null;
-                }
-
-                return new TrendingItemDto
-                {
-                    Id = i.Id,
-                    Name = i.Name,
-                    Overview = i.Overview,
-                    Type = i.GetType().Name,
-                    TmdbId = entry.TmdbId ?? (i.ProviderIds.TryGetValue("Tmdb", out var tid) ? tid : null),
-                    BackdropImageUrl = backdropUrl,
-                    PrimaryImageUrl = primaryUrl,
-                    ProductionYear = i.ProductionYear,
-                    CommunityRating = i.CommunityRating,
-                    Genres = genres,
-                    Actors = actors,
-                    LogoImageUrl = logoUrl,
-                    DiscImageUrl = discUrl,
-                    IsPlayed = played,
-                    PlaybackPositionTicks = positionTicks,
-                    RunTimeTicks = i.RunTimeTicks,
-                    MediaStreams = null
-                };
-            });
+            .Select(x => BuildTrendingDto(x.Entry, x.Item!, viewer));
 
         // Hide titles the current user has already watched (standard Jellyfin practice).
         // In-progress items stay visible so the carousel can offer to resume them.
         var visible = dtos.Where(dto => dto.IsPlayed != true);
 
         return Ok(visible);
+    }
+
+    /// <summary>
+    /// Maps a matched trending cache entry and its library item to the carousel DTO.
+    /// </summary>
+    /// <param name="entry">The trending cache entry.</param>
+    /// <param name="item">The matched library item (not null).</param>
+    /// <param name="viewer">The authenticated user, or <c>null</c> when unavailable.</param>
+    /// <returns>The trending DTO.</returns>
+    private TrendingItemDto BuildTrendingDto(TrendingCacheEntry entry, BaseItem item, User? viewer)
+    {
+        var logoUrl = item.HasImage(ImageType.Logo, 0) ? $"/Items/{item.Id}/Images/Logo/0" : null;
+        var discUrl = item.HasImage(ImageType.Disc, 0) ? $"/Items/{item.Id}/Images/Disc/0" : null;
+        var backdropUrl = ResolveImageUrl(item, ImageType.Backdrop, entry.TmdbBackdropPath, TmdbBackdropBaseUrl, 1920, 90);
+        var primaryUrl = ResolveImageUrl(item, ImageType.Primary, entry.TmdbPosterPath, TmdbPosterBaseUrl, 400, 85);
+
+        bool? played = null;
+        long? positionTicks = null;
+        if (viewer is not null)
+        {
+            var ud = _userDataManager.GetUserData(viewer, item);
+            if (ud is not null)
+            {
+                played = ud.Played;
+                positionTicks = ud.PlaybackPositionTicks;
+            }
+        }
+
+        var genres = item.Genres is { Length: > 0 } g ? new List<string>(g) : null;
+        var actors = _libraryManager.GetPeople(item)
+            .Where(p => p.Type == PersonKind.Actor)
+            .Select(p => p.Name)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Take(20)
+            .ToList();
+        if (actors.Count == 0)
+        {
+            actors = null;
+        }
+
+        return new TrendingItemDto
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Overview = item.Overview,
+            Type = item.GetType().Name,
+            TmdbId = entry.TmdbId ?? (item.ProviderIds.TryGetValue("Tmdb", out var tid) ? tid : null),
+            BackdropImageUrl = backdropUrl,
+            PrimaryImageUrl = primaryUrl,
+            ProductionYear = item.ProductionYear,
+            CommunityRating = item.CommunityRating,
+            Genres = genres,
+            Actors = actors,
+            LogoImageUrl = logoUrl,
+            DiscImageUrl = discUrl,
+            IsPlayed = played,
+            PlaybackPositionTicks = positionTicks,
+            RunTimeTicks = item.RunTimeTicks,
+            MediaStreams = null
+        };
     }
 
     // ── Status ──────────────────────────────────────────────────────────────────
@@ -169,8 +180,8 @@ public sealed class TrendingController : ControllerBase
             Version = Plugin.Instance?.Version?.ToString(),
             TmdbKeyConfigured = !string.IsNullOrWhiteSpace(cfg?.TmdbApiKey),
             EnableBannerMode = cfg?.EnableBannerMode,
+            EnableTrendingSeries = cfg?.EnableTrendingSeries,
             MaxItems = cfg?.MaxItems,
-            SyncIntervalHours = cfg?.SyncIntervalHours,
             CachedItemCount = cache?.Items.Count ?? 0,
             LastUpdated = cache?.LastUpdated
         });
