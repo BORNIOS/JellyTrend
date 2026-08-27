@@ -60,13 +60,14 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         IHttpContextAccessor httpContextAccessor,
         ILoggerFactory loggerFactory)
     {
+        JellyTrendLog.Initialize(loggerFactory);
         _libraryManager = libraryManager;
         _mediaSourceManager = mediaSourceManager;
         _appHost = appHost;
         _userManager = userManager;
         _userDataManager = userDataManager;
         _httpContextAccessor = httpContextAccessor;
-        _logger = loggerFactory.CreateLogger<RecommendedChannel>();
+        _logger = JellyTrendLog.CreateLogger("Recommended");
     }
 
     /// <inheritdoc />
