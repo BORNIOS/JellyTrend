@@ -31,6 +31,14 @@
         "sourceUrl": "https://github.com/BORNIOS/JellyTrend/releases/download/v2.0.2/Jellyfin.Plugin.JellyTrend-2.0.2.0.zip",
         "checksum": "1cfb88ff8da1b07dbb9c9f4e869cc43f",
         "timestamp": "2026-08-26T09:41:47Z"
+      },
+      {
+        "version": "2.0.3.0",
+        "changelog": "Fix en v2.0.3:\\n\\n- Fix: el banner del carousel ahora se carga correctamente en todas las instalaciones. El script se inyecta directamente en index.html al iniciar el servidor, en lugar de depender del pipeline de peticiones HTTP que no estaba disponible para plugins cargados dinamicamente.\\n- Fix: acceder a la URL raiz del servidor con el banner activo ya no rompe la carga del cliente web (error 404 en assets JavaScript y CSS).\\n- Fix: el logger del plugin ahora escribe correctamente desde el primer arranque sin depender de librerias externas.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/BORNIOS/JellyTrend/releases/download/v2.0.3/Jellyfin.Plugin.JellyTrend-2.0.3.0.zip",
+        "checksum": "b3e64bc6b3619da1d8e926b372a13f35",
+        "timestamp": "2026-08-27T05:44:45Z"
       }
     ]
   }
