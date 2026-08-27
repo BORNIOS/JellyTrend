@@ -48,11 +48,10 @@ public sealed class TrendingSyncTask : IScheduledTask
         TmdbClient tmdbClient,
         ILoggerFactory loggerFactory)
     {
-        JellyTrendLog.Initialize(loggerFactory);
         _libraryManager = libraryManager;
         _providerManager = providerManager;
         _tmdbClient = tmdbClient;
-        _logger = JellyTrendLog.CreateLogger("Sync");
+        _logger = loggerFactory.CreateLogger<TrendingSyncTask>();
     }
 
     /// <inheritdoc />
@@ -78,7 +77,7 @@ public sealed class TrendingSyncTask : IScheduledTask
             return;
         }
 
-        using var scope = JellyTrendLog.TaskScope.Begin(_logger, "Sync de tendencias TMDB");
+        using var scope = JellyTrendLog.TaskScope.Begin("Sync de tendencias TMDB");
         try
         {
             progress.Report(0);

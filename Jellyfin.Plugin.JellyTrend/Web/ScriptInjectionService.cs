@@ -41,36 +41,36 @@ public sealed class ScriptInjectionService : IHostedService
     }
 
     /// <inheritdoc />
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (Plugin.Instance?.Configuration.EnableBannerMode != true)
         {
             JellyTrendLog.Info("[Banner] Desactivado — index.html no modificado.");
-            return Task.CompletedTask;
+            return;
         }
 
         var indexPath = ResolveIndexHtmlPath();
         if (indexPath is null)
         {
             JellyTrendLog.Warn("[Banner] No se encontró index.html en el sistema de archivos.");
-            return Task.CompletedTask;
+            return;
         }
 
         try
         {
-            var html = File.ReadAllText(indexPath, Encoding.UTF8);
+            var html = await File.ReadAllTextAsync(indexPath, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
 
             if (html.Contains(Marker, StringComparison.Ordinal))
             {
                 JellyTrendLog.Info($"[Banner] Script ya presente en '{indexPath}'.");
                 _patchedPath = indexPath;
-                return Task.CompletedTask;
+                return;
             }
 
             if (!html.Contains(HeadTag, StringComparison.OrdinalIgnoreCase))
             {
                 JellyTrendLog.Warn($"[Banner] No se encontró </head> en '{indexPath}'.");
-                return Task.CompletedTask;
+                return;
             }
 
             var patched = html.Replace(
@@ -78,7 +78,7 @@ public sealed class ScriptInjectionService : IHostedService
                 BuildScriptTag() + Environment.NewLine + HeadTag,
                 StringComparison.OrdinalIgnoreCase);
 
-            File.WriteAllText(indexPath, patched, Encoding.UTF8);
+            await File.WriteAllTextAsync(indexPath, patched, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
             _patchedPath = indexPath;
             JellyTrendLog.Info($"[Banner] Script inyectado en '{indexPath}'.");
             _logger.LogInformation("JellyTrend: banner script inyectado en '{P}'.", indexPath);
@@ -88,38 +88,34 @@ public sealed class ScriptInjectionService : IHostedService
             JellyTrendLog.Error("[Banner] Error al parchear index.html", ex);
             _logger.LogError(ex, "JellyTrend: error al parchear index.html.");
         }
-
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
         if (_patchedPath is null || !File.Exists(_patchedPath))
         {
-            return Task.CompletedTask;
+            return;
         }
 
         try
         {
-            var html = File.ReadAllText(_patchedPath, Encoding.UTF8);
+            var html = await File.ReadAllTextAsync(_patchedPath, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
             if (!html.Contains(Marker, StringComparison.Ordinal))
             {
-                return Task.CompletedTask;
+                return;
             }
 
             // Remove the injected line (tag + trailing newline).
             var injected = BuildScriptTag() + Environment.NewLine;
             var restored = html.Replace(injected, string.Empty, StringComparison.Ordinal);
-            File.WriteAllText(_patchedPath, restored, Encoding.UTF8);
+            await File.WriteAllTextAsync(_patchedPath, restored, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
             JellyTrendLog.Info($"[Banner] Script eliminado de '{_patchedPath}'.");
         }
         catch (Exception ex)
         {
             JellyTrendLog.Error("[Banner] Error al restaurar index.html", ex);
         }
-
-        return Task.CompletedTask;
     }
 
     private string? ResolveIndexHtmlPath()
