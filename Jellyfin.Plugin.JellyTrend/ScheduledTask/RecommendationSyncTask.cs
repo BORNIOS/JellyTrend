@@ -38,11 +38,10 @@ public sealed class RecommendationSyncTask : IScheduledTask
         IUserDataManager userDataManager,
         ILoggerFactory loggerFactory)
     {
-        JellyTrendLog.Initialize(loggerFactory);
         _libraryManager = libraryManager;
         _userManager = userManager;
         _userDataManager = userDataManager;
-        _logger = JellyTrendLog.CreateLogger("Recommendations");
+        _logger = loggerFactory.CreateLogger<RecommendationSyncTask>();
     }
 
     /// <inheritdoc />
@@ -74,7 +73,7 @@ public sealed class RecommendationSyncTask : IScheduledTask
             return;
         }
 
-        using var scope = JellyTrendLog.TaskScope.Begin(_logger, "Recomendaciones semanales");
+        using var scope = JellyTrendLog.TaskScope.Begin("Recomendaciones semanales");
         try
         {
             var trendingItemIds = LoadTrendingItemIds();

@@ -9,7 +9,6 @@ using MediaBrowser.Controller.Events;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Plugins;
 using MediaBrowser.Model.Tasks;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -39,14 +38,12 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IEventConsumer<PlaybackStopEventArgs>>(sp => sp.GetRequiredService<TrendingLibraryLinkService>());
         serviceCollection.AddSingleton<IEventConsumer<PlaybackProgressEventArgs>>(sp => sp.GetRequiredService<TrendingLibraryLinkService>());
 
-        // IStartupFilter is evaluated by ASP.NET Core during pipeline construction.
-        // JellyTrendStartupFilter wraps the app builder to prepend ScriptInjectionMiddleware.
-        serviceCollection.AddTransient<IStartupFilter, JellyTrendStartupFilter>();
-        serviceCollection.AddTransient<ScriptInjectionMiddleware>();
+        // ScriptInjectionService patches index.html on disk at startup so the banner
+        // script is served without any pipeline middleware (IStartupFilter is not
+        // reliable for dynamically loaded plugins).
+        serviceCollection.AddSingleton<ScriptInjectionService>();
+        serviceCollection.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ScriptInjectionService>());
 
-        // Initializes the plugin's dedicated file logger (log/JellyTrend-YYYYMM.log)
-        // when the server starts, and flushes it on shutdown.
-        serviceCollection.AddSingleton<JellyTrendLogInitializer>();
-        serviceCollection.AddSingleton<IHostedService>(sp => sp.GetRequiredService<JellyTrendLogInitializer>());
+        // JellyTrendLog is initialized directly in Plugin.cs constructor — no hosted service needed.
     }
 }
