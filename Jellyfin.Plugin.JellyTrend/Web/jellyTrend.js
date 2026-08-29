@@ -44,6 +44,46 @@
         } catch (_) { return null; }
     }
 
+    // ── Auth-ready trigger via XHR intercept ─────────────────────────────────
+    // Jellyfin uses XMLHttpRequest internally (not fetch) for its own API calls.
+    // We intercept responses from the endpoints Jellyfin always calls right after
+    // the user session is established. When any of them responds with 2xx, the
+    // token is guaranteed to be in ApiClient and we fire tryInject() immediately
+    // — no polling, no fixed timeout.
+    //
+    // Endpoints watched (any path segment match is sufficient):
+    //   /Users/{id}            — user profile, loaded at login
+    //   /DisplayPreferences/   — user settings, loaded at login
+    //   /UserViews             — library roots, loaded on every home render
+    (function installAuthReadyTrigger() {
+        const TRIGGER_PATTERNS = ['/Users/', '/DisplayPreferences/', '/UserViews'];
+        let fired = false;
+
+        const OriginalOpen = XMLHttpRequest.prototype.open;
+        const OriginalSend = XMLHttpRequest.prototype.send;
+
+        XMLHttpRequest.prototype.open = function (method, url) {
+            this._jtUrl = typeof url === 'string' ? url : '';
+            return OriginalOpen.apply(this, arguments);
+        };
+
+        XMLHttpRequest.prototype.send = function () {
+            if (!fired && this._jtUrl && TRIGGER_PATTERNS.some(p => this._jtUrl.includes(p))) {
+                this.addEventListener('load', function () {
+                    if (fired) return;
+                    if (this.status >= 200 && this.status < 300 && getToken()) {
+                        fired = true;
+                        // Restore originals — no need to intercept further.
+                        XMLHttpRequest.prototype.open = OriginalOpen;
+                        XMLHttpRequest.prototype.send = OriginalSend;
+                        if (onHomePage()) tryInject();
+                    }
+                });
+            }
+            return OriginalSend.apply(this, arguments);
+        };
+    })();
+
     // ── Fetch trending items from plugin API ─────────────────────────────────
     async function fetchItems(apiClient) {
         const token = apiClient?.accessToken?.() ?? getToken();
@@ -152,6 +192,7 @@
     let lastEmptyAt = 0;
     let lastRenderedIds = '';
     let lastFetchAt = 0;
+    let bannerRendered = false;   // true once items are painted — stops polling
 
     // Renders the carousel only when the list actually changed (the server already
     // hides watched titles, so a change means a just-watched item disappeared or
@@ -176,6 +217,8 @@
 
     async function tryInject() {
         if (!onHomePage()) { cancelContainerRetry(); return; }
+        // Once the banner is rendered and still in the DOM, nothing left to do.
+        if (bannerRendered && document.getElementById(SECTION_ID)) return;
         if (injecting) return;
         const now = Date.now();
         if (now - lastFetchAt < 15000) return;                  // throttle re-fetch
@@ -187,6 +230,7 @@
             if (!items.length) { lastEmptyAt = Date.now(); return; }
             await loadLocalization();   // official labels ready before rendering
             renderBanner(items);
+            bannerRendered = true;
         } finally {
             injecting = false;
         }
@@ -213,6 +257,7 @@
     function cleanup() {
         document.getElementById(SECTION_ID)?.remove();
         cancelContainerRetry();
+        bannerRendered = false;   // allow re-inject when user returns to Home
     }
 
     // ── Admin nav quick-access injection ─────────────────────────────────────
@@ -276,13 +321,16 @@
     });
 
     // ── Periodic safety net ──────────────────────────────────────────────────
-    // Re-checks once per second while on Home. Self-heals cases where the
-    // MutationObserver misses a visibility-only re-render (React keeps home
-    // mounted) and the retry loop above hasn't run yet.
+    // Re-checks every 2 s while on Home and banner is NOT yet painted.
+    // Once bannerRendered is true the interval body exits immediately via the
+    // tryInject guard, so there is no ongoing network or CPU cost.
     setInterval(() => {
-        if (onHomePage()) tryInject();
-        else cancelContainerRetry();
-    }, 1000);
+        if (onHomePage()) {
+            if (!bannerRendered || !document.getElementById(SECTION_ID)) tryInject();
+        } else {
+            cancelContainerRetry();
+        }
+    }, 2000);
 
     // ── Fallback: old pluginManager registration ──────────────────────────────
     // Kept for Jellyfin versions that still use HomeSectionType.EditorChoice.

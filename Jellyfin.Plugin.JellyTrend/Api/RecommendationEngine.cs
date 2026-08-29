@@ -37,48 +37,101 @@ internal static class RecommendationEngine
     /// <summary>
     /// Builds the recommendation item ids for a user.
     /// </summary>
-    /// <param name="libraryManager">The library manager.</param>
+    /// <param name="libraryManager">The library manager (fallback for SQLite / no provider).</param>
     /// <param name="userDataManager">The user data manager.</param>
     /// <param name="user">The target user.</param>
     /// <param name="trendingItemIds">Ids already shown in the trending row, excluded from results.</param>
     /// <param name="maxItems">Maximum number of recommendations.</param>
+    /// <param name="queryProvider">
+    /// Optional database-provider-specific backend.
+    /// When non-null (e.g. installed alongside the PostgreSQL Database Provider plugin)
+    /// queries are issued as optimised SQL instead of going through EF Core.
+    /// Pass <see langword="null"/> to use <paramref name="libraryManager"/> (SQLite-compatible fallback).
+    /// </param>
     /// <returns>The recommended item ids.</returns>
     public static List<Guid> BuildRecommendations(
         ILibraryManager libraryManager,
         IUserDataManager userDataManager,
         User user,
         IReadOnlySet<Guid> trendingItemIds,
-        int maxItems)
+        int maxItems,
+        IRecommendationQueryProvider? queryProvider = null)
     {
-        var resumableIds = GetResumableItemIds(libraryManager, user);
-        var watched = GetAffinityItems(libraryManager, userDataManager, user);
+        var topParentIds = libraryManager
+            .GetUserRootFolder()
+            .GetChildren(user, true)
+            .Select(static f => f.Id)
+            .ToList();
+
+        // Build a single exclusion set: already-played + in-progress.
+        // This is the authoritative filter applied at JSON generation time so the stored
+        // recommendations never contain content the user has already seen, regardless of
+        // when the weekly sync runs relative to the user's viewing activity.
+        var excludedIds = GetExcludedItemIds(libraryManager, user, queryProvider);
+
+        var watched = GetAffinityItems(libraryManager, userDataManager, user, queryProvider);
         if (watched.Count == 0)
         {
-            return GetColdStartItems(libraryManager, user, resumableIds, trendingItemIds, maxItems);
+            return GetColdStartItems(libraryManager, user, excludedIds, trendingItemIds, maxItems, queryProvider, topParentIds);
         }
 
-        var facets = AggregateFacets(libraryManager, watched);
-        return ScoreCandidates(libraryManager, userDataManager, user, facets, resumableIds, trendingItemIds, maxItems);
+        var facets = AggregateFacets(libraryManager, watched, queryProvider);
+        return ScoreCandidates(libraryManager, userDataManager, user, facets, excludedIds, trendingItemIds, maxItems, queryProvider, topParentIds);
     }
 
-    private static HashSet<Guid> GetResumableItemIds(ILibraryManager libraryManager, User user)
+    // Returns the union of played + in-progress ids — everything the user must NOT
+    // see in the recommendations row.
+    private static HashSet<Guid> GetExcludedItemIds(
+        ILibraryManager libraryManager,
+        User user,
+        IRecommendationQueryProvider? queryProvider)
     {
-        return libraryManager.GetItemList(new InternalItemsQuery
+        if (queryProvider is not null)
+        {
+            var played = queryProvider.GetPlayedMovies(user.Id, MaxAffinityItems)
+                .Select(static r => r.Id);
+            var resumable = queryProvider.GetResumableMovies(user.Id, MaxAffinityItems)
+                .Select(static r => r.Id);
+            return played.Concat(resumable).ToHashSet();
+        }
+
+        var playedItems = libraryManager.GetItemList(new InternalItemsQuery
+        {
+            User = user,
+            Recursive = true,
+            IncludeItemTypes = [BaseItemKind.Movie],
+            IsPlayed = true,
+            Limit = MaxAffinityItems
+        }).Select(static i => i.Id);
+
+        var resumableItems = libraryManager.GetItemList(new InternalItemsQuery
         {
             User = user,
             Recursive = true,
             IncludeItemTypes = [BaseItemKind.Movie],
             IsResumable = true
-        })
-        .Select(static i => i.Id)
-        .ToHashSet();
+        }).Select(static i => i.Id);
+
+        return playedItems.Concat(resumableItems).ToHashSet();
     }
 
-    private static List<BaseItem> GetAffinityItems(
+    private static List<AffinityItem> GetAffinityItems(
         ILibraryManager libraryManager,
         IUserDataManager userDataManager,
-        User user)
+        User user,
+        IRecommendationQueryProvider? queryProvider)
     {
+        if (queryProvider is not null)
+        {
+            var playedOpt = queryProvider.GetPlayedMovies(user.Id, MaxAffinityItems);
+            var resumableOpt = queryProvider.GetResumableMovies(user.Id, MaxAffinityItems);
+            return playedOpt.Concat(resumableOpt)
+                .GroupBy(static r => r.Id)
+                .Select(static g => g.First())
+                .Select(static r => new AffinityItem(r))
+                .ToList();
+        }
+
         var played = libraryManager.GetItemList(new InternalItemsQuery
         {
             User = user,
@@ -97,10 +150,15 @@ internal static class RecommendationEngine
             Limit = MaxAffinityItems
         });
 
-        return played.Concat(resumable).GroupBy(static i => i.Id).Select(static g => g.First()).ToList();
+        return played.Concat(resumable).GroupBy(static i => i.Id).Select(static g => g.First())
+            .Select(static i => new AffinityItem(i))
+            .ToList();
     }
 
-    private static Facets AggregateFacets(ILibraryManager libraryManager, List<BaseItem> watched)
+    private static Facets AggregateFacets(
+        ILibraryManager libraryManager,
+        List<AffinityItem> watched,
+        IRecommendationQueryProvider? queryProvider)
     {
         var genreWeights = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var tagWeights = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -109,40 +167,36 @@ internal static class RecommendationEngine
 
         foreach (var item in watched)
         {
-            if (item.Genres is { Length: > 0 })
+            foreach (var genre in item.Genres)
             {
-                foreach (var genre in item.Genres)
-                {
-                    genreWeights[genre] = genreWeights.GetValueOrDefault(genre) + 1;
-                }
+                genreWeights[genre] = genreWeights.GetValueOrDefault(genre) + 1;
             }
 
-            if (item.Tags is { Length: > 0 })
+            foreach (var tag in item.Tags)
             {
-                foreach (var tag in item.Tags)
-                {
-                    tagWeights[tag] = tagWeights.GetValueOrDefault(tag) + 1;
-                }
+                tagWeights[tag] = tagWeights.GetValueOrDefault(tag) + 1;
             }
 
-            if (item.Studios is { Length: > 0 })
+            foreach (var studio in item.Studios)
             {
-                foreach (var studio in item.Studios)
-                {
-                    studioWeights[studio] = studioWeights.GetValueOrDefault(studio) + 1;
-                }
+                studioWeights[studio] = studioWeights.GetValueOrDefault(studio) + 1;
             }
 
-            foreach (var person in libraryManager.GetPeople(item))
+            // Person weights are only available when falling back to ILibraryManager
+            // (the query provider does not load person data in the lightweight projection).
+            if (item.BaseItem is not null)
             {
-                if (person.Id == Guid.Empty)
+                foreach (var person in libraryManager.GetPeople(item.BaseItem))
                 {
-                    continue;
-                }
+                    if (person.Id == Guid.Empty)
+                    {
+                        continue;
+                    }
 
-                if (person.Type is PersonKind.Actor or PersonKind.Director or PersonKind.Writer)
-                {
-                    personWeights[person.Id] = personWeights.GetValueOrDefault(person.Id) + 1;
+                    if (person.Type is PersonKind.Actor or PersonKind.Director or PersonKind.Writer)
+                    {
+                        personWeights[person.Id] = personWeights.GetValueOrDefault(person.Id) + 1;
+                    }
                 }
             }
         }
@@ -164,76 +218,121 @@ internal static class RecommendationEngine
         IUserDataManager userDataManager,
         User user,
         Facets facets,
-        HashSet<Guid> resumableIds,
+        HashSet<Guid> excludedIds,
         IReadOnlySet<Guid> trendingItemIds,
-        int maxItems)
+        int maxItems,
+        IRecommendationQueryProvider? queryProvider,
+        IReadOnlyList<Guid> topParentIds)
     {
-        var candidates = new Dictionary<Guid, BaseItem>();
+        // ── Gather candidates ─────────────────────────────────────────────────
+        var candidateItems = new Dictionary<Guid, ScoringItem>();
 
-        if (facets.Genres.Count > 0)
+        if (queryProvider is not null)
         {
-            AddCandidates(libraryManager, candidates, new InternalItemsQuery
+            // Fast path: optimised SQL via the registered database provider.
+            if (facets.Genres.Count > 0)
             {
-                User = user,
-                Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Movie],
-                IsPlayed = false,
-                Genres = facets.Genres,
-                Limit = MaxCandidatesPerFacet
-            });
+                foreach (var r in queryProvider.GetUnwatchedMoviesByGenres(user.Id, facets.Genres, topParentIds, MaxCandidatesPerFacet))
+                {
+                    candidateItems.TryAdd(r.Id, new ScoringItem(r));
+                }
+            }
+
+            if (facets.PersonIds.Count > 0)
+            {
+                foreach (var r in queryProvider.GetUnwatchedMoviesByPersons(user.Id, facets.PersonIds, topParentIds, MaxCandidatesPerFacet))
+                {
+                    candidateItems.TryAdd(r.Id, new ScoringItem(r));
+                }
+            }
+
+            if (facets.Tags.Count > 0)
+            {
+                foreach (var r in queryProvider.GetUnwatchedMoviesByTags(user.Id, facets.Tags, topParentIds, MaxCandidatesPerFacet))
+                {
+                    candidateItems.TryAdd(r.Id, new ScoringItem(r));
+                }
+            }
+        }
+        else
+        {
+            // Fallback: ILibraryManager (SQLite / no provider installed).
+            var baseItemCandidates = new Dictionary<Guid, BaseItem>();
+
+            if (facets.Genres.Count > 0)
+            {
+                AddCandidates(libraryManager, baseItemCandidates, new InternalItemsQuery
+                {
+                    User = user,
+                    Recursive = true,
+                    IncludeItemTypes = [BaseItemKind.Movie],
+                    IsPlayed = false,
+                    Genres = facets.Genres,
+                    Limit = MaxCandidatesPerFacet
+                });
+            }
+
+            if (facets.PersonIds.Count > 0)
+            {
+                AddCandidates(libraryManager, baseItemCandidates, new InternalItemsQuery
+                {
+                    User = user,
+                    Recursive = true,
+                    IncludeItemTypes = [BaseItemKind.Movie],
+                    IsPlayed = false,
+                    PersonIds = facets.PersonIds.ToArray(),
+                    Limit = MaxCandidatesPerFacet
+                });
+            }
+
+            if (facets.Tags.Count > 0)
+            {
+                AddCandidates(libraryManager, baseItemCandidates, new InternalItemsQuery
+                {
+                    User = user,
+                    Recursive = true,
+                    IncludeItemTypes = [BaseItemKind.Movie],
+                    IsPlayed = false,
+                    Tags = facets.Tags.ToArray(),
+                    Limit = MaxCandidatesPerFacet
+                });
+            }
+
+            foreach (var kv in baseItemCandidates)
+            {
+                candidateItems.TryAdd(kv.Key, new ScoringItem(kv.Value));
+            }
         }
 
-        if (facets.PersonIds.Count > 0)
+        // ── Score candidates ──────────────────────────────────────────────────
+        var scored = new List<(Guid Id, string DedupeKey, double Score, float? Rating)>(candidateItems.Count);
+        foreach (var si in candidateItems.Values)
         {
-            AddCandidates(libraryManager, candidates, new InternalItemsQuery
-            {
-                User = user,
-                Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Movie],
-                IsPlayed = false,
-                PersonIds = facets.PersonIds.ToArray(),
-                Limit = MaxCandidatesPerFacet
-            });
-        }
+            IReadOnlyList<PersonInfo> people = si.BaseItem is not null
+                ? libraryManager.GetPeople(si.BaseItem)
+                : Array.Empty<PersonInfo>();
 
-        if (facets.Tags.Count > 0)
-        {
-            AddCandidates(libraryManager, candidates, new InternalItemsQuery
-            {
-                User = user,
-                Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Movie],
-                IsPlayed = false,
-                Tags = facets.Tags.ToArray(),
-                Limit = MaxCandidatesPerFacet
-            });
-        }
-
-        var scored = new List<(BaseItem Item, double Score)>(candidates.Count);
-        foreach (var item in candidates.Values)
-        {
-            var people = libraryManager.GetPeople(item);
-            var facetScore = ComputeFacetScore(item, people, facets);
-            var quality = Math.Clamp((item.CommunityRating ?? 0) / 10.0, 0.0, 1.0);
-            var recency = item.PremiereDate is { } premiere && premiere > DateTime.UtcNow.AddYears(-3)
+            var facetScore = ComputeFacetScoreFromProjection(si, people, facets);
+            var quality = Math.Clamp((si.CommunityRating ?? 0) / 10.0, 0.0, 1.0);
+            var recency = si.PremiereDate is { } premiere && premiere > DateTime.UtcNow.AddYears(-3)
                 ? RecencyBonus
                 : 0.0;
 
-            scored.Add((item, (facetScore * FacetWeight) + (quality * QualityWeight) + recency));
+            scored.Add((si.Id, si.DedupeKey, (facetScore * FacetWeight) + (quality * QualityWeight) + recency, si.CommunityRating));
         }
 
         var ranked = scored
             .OrderByDescending(static x => x.Score)
-            .ThenByDescending(static x => x.Item.CommunityRating ?? 0)
-            .Select(static x => x.Item)
-            .Where(i => !resumableIds.Contains(i.Id))
-            .Where(i => !trendingItemIds.Contains(i.Id))
-            .DistinctBy(GetDedupeKey);
+            .ThenByDescending(static x => x.Rating ?? 0)
+            .Where(x => !excludedIds.Contains(x.Id))
+            .Where(x => !trendingItemIds.Contains(x.Id))
+            .DistinctBy(static x => x.DedupeKey)
+            .Select(static x => x.Id);
 
-        return SelectDiverse(ranked, maxItems);
+        return SelectDiverseIds(ranked, maxItems, candidateItems);
     }
 
-    private static double ComputeFacetScore(BaseItem item, IReadOnlyList<PersonInfo> people, Facets facets)
+    private static double ComputeFacetScoreFromProjection(ScoringItem item, IReadOnlyList<PersonInfo> people, Facets facets)
     {
         double numerator = 0;
         double denominator = 0;
@@ -367,10 +466,22 @@ internal static class RecommendationEngine
     private static List<Guid> GetColdStartItems(
         ILibraryManager libraryManager,
         User user,
-        HashSet<Guid> resumableIds,
+        HashSet<Guid> excludedIds,
         IReadOnlySet<Guid> trendingItemIds,
-        int maxItems)
+        int maxItems,
+        IRecommendationQueryProvider? queryProvider,
+        IReadOnlyList<Guid> topParentIds)
     {
+        if (queryProvider is not null)
+        {
+            return queryProvider.GetRandomUnwatchedMovies(user.Id, topParentIds, ColdStartSample)
+                .Select(static r => r.Id)
+                .Where(id => !excludedIds.Contains(id))
+                .Where(id => !trendingItemIds.Contains(id))
+                .Take(maxItems)
+                .ToList();
+        }
+
         var random = libraryManager.GetItemList(new InternalItemsQuery
         {
             User = user,
@@ -383,10 +494,43 @@ internal static class RecommendationEngine
 
         return random
             .Select(static i => i.Id)
-            .Where(id => !resumableIds.Contains(id))
+            .Where(id => !excludedIds.Contains(id))
             .Where(id => !trendingItemIds.Contains(id))
             .Take(maxItems)
             .ToList();
+    }
+
+    private static List<Guid> SelectDiverseIds(
+        IEnumerable<Guid> rankedIds,
+        int maxItems,
+        Dictionary<Guid, ScoringItem> candidateItems)
+    {
+        var result = new List<Guid>(maxItems);
+        var franchiseCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var id in rankedIds)
+        {
+            if (!candidateItems.TryGetValue(id, out var si))
+            {
+                continue;
+            }
+
+            var key = si.BaseItem is not null ? FranchiseKey(si.BaseItem) : id.ToString("N");
+            if (franchiseCounts.GetValueOrDefault(key) >= MaxPerFranchise)
+            {
+                continue;
+            }
+
+            franchiseCounts[key] = franchiseCounts.GetValueOrDefault(key) + 1;
+            result.Add(id);
+
+            if (result.Count >= maxItems)
+            {
+                break;
+            }
+        }
+
+        return result;
     }
 
     private static void AddCandidates(

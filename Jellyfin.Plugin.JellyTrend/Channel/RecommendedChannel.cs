@@ -235,8 +235,16 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
             return [];
         }
 
-        var result = new List<ChannelItemInfo>(data.ItemIds.Count);
-        foreach (var id in data.ItemIds)
+        // Shuffle the stored ids so the home row shows a different selection on each refresh.
+        // Seed by (userId XOR current hour) so the order rotates every hour but stays stable
+        // for the duration of a session — clients that paginate within the same hour see a
+        // consistent list, while the next hour brings a fresh shuffle.
+        var hourSlot = (int)(DateTimeOffset.UtcNow.Ticks / TimeSpan.TicksPerHour);
+        var seed = resolved.GetHashCode() ^ hourSlot;
+        var shuffled = data.ItemIds.OrderBy(_ => unchecked((uint)(seed = (seed * 1664525) + 1013904223))).ToList();
+
+        var result = new List<ChannelItemInfo>(shuffled.Count);
+        foreach (var id in shuffled)
         {
             var item = _libraryManager.GetItemById(id);
             if (item is null || string.IsNullOrEmpty(item.Path) || !File.Exists(item.Path))
@@ -244,11 +252,11 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
                 continue;
             }
 
-            // Solo contenido no reproducido previamente: se descarta lo ya visto y lo que
-            // está en progreso. Esto protege también contra el fallback ReadAny() (que en
-            // ausencia de contexto autenticado puede leer las recomendaciones de otro usuario)
-            // y contra lo que el usuario haya visto después del último sync semanal.
-            if (viewer is not null && IsAlreadyWatched(viewer, item))
+            // Exclude already-watched and in-progress content.
+            // When viewer is null (unauthenticated home-row call) we still attempt the check
+            // using the resolved userId directly, so the fallback ReadAny() path never leaks
+            // another user's watched titles into the row.
+            if (IsWatchedByUser(resolved, item))
             {
                 continue;
             }
@@ -277,8 +285,19 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         }
     }
 
-    private bool IsAlreadyWatched(User viewer, BaseItem item)
+    private bool IsWatchedByUser(Guid userId, BaseItem item)
     {
+        if (userId == Guid.Empty)
+        {
+            return false;
+        }
+
+        var viewer = SafeGetUser(userId);
+        if (viewer is null)
+        {
+            return false;
+        }
+
         var userData = _userDataManager.GetUserData(viewer, item);
         return userData is not null && (userData.Played || userData.PlaybackPositionTicks > 0);
     }

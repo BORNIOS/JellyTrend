@@ -42,8 +42,7 @@ recommendations per user.
 - 📚 **Season navigation** in the **Trending** channel (series → season → episode) to start from whichever season you want.
 - 🎯 **Personalized recommendations** per user: prioritize the best TMDB ratings, cap sagas (max 2 per franchise) and hide watched / in-progress items.
 - 🔄 **Two-way sync** library ↔ channel: watched state, resume position, favorites, and ratings.
-- 🔍 **Enriched metadata** — genres, cast, studios, tags, and parental rating from the library item (channels don't look like a "copy").
-
+- 🔍 **Enriched metadata** — genres, cast, studios, tags, and parental rating from the library item (channels don't look like a "copy").- ⚡ **Optional PostgreSQL acceleration** — if you run [Jellyfin Database Providers: PostgreSQL](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres), recommendation queries are replaced with optimised native SQL (4–10× faster on large libraries).
 ---
 
 ## ⚙️ Requirements
@@ -68,10 +67,6 @@ recommendations per user.
    ```
    https://raw.githubusercontent.com/BORNIOS/JellyTrend/main/manifest.json
    ```
-
-   > ⚠️ The URL must point to the `manifest.json` (Jellyfin uses it as-is). Adding
-   > `https://github.com/BORNIOS/JellyTrend` **does not work**.
-
 3. Save and go to **Catalog**, search for **JellyTrend** and **Install**.
 4. Configure your TMDB key in **Dashboard → Plugins → JellyTrend**.
 5. Restart Jellyfin if prompted.
@@ -138,6 +133,23 @@ Roku, Android TV, iOS, etc.):
 <br>
 
 ![JellyTrend Channel](Screenshots/Channel.png)
+
+---
+
+## ⚡ Better performance with PostgreSQL
+
+JellyTrend works with any database Jellyfin uses (SQLite by default).
+If you also have
+[**Jellyfin Database Providers: PostgreSQL**](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres)
+installed, the recommendation engine automatically switches to optimised native SQL:
+
+| Engine | Behavior |
+|---|---|
+| **SQLite** (default) | Uses `ILibraryManager` — compatible with any installation |
+| **PostgreSQL** (optional) | Direct SQL with native `&&` array operator + GIN indexes — **4–10× faster** on large libraries |
+
+> ✅ No manual setup needed: if the PostgreSQL plugin is installed, the integration activates
+> automatically. If it’s not, JellyTrend keeps working exactly as before.
 
 ---
 
@@ -270,9 +282,18 @@ updates, or on restart). You can also download the `.dll` from
 <details>
 <summary><b>Why does the banner still show content I already watched?</b></summary>
 
-The carousel refreshes automatically (up to every ~15 s) and hides watched titles. If the change
-doesn't show, **reload the page** or return to the home screen. The filter uses the authenticated
-user's state.
+The carousel refreshes automatically when you return to the home screen and hides watched titles.
+The filter runs server-side using the authenticated user’s state. If the change doesn’t appear
+right away, **reload the page**.
+</details>
+
+<details>
+<summary><b>Why does Recommended still show movies I already watched?</b></summary>
+
+The engine excludes watched content **at generation time** (weekly sync). If you watch a movie
+after the last sync, it stays in the JSON until the next cycle — but the channel filters it in
+real time when rendering the row. You can force a rebuild by clicking
+**«Build recommendations now»** in the settings.
 </details>
 
 ---
