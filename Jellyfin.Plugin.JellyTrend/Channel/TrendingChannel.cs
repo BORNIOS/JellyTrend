@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend.Configuration;
 using Jellyfin.Plugin.JellyTrend.ScheduledTask;
 using Jellyfin.Plugin.JellyTrend.Sync;
@@ -43,6 +44,8 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
     private readonly ILibraryManager _libraryManager;
     private readonly IMediaSourceManager _mediaSourceManager;
     private readonly IServerApplicationHost _appHost;
+    private readonly IUserDataManager _userDataManager;
+    private readonly IUserManager _userManager;
     private readonly ILogger<TrendingChannel> _logger;
 
     /// <summary>
@@ -51,16 +54,22 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
     /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
     /// <param name="mediaSourceManager">Instance of the <see cref="IMediaSourceManager"/> interface.</param>
     /// <param name="appHost">Instance of the <see cref="IServerApplicationHost"/> interface.</param>
+    /// <param name="userDataManager">Instance of the <see cref="IUserDataManager"/> interface.</param>
+    /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{TrendingChannel}"/> interface.</param>
     public TrendingChannel(
         ILibraryManager libraryManager,
         IMediaSourceManager mediaSourceManager,
         IServerApplicationHost appHost,
+        IUserDataManager userDataManager,
+        IUserManager userManager,
         ILogger<TrendingChannel> logger)
     {
         _libraryManager = libraryManager;
         _mediaSourceManager = mediaSourceManager;
         _appHost = appHost;
+        _userDataManager = userDataManager;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -136,7 +145,8 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
             });
         }
 
-        var items = BuildChannelItems();
+        var viewer = TryGetUser(query.UserId.ToString());
+        var items = BuildChannelItems(viewer);
         _logger.LogDebug("JellyTrend Canal: devolviendo {Count} items.", items.Count);
         return Task.FromResult(new ChannelItemResult
         {
@@ -182,7 +192,8 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
     public Task<IEnumerable<ChannelItemInfo>> GetLatestMedia(
         ChannelLatestMediaSearch request, CancellationToken cancellationToken)
     {
-        return Task.FromResult<IEnumerable<ChannelItemInfo>>(BuildChannelItems());
+        var viewer = TryGetUser(request.UserId);
+        return Task.FromResult<IEnumerable<ChannelItemInfo>>(BuildChannelItems(viewer));
     }
 
     // ── IRequiresMediaInfoCallback ────────────────────────────────────────────
@@ -198,7 +209,24 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
 
     // ── Internal ─────────────────────────────────────────────────────────────
 
-    private List<ChannelItemInfo> BuildChannelItems()
+    private User? TryGetUser(string? userId)
+    {
+        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var guid) || guid == Guid.Empty)
+        {
+            return null;
+        }
+
+        try
+        {
+            return _userManager.GetUserById(guid);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private List<ChannelItemInfo> BuildChannelItems(User? viewer = null)
     {
         var cache = ReadCache();
         if (cache is null)
@@ -250,11 +278,25 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
                 continue;
             }
 
+            // Hide already-watched movies. In-progress titles stay visible so the
+            // user can resume them. Series are never filtered (episode-level tracking
+            // is too granular for a series-root item).
+            if (viewer is not null && IsMovieWatched(viewer, item))
+            {
+                continue;
+            }
+
             result.Add(BuildMovieChannelItem(item, cacheItem));
         }
 
         _logger.LogDebug("JellyTrend Canal: {Count} títulos en el canal.", result.Count);
         return result;
+    }
+
+    private bool IsMovieWatched(User viewer, BaseItem item)
+    {
+        var ud = _userDataManager.GetUserData(viewer, item);
+        return ud is not null && ud.Played;
     }
 
     private ChannelItemInfo? BuildSeriesChannelItem(BaseItem item, TrendingCacheEntry cacheItem)

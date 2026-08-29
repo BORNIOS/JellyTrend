@@ -43,6 +43,7 @@ recomendaciones personalizadas por usuario.
 - 🎯 **Recomendaciones personalizadas** por usuario: priorizan las mejores calificaciones de TMDB, limitan sagas (máx. 2 por franquicia) y ocultan lo ya visto / en progreso.
 - 🔄 **Sincronización bidireccional** biblioteca ↔ canal: estado visto, progreso, favoritos y valoración.
 - 🔍 **Metadatos enriquecidos** — géneros, reparto, estudios, tags y clasificación tomados del ítem de biblioteca (los canales no parecen una «copia»).
+- ⚡ **Integración opcional con PostgreSQL** — si usas [Jellyfin Database Providers: PostgreSQL](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres), las consultas de recomendaciones se ejecutan con SQL nativo optimizado (4–10× más rápido en bibliotecas grandes).
 
 ---
 
@@ -68,10 +69,6 @@ recomendaciones personalizadas por usuario.
    ```
    https://raw.githubusercontent.com/BORNIOS/JellyTrend/main/manifest.json
    ```
-
-   > ⚠️ La URL debe apuntar al `manifest.json` (Jellyfin la usa tal cual). Añadir
-   > `https://github.com/BORNIOS/JellyTrend` **no funciona**.
-
 3. Guarda y ve a **Catálogo**, busca **JellyTrend** e **Instala**.
 4. Configura tu clave de TMDB en **Panel → Plugins → JellyTrend**.
 5. Reinicia Jellyfin si lo solicita.
@@ -139,6 +136,23 @@ Roku, Android TV, iOS, etc.):
 <br>
 
 ![Canal JellyTrend](Screenshots/Channel.png)
+
+---
+
+## ⚡ Rendimiento mejorado con PostgreSQL
+
+JellyTrend funciona sobre cualquier base de datos que use Jellyfin (SQLite por defecto).
+Si además tienes instalado el plugin
+[**Jellyfin Database Providers: PostgreSQL**](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres),
+las consultas del motor de recomendaciones se reemplazan automáticamente por SQL nativo optimizado:
+
+| Motor | Comportamiento |
+|---|---|
+| **SQLite** (por defecto) | Usa `ILibraryManager` — compatible con cualquier instalación |
+| **PostgreSQL** (opcional) | SQL directo con operador `&&` de arrays + índices GIN — **4–10× más rápido** en bibliotecas grandes |
+
+> ✅ No es necesario ningún ajuste manual: si el plugin de PostgreSQL está instalado, la integración
+> se activa sola. Si no está, JellyTrend sigue funcionando exactamente igual que antes.
 
 ---
 
@@ -273,9 +287,18 @@ Si lo instalaste desde el **repositorio**, Jellyfin mostrará la actualización 
 <details>
 <summary><b>¿Por qué el banner sigue mostrando contenido que ya vi?</b></summary>
 
-El carrusel se actualiza automáticamente (hasta cada ~15 s) y oculta lo ya visto. Si el cambio no
-aparece, **recarga la página** o vuelve a la pantalla de inicio. El filtro usa el estado del
-usuario autenticado.
+El carrusel se actualiza automáticamente al volver a la pantalla de inicio y oculta lo ya visto.
+El filtro se aplica en el servidor usando el estado del usuario autenticado. Si el cambio no
+aparece inmediatamente, **recarga la página**.
+</details>
+
+<details>
+<summary><b>¿Por qué los Recomendados me muestran películas que ya vi?</b></summary>
+
+El algoritmo excluye el contenido ya visto **en el momento en que genera las recomendaciones**
+(sync semanal). Si ves una película después del último sync, seguirá en el JSON hasta el próximo
+ciclo — pero el canal la filtra en tiempo real al mostrar el row. Puedes forzar una regeneración
+pulsando **«Generar Recomendaciones ahora»** en la configuración.
 </details>
 
 ---
