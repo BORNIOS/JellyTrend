@@ -39,6 +39,14 @@
         "sourceUrl": "https://github.com/BORNIOS/JellyTrend/releases/download/v2.0.3/Jellyfin.Plugin.JellyTrend-2.0.3.0.zip",
         "checksum": "b3e64bc6b3619da1d8e926b372a13f35",
         "timestamp": "2026-08-27T05:44:45Z"
+      },
+      {
+        "version": "2.0.4.0",
+        "changelog": "Novedades en v2.0.4:\n\n- Integracion opcional con PostgreSQL: si usas Jellyfin Database Providers PostgreSQL, el motor de recomendaciones usa SQL nativo optimizado (4-10x mas rapido en bibliotecas grandes). La integracion se activa sola al detectar el plugin.\n- Fix: recomendaciones ya no incluyen contenido visto al momento del sync semanal (excluye played + in-progress en la generacion del JSON).\n- Fix: canal Trendings filtra peliculas ya vistas por usuario en tiempo real.\n- Fix: canal Recomendados baraja el orden por usuario/hora para mostrar titulos distintos en cada visita al home.\n- Fix: banner corregido error 401 con interceptor XHR; el carousel se renderiza una sola vez y cesa el polling innecesario.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/BORNIOS/JellyTrend/releases/download/v2.0.4/Jellyfin.Plugin.JellyTrend-2.0.4.0.zip",
+        "checksum": "7afb9ed6cf0b8ba2ecfef742feef36f4",
+        "timestamp": "2026-08-29T02:28:23Z"
       }
     ]
   }
