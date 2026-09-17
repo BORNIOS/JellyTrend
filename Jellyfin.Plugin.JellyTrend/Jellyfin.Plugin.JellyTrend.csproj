@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.JellyTrend</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -12,7 +12,7 @@
       Set this to your Jellyfin server version.
       Check https://www.nuget.org/packages/Jellyfin.Controller/ for available versions.
     -->
-    <JellyfinVersion>10.11.10</JellyfinVersion>
+    <JellyfinVersion>12.1.0</JellyfinVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,9 +36,9 @@
       Serilog is the logging library Jellyfin itself uses. The plugin builds its own
       logger with a file sink so it writes to a dedicated per-month log file
       (log/JellyTrend-YYYYMM.log) inside the server's official log directory.
-      Versions match the local server runtime (Serilog 4.2.0).
+      Versions match the local server runtime (Serilog 4.3.0 on Jellyfin 12.1).
     -->
-    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>
 
