@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using Jellyfin.Plugin.JellyTrend.Configuration;
+
+using Jellyfin.Plugin.JellyTrend.Logging;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -66,7 +67,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             {
                 Name = "JellyTrend",
                 DisplayName = "JellyTrend",
-                EmbeddedResourcePath = $"{ns}.Configuration.configPage.html",
+                EmbeddedResourcePath = $"{ns}.Web.configurationPage.html",
                 EnableInMainMenu = true
             }
         ];

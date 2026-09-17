@@ -58,10 +58,8 @@
     <!--
       All files under Web/ (config page assets, carousel script/styles, channel poster)
       are embedded into the assembly as resources.
-      configPage.html lives in Configuration/ following the official plugin template.
+      configurationPage.html lives in Web/ together with the rest of the panel assets.
     -->
-    <None Remove="Configuration\configPage.html" />
-    <EmbeddedResource Include="Configuration\configPage.html" />
     <EmbeddedResource Include="Web\**\*" Exclude="Web\**\*.cs" />
   </ItemGroup>
 

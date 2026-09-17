@@ -1,8 +1,8 @@
-using Jellyfin.Plugin.JellyTrend.Channel;
-using Jellyfin.Plugin.JellyTrend.ExternalAPI;
-using Jellyfin.Plugin.JellyTrend.ScheduledTask;
-using Jellyfin.Plugin.JellyTrend.Sync;
-using Jellyfin.Plugin.JellyTrend.Web;
+using Jellyfin.Plugin.JellyTrend.Services;
+using Jellyfin.Plugin.JellyTrend.Services.Channel;
+using Jellyfin.Plugin.JellyTrend.Services.ExternalApi;
+using Jellyfin.Plugin.JellyTrend.Services.Sync;
+using Jellyfin.Plugin.JellyTrend.Tasks;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Events;
