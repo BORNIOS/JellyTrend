@@ -18,7 +18,6 @@ artifacts:
   - "Jellyfin.Plugin.JellyTrend.dll"
 changelog: >
   Jellyfin 12.1 (.NET 10):
-  - Homologación de estructura y namespaces (Services/, Controllers/, Tasks/, Logging/, Web/).
   - Integración con PostgreSQL Database Provider revisada para 12.1.
   - Pruebas automatizadas de la suite de verificación.
   - Compatibilidad: Jellyfin 12.1.x con .NET 10. Para Jellyfin 10.11.x usa la versión 2.0.4.

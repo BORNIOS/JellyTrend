@@ -93,22 +93,24 @@ public sealed class RecommendationSyncTask : IScheduledTask
 
                 try
                 {
-                    var ids = RecommendationEngine.BuildRecommendations(
+                    var result = RecommendationEngine.BuildRecommendations(
                         _libraryManager,
                         _userDataManager,
                         user,
                         trendingItemIds,
-                        config.RecommendationMaxItems);
+                        config.RecommendationMaxItems,
+                        _logger);
+
+                    _logger.LogInformation("[Recomendaciones] '{User}': {Diagnostics}", user.Username, result.Diagnostics);
 
                     RecommendationStorage.Write(user.Id, new UserRecommendations
                     {
-                        ItemIds = ids,
+                        ItemIds = [.. result.ItemIds],
                         UpdatedAt = DateTime.UtcNow
                     });
 
-                    allRecommendedIds.AddRange(ids);
+                    allRecommendedIds.AddRange(result.ItemIds);
                     generated++;
-                    _logger.LogDebug("{Count} recomendaciones para '{User}'.", ids.Count, user.Username);
                 }
                 catch (Exception ex)
                 {

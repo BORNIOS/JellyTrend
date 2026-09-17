@@ -32,11 +32,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!--
-      Code analysis packages (build-time only, never shipped with the plugin).
-      Sin dependencias de logging externas: Logging/JellyTrendLog.cs escribe su propio archivo
-      diario (log/JellyTrend-AAAA-MM-DD.log) con System.IO, como el resto de los plugins.
-    -->
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="All" />
     <PackageReference Include="SmartAnalyzers.MultithreadingAnalyzer" Version="1.1.31" PrivateAssets="All" />
   </ItemGroup>
