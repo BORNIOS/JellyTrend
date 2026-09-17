@@ -7,8 +7,8 @@
 
 | Métrica | Valor |
 |---|---|
-| Total | 25 |
-| Correctas | 25 |
+| Total | 29 |
+| Correctas | 29 |
 | Fallidas | 0 |
 | Omitidas | 0 |
 | Estado | OK |
@@ -22,6 +22,7 @@
 | PluginMetadataTests | 5 | 5 | 0 |
 | RecommendationLibrarySnapshotTests | 1 | 1 | 0 |
 | RecommendationScoringTests | 8 | 8 | 0 |
+| RecommendationSourceTests | 4 | 4 | 0 |
 | WebPageTests | 4 | 4 | 0 |
 
 ## Cómo reproducirlo
