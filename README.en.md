@@ -350,7 +350,7 @@ automatically; use **`dev-info`** to verify the paths exist.
 
 ### Code quality
 
-The project enables the Jellyfin analyzers (StyleCop, Serilog, Multithreading) with
+The project enables the Jellyfin analyzers (StyleCop, Multithreading) with
 warnings-as-errors. Keep the build clean:
 
 ```bash

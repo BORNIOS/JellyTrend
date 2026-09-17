@@ -110,16 +110,30 @@ internal static class JellyTrendLog
     /// <param name="msg">The message to write.</param>
     public static void Error(string msg) => Write("ERROR", msg);
 
-    /// <summary>Writes an error message with exception details.</summary>
+    /// <summary>
+    /// Writes an error message with the full exception detail: tipo, mensaje, traza y
+    /// excepciones internas, indentadas para que el archivo siga siendo legible.
+    /// </summary>
     /// <param name="msg">The message to write.</param>
     /// <param name="ex">The exception to include.</param>
-    public static void Error(string msg, Exception ex) =>
-        Write("ERROR", string.Format(
+    public static void Error(string msg, Exception ex)
+    {
+        ArgumentNullException.ThrowIfNull(ex);
+
+        var detail = string.Format(
             CultureInfo.InvariantCulture,
-            "{0} | {1}: {2}",
+            "{0} | {1}: {2}{3}{4}",
             msg,
             ex.GetType().Name,
-            ex.Message));
+            ex.Message,
+            Environment.NewLine,
+            Indent(ex.ToString()));
+
+        Write("ERROR", detail);
+    }
+
+    private static string Indent(string text)
+        => "    " + text.Replace(Environment.NewLine, Environment.NewLine + "    ", StringComparison.Ordinal);
 
     // ── Private helpers ────────────────────────────────────────────────────────
 
@@ -138,7 +152,11 @@ internal static class JellyTrendLog
         }
     }
 
-    private static void PurgeOldLogs()
+    /// <summary>
+    /// Deletes the plugin's own log files older than <see cref="RetentionDays"/> days.
+    /// Solo toca archivos con el prefijo del plugin.
+    /// </summary>
+    internal static void PurgeOldLogs()
     {
         try
         {

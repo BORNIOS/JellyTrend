@@ -7,8 +7,8 @@
 
 | Métrica | Valor |
 |---|---|
-| Total | 12 |
-| Correctas | 12 |
+| Total | 16 |
+| Correctas | 16 |
 | Fallidas | 0 |
 | Omitidas | 0 |
 | Estado | OK |
@@ -18,6 +18,7 @@
 | Clase | Total | Correctas | Fallidas |
 |---|---|---|---|
 | ConfigurationTests | 3 | 3 | 0 |
+| LoggingTests | 4 | 4 | 0 |
 | PluginMetadataTests | 5 | 5 | 0 |
 | WebPageTests | 4 | 4 | 0 |
 

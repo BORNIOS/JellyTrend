@@ -355,7 +355,7 @@ automáticamente; usa **`dev-info`** para verificar que las rutas existen.
 
 ### Calidad de código
 
-El proyecto activa los analyzers de Jellyfin (StyleCop, Serilog, Multithreading) con
+El proyecto activa los analyzers de Jellyfin (StyleCop, Multithreading) con
 warnings-as-errors. Mantén el build limpio:
 
 ```bash
