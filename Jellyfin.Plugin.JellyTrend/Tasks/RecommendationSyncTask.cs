@@ -116,6 +116,16 @@ public sealed class RecommendationSyncTask : IScheduledTask
 
                 try
                 {
+                    // Capa 1 y capa 2: el perfil se reconstruye desde el historial del usuario (bootstrap la
+                    // primera vez, incremental despues) y queda guardado. La fila deja de partir del
+                    // historial crudo: parte del perfil.
+                    TasteProfileService.Rebuild(
+                        user,
+                        _libraryManager,
+                        _userDataManager,
+                        id => features.TryGet(id, out var cached) ? cached : null,
+                        DateTime.UtcNow);
+
                     var result = RecommendationEngine.BuildRecommendations(
                         _libraryManager,
                         _userDataManager,
