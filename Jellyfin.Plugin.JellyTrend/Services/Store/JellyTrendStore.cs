@@ -39,6 +39,12 @@ public static class JellyTrendStore
     public static string DataStamp { get; private set; } = "1";
 
     /// <summary>
+    /// Gets a stamp that changes every time a user's recommendations are written, so the channel
+    /// discards its cached items after each run.
+    /// </summary>
+    public static string RecommendationStamp { get; private set; } = "1";
+
+    /// <summary>
     /// Gets a value indicating whether the database store is active.
     /// </summary>
     public static bool Active => _provider is not null;
@@ -285,6 +291,9 @@ public static class JellyTrendStore
             },
             false,
             "guardar recomendaciones");
+
+        // El canal cachea sus items por version: sin este sello, una escritura no obligaria a releer.
+        RecommendationStamp = DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>

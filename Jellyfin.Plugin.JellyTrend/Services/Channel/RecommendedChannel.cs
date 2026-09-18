@@ -11,6 +11,7 @@ using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend.Controllers;
 using Jellyfin.Plugin.JellyTrend.Services;
 using Jellyfin.Plugin.JellyTrend.Services.Models;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 using Jellyfin.Plugin.JellyTrend.Tasks;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Channels;
@@ -94,9 +95,17 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
     {
         get
         {
+            // Con el almacen en base de datos no hay archivos que mirar: manda el sello que deja cada
+            // escritura. El prefijo sube a JT4 para descartar la cache que dejo la version anterior, que
+            // servia una lista vacia con una version que ya no cambiaba.
+            if (JellyTrendStore.Active)
+            {
+                return "JT4-" + JellyTrendStore.RecommendationStamp;
+            }
+
             var lastModified = RecommendationStorage.GetLastModifiedUtc();
             var ticks = lastModified == DateTime.MinValue ? 0 : lastModified.Ticks;
-            return "JT3-" + ticks.ToString(CultureInfo.InvariantCulture);
+            return "JT4-" + ticks.ToString(CultureInfo.InvariantCulture);
         }
     }
 
