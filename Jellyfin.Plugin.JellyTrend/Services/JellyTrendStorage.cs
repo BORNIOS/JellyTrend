@@ -36,7 +36,27 @@ public static class JellyTrendStorage
     /// </summary>
     /// <value>Absolute path of the data folder, or an empty string while the storage is not initialized.</value>
     public static string Folder
-        => string.IsNullOrEmpty(_dataPath) ? string.Empty : Path.Combine(_dataPath, FolderName);
+    {
+        get
+        {
+            // La carpeta se puede reemplazar desde el panel de configuraciOn. Solo se acepta una ruta
+            // absoluta: una relativa acabaria escribiendo junto al proceso, que es justo lo que este
+            // almacen evita.
+            var configured = Plugin.Instance?.Configuration.JsonDataPath;
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                var trimmed = configured.Trim();
+                if (Path.IsPathRooted(trimmed))
+                {
+                    return trimmed;
+                }
+
+                JellyTrendLog.Warn($"[Almacen] La carpeta configurada '{trimmed}' no es una ruta absoluta; se usa la de datos del servidor.");
+            }
+
+            return string.IsNullOrEmpty(_dataPath) ? string.Empty : Path.Combine(_dataPath, FolderName);
+        }
+    }
 
     /// <summary>
     /// Gets the full path of the feature cache file.

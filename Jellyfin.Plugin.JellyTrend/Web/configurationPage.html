@@ -2,6 +2,16 @@
 <html lang="en">
 <head>
     <title>JellyTrend</title>
+    <style>
+        /* Pestanas del panel: botones planos con subrayado, para no pelearse con los componentes de Jellyfin. */
+        .jtTabs { display: flex; flex-wrap: wrap; gap: .25em; border-bottom: 1px solid rgba(128,128,128,.3); margin: .4em 0 1.2em; }
+        .jtTab { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: .6em 1em; cursor: pointer; color: var(--text-color-secondary); font-size: 1em; font-weight: 500; }
+        .jtTab:hover { color: var(--text-color, inherit); }
+        .jtTabActive { color: var(--text-color, inherit); font-weight: 600; }
+        .jtTabActive { border-bottom-color: var(--accent, #00a4dc); }
+        .jtPanel[hidden] { display: none; }
+        .jtLink { color: var(--accent, #00a4dc); }
+    </style>
 </head>
 <body>
 <div id="jellyTrendConfigPage"
@@ -21,7 +31,14 @@
             </div>
 
             <form id="jellyTrendConfigForm" onsubmit="return false;">
-                <div class="verticalSection">
+                <nav class="jtTabs" role="tablist">
+                    <button type="button" class="jtTab" role="tab" aria-selected="true" data-jt-tab="trending"><span data-jt="tabTrending"></span></button>
+                    <button type="button" class="jtTab" role="tab" aria-selected="false" data-jt-tab="recommendations"><span data-jt="tabRecommendations"></span></button>
+                    <button type="button" class="jtTab" role="tab" aria-selected="false" data-jt-tab="storage"><span data-jt="tabStorage"></span></button>
+                    <button type="button" class="jtTab" role="tab" aria-selected="false" data-jt-tab="status"><span data-jt="tabStatus"></span></button>
+                </nav>
+
+                <div class="verticalSection jtPanel" data-jt-panel="trending">
 
                     <h3 class="sectionTitle" style="margin-top:1.2em"><span data-jt="secTmdb"></span></h3>
 
@@ -104,6 +121,19 @@
                         <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descTrendingSeries_html"></div>
                     </div>
 
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="trendingSeriesShare">
+                            <span data-jt="lblSeriesShare"></span>
+                        </label>
+                        <input id="trendingSeriesShare"
+                               type="number"
+                               is="emby-input"
+                               min="0"
+                               max="100"
+                               value="50" />
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descSeriesShare_html"></div>
+                    </div>
+
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input id="enableBannerMode"
@@ -114,6 +144,9 @@
                         <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descBanner_html"></div>
                     </div>
 
+                </div>
+
+                <div class="verticalSection jtPanel" data-jt-panel="recommendations" hidden>
                     <h3 class="sectionTitle" style="margin-top:1.2em"><span data-jt="secRecommendations"></span></h3>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -124,6 +157,16 @@
                             <span data-jt="lblRecommendationRow"></span>
                         </label>
                         <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descRecommendationRow_html"></div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input id="enableRecommendationChannel"
+                                   type="checkbox"
+                                   is="emby-checkbox" />
+                            <span data-jt="lblRecChannel"></span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descRecChannel_html"></div>
                     </div>
 
                     <div class="inputContainer">
@@ -150,6 +193,63 @@
                         <div class="fieldDescription" data-jt-html="true" data-jt="descRecommendationMaxItems_html"></div>
                     </div>
 
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="recommendationRotationHours">
+                            <span data-jt="lblRotation"></span>
+                        </label>
+                        <input id="recommendationRotationHours"
+                               type="number"
+                               is="emby-input"
+                               min="0"
+                               max="168"
+                               value="1" />
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descRotation_html"></div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="recommendationPoolFactor">
+                            <span data-jt="lblPoolFactor"></span>
+                        </label>
+                        <input id="recommendationPoolFactor"
+                               type="number"
+                               is="emby-input"
+                               min="1"
+                               max="10"
+                               value="2" />
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descPoolFactor_html"></div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="coldStartMinWatched">
+                            <span data-jt="lblColdStart"></span>
+                        </label>
+                        <input id="coldStartMinWatched"
+                               type="number"
+                               is="emby-input"
+                               min="1"
+                               max="200"
+                               value="10" />
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descColdStart_html"></div>
+                    </div>
+
+                </div>
+
+                <div class="verticalSection jtPanel" data-jt-panel="storage" hidden>
+                    <h3 class="sectionTitle" style="margin-top:1.2em"><span data-jt="secStorage"></span></h3>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="jsonDataPath">
+                            <span data-jt="lblDataPath"></span>
+                        </label>
+                        <input id="jsonDataPath"
+                               type="text"
+                               is="emby-input"
+                               data-jt-placeholder="phDataPath" />
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descDataPath_html"></div>
+                    </div>
+
+                    <div class="fieldDescription" data-jt-html="true" data-jt="descStore_html"></div>
+
                 </div>
 
                 <div>
@@ -163,7 +263,7 @@
                 <div id="jtSaveStatus" style="margin-top:.5em;min-height:1.2em;font-size:.9em;"></div>
             </form>
 
-            <div class="verticalSection" style="margin-top:2em">
+                <div class="verticalSection jtPanel" data-jt-panel="status" hidden>
                 <h3 class="sectionTitle"><span data-jt="secActions"></span></h3>
                 <div style="display:flex;flex-wrap:wrap;gap:.6em;margin-bottom:1em">
                     <button id="jtRunNow" is="emby-button" type="button" class="raised emby-button">
@@ -224,6 +324,25 @@
             descRecommendationChannelName_html: 'Name shown under <strong>Channels</strong> in all clients.',
             lblRecommendationMaxItems: 'Max recommendations per user',
             descRecommendationMaxItems_html: 'Maximum number of recommended items generated per user.',
+            tabTrending: 'Trending',
+            tabRecommendations: 'Recommendations',
+            tabStorage: 'Storage',
+            tabStatus: 'Status and actions',
+            lblSeriesShare: 'Share of the list for TV series (%)',
+            descSeriesShare_html: 'Percentage of the <strong>max trending items</strong> reserved for series; movies take the rest. Leftover slots are filled with the other type, so the list is never short.',
+            lblRecChannel: 'Show “Recomendados” under Channels',
+            descRecChannel_html: 'Lists the channel under <strong>Channels</strong> in every client. With it hidden the home row does not appear either: the row is what Jellyfin asks the channel for as latest media.',
+            lblRotation: 'Rotate the row every N hours',
+            descRotation_html: 'The stored pool is larger than the row, so each window serves a different slice and already-watched titles are skipped. <code>0</code> always serves the best ranked titles first.',
+            lblPoolFactor: 'Titles generated per visible title',
+            descPoolFactor_html: 'How many times the row is generated and stored (<code>2</code> = twice as many). The extra titles are what the rotation uses once part of the row has been watched; more titles cost more time in the weekly run.',
+            lblColdStart: 'Watched titles needed to have a profile',
+            descColdStart_html: 'Below this many consumed titles the profile is too thin and the row falls back to what the rest of the server watches.',
+            secStorage: 'Storage',
+            lblDataPath: 'JSON folder (optional)',
+            phDataPath: 'Leave empty to use the server data folder',
+            descDataPath_html: 'Absolute folder for the plugin JSON files when no database provider is in use. Empty keeps them under the server data folder, which is what survives a plugin update. A restart is required to apply it everywhere.',
+            descStore_html: 'With the <strong>PostgreSQL provider</strong> installed the data lives in the <code>jellytrend</code> schema of your database and the JSON files are kept only as a courtesy copy, so removing the provider never loses anything. Provider repository: <a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener">Jellyfin-Database-Providers-Postgres</a>.',
             btnSave: 'Save',
             btnRunSync: 'Sync trending now',
             btnRunRecommendations: 'Build recommendations now',
@@ -281,6 +400,25 @@
             descRecommendationChannelName_html: 'Nombre que aparece en <strong>Canales</strong> en todos los clientes.',
             lblRecommendationMaxItems: 'Máximo de recomendaciones por usuario',
             descRecommendationMaxItems_html: 'Número máximo de recomendaciones generadas por usuario.',
+            tabTrending: 'Trendings',
+            tabRecommendations: 'Recomendaciones',
+            tabStorage: 'Almacenamiento',
+            tabStatus: 'Estado y acciones',
+            lblSeriesShare: 'Porcentaje de la lista para series (%)',
+            descSeriesShare_html: 'Porcentaje del <strong>máximo de ítems</strong> reservado a series; las películas toman el resto. Los huecos los rellena el otro tipo, así la lista nunca sale corta.',
+            lblRecChannel: 'Mostrar “Recomendados” en Canales',
+            descRecChannel_html: 'Muestra el canal en <strong>Canales</strong> en todos los clientes. Si se oculta, tampoco aparece la fila de inicio: la fila es lo que Jellyfin pide al canal como últimos medios.',
+            lblRotation: 'Rotar la fila cada N horas',
+            descRotation_html: 'El pool guardado es mayor que la fila, así que cada ventana sirve un tramo distinto y se saltan los ya vistos. <code>0</code> sirve siempre primero los mejor puntuados.',
+            lblPoolFactor: 'Títulos generados por cada título visible',
+            descPoolFactor_html: 'Cuántas veces se genera y guarda la fila (<code>2</code> = el doble). Los títulos extra son el material de la rotación cuando ya se ha visto parte de la fila; más títulos cuestan más tiempo en la corrida semanal.',
+            lblColdStart: 'Títulos vistos necesarios para tener perfil',
+            descColdStart_html: 'Por debajo de estos títulos consumidos el perfil es demasiado fino y la fila cae a lo que ve el resto del servidor.',
+            secStorage: 'Almacenamiento',
+            lblDataPath: 'Carpeta de los JSON (opcional)',
+            phDataPath: 'Vacío = carpeta de datos del servidor',
+            descDataPath_html: 'Carpeta absoluta de los archivos JSON del plugin cuando no hay proveedor de base de datos. Vacío los deja en la carpeta de datos del servidor, que es lo que sobrevive a una actualización del plugin. Requiere reiniciar para aplicarse en todo el plugin.',
+            descStore_html: 'Con el <strong>proveedor PostgreSQL</strong> instalado los datos viven en el esquema <code>jellytrend</code> de tu base y los JSON se guardan solo como copia de cortesía, así que quitar el proveedor nunca pierde nada. Repositorio del proveedor: <a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener">Jellyfin-Database-Providers-Postgres</a>.',
             btnSave: 'Guardar',
             btnRunSync: 'Sincronizar Trendings ahora',
             btnRunRecommendations: 'Generar Recomendaciones ahora',
@@ -542,6 +680,34 @@
         el.style.color = isError ? '#f44336' : '#4caf50';
     }
 
+    function switchTab(name) {
+        var page = findPage();
+        if (!page) return;
+
+        page.querySelectorAll('[data-jt-panel]').forEach(function (panel) {
+            panel.hidden = panel.getAttribute('data-jt-panel') !== name;
+        });
+
+        page.querySelectorAll('[data-jt-tab]').forEach(function (btn) {
+            var active = btn.getAttribute('data-jt-tab') === name;
+            if (active) {
+                btn.classList.add('jtTabActive');
+            } else {
+                btn.classList.remove('jtTabActive');
+            }
+
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    // Convierte un valor de input en entero dentro de un rango. No vale `parseInt(x) || def` porque 0 es un
+    // valor legitimo (rotacion desactivada, cero por ciento de series) y se perderia.
+    function intInRange(value, min, max, fallback) {
+        var parsed = Number.parseInt(value, 10);
+        if (isNaN(parsed)) return fallback;
+        return Math.min(max, Math.max(min, parsed));
+    }
+
     function load() {
         var dash = getDashboard();
         if (dash && dash.showLoadingMsg) dash.showLoadingMsg();
@@ -559,6 +725,12 @@
                 var recRow = q('enableRecommendationRow');
                 var recChannelName = q('recommendationChannelName');
                 var recMax = q('recommendationMaxItems');
+                var seriesShare = q('trendingSeriesShare');
+                var recChannel = q('enableRecommendationChannel');
+                var rotation = q('recommendationRotationHours');
+                var poolFactor = q('recommendationPoolFactor');
+                var coldStart = q('coldStartMinWatched');
+                var dataPath = q('jsonDataPath');
 
                 if (apiKey) apiKey.value = cfg.TmdbApiKey || '';
                 if (max) max.value = cfg.MaxItems || 20;
@@ -571,6 +743,12 @@
                 if (recRow) recRow.checked = cfg.EnableRecommendationRow !== false;
                 if (recChannelName) recChannelName.value = cfg.RecommendationChannelName || 'Recomendados';
                 if (recMax) recMax.value = cfg.RecommendationMaxItems || 20;
+                if (seriesShare) seriesShare.value = cfg.TrendingSeriesShare === undefined || cfg.TrendingSeriesShare === null ? 50 : cfg.TrendingSeriesShare;
+                if (recChannel) recChannel.checked = cfg.EnableRecommendationChannel !== false;
+                if (rotation) rotation.value = cfg.RecommendationRotationHours === undefined || cfg.RecommendationRotationHours === null ? 1 : cfg.RecommendationRotationHours;
+                if (poolFactor) poolFactor.value = cfg.RecommendationPoolFactor || 2;
+                if (coldStart) coldStart.value = cfg.ColdStartMinWatched || 10;
+                if (dataPath) dataPath.value = cfg.JsonDataPath || '';
             })
             .catch(function (err) {
                 setStatus(t('errLoadCfg') + (err && err.message || err), true);
@@ -597,6 +775,12 @@
                 var recRow = q('enableRecommendationRow');
                 var recChannelName = q('recommendationChannelName');
                 var recMax = q('recommendationMaxItems');
+                var seriesShare = q('trendingSeriesShare');
+                var recChannel = q('enableRecommendationChannel');
+                var rotation = q('recommendationRotationHours');
+                var poolFactor = q('recommendationPoolFactor');
+                var coldStart = q('coldStartMinWatched');
+                var dataPath = q('jsonDataPath');
 
                 cfg.TmdbApiKey = apiKey ? apiKey.value : cfg.TmdbApiKey;
                 cfg.MaxItems = max ? (Number.parseInt(max.value, 10) || 20) : cfg.MaxItems;
@@ -609,6 +793,12 @@
                 cfg.EnableRecommendationRow = recRow ? recRow.checked : cfg.EnableRecommendationRow;
                 cfg.RecommendationChannelName = recChannelName ? (recChannelName.value.trim() || 'Recomendados') : cfg.RecommendationChannelName;
                 cfg.RecommendationMaxItems = recMax ? (Number.parseInt(recMax.value, 10) || 20) : cfg.RecommendationMaxItems;
+                cfg.TrendingSeriesShare = seriesShare ? intInRange(seriesShare.value, 0, 100, 50) : cfg.TrendingSeriesShare;
+                cfg.EnableRecommendationChannel = recChannel ? recChannel.checked : cfg.EnableRecommendationChannel;
+                cfg.RecommendationRotationHours = rotation ? intInRange(rotation.value, 0, 168, 1) : cfg.RecommendationRotationHours;
+                cfg.RecommendationPoolFactor = poolFactor ? intInRange(poolFactor.value, 1, 10, 2) : cfg.RecommendationPoolFactor;
+                cfg.ColdStartMinWatched = coldStart ? intInRange(coldStart.value, 1, 200, 10) : cfg.ColdStartMinWatched;
+                cfg.JsonDataPath = dataPath ? dataPath.value.trim() : cfg.JsonDataPath;
 
                 return saveConfig(cfg);
             })
@@ -709,6 +899,17 @@
         saveBtn.addEventListener('click', save);
         runBtn.addEventListener('click', triggerSync);
         runRecBtn.addEventListener('click', triggerRecommendations);
+
+        var page = findPage();
+        if (page) {
+            page.querySelectorAll('[data-jt-tab]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    switchTab(btn.getAttribute('data-jt-tab'));
+                });
+            });
+            switchTab('trending');
+        }
+
         state.wired = true;
     }
 

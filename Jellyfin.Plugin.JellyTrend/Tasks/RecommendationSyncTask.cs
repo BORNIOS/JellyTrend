@@ -114,8 +114,9 @@ public sealed class RecommendationSyncTask : IScheduledTask
             _logger.LogDebug("[Recomendaciones] Backend: {Backend}.", _backend.Recommendation);
 
             // Se genera un pool mayor que la fila visible: los ids ya vistos se descartan al servir y
-            // asi la fila sigue llena en lugar de quedarse corta hasta la proxima corrida semanal.
-            var poolSize = Math.Max(1, config.RecommendationMaxItems) * 2;
+            // asi la fila sigue llena en lugar de quedarse corta hasta la proxima corrida semanal. El
+            // factor es configurable porque tambien es el material que usa la rotacion.
+            var poolSize = Math.Max(1, config.RecommendationMaxItems) * Math.Clamp(config.RecommendationPoolFactor, 1, 10);
 
             var allRecommendedIds = new List<Guid>();
 

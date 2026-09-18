@@ -30,6 +30,19 @@ internal static class TasteProfileService
     public const int ColdStartThreshold = 10;
 
     /// <summary>
+    /// Gets the number of consumed titles below which the profile counts as cold, as configured by the
+    /// administrator (default <see cref="ColdStartThreshold"/>).
+    /// </summary>
+    public static int MinWatched
+    {
+        get
+        {
+            var configured = Plugin.Instance?.Configuration.ColdStartMinWatched ?? ColdStartThreshold;
+            return Math.Clamp(configured, 1, 200);
+        }
+    }
+
+    /// <summary>
     /// Rebuilds the profile of a user from their history and stores it.
     /// </summary>
     /// <param name="user">User to profile.</param>
@@ -104,7 +117,7 @@ internal static class TasteProfileService
     /// <param name="userId">User to check.</param>
     /// <returns><see langword="true"/> when the profile has enough history behind it.</returns>
     public static bool HasEnoughHistory(Guid userId)
-        => ConsumptionAggregator.Load(userId).Count >= ColdStartThreshold;
+        => ConsumptionAggregator.Load(userId).Count >= MinWatched;
 
     // Capa 2: el consumo (ya agregado) se convierte en afinidades y queda guardado. El reparto por rol de
     // cada titulo se toma de la cache de caracteristicas, que es la que sabe quien dirigio, escribio y

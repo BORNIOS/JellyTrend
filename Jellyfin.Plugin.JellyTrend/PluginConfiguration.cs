@@ -76,4 +76,43 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Leave empty for global trending.
     /// </summary>
     public string TmdbRegion { get; set; } = "MX";
+
+    /// <summary>
+    /// Gets or sets the share of the trending list reserved for TV series, as a percentage of
+    /// <see cref="MaxItems"/>. Ignored while <see cref="EnableTrendingSeries"/> is false.
+    /// </summary>
+    public int TrendingSeriesShare { get; set; } = 50;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the recommendations channel is listed under Channels in
+    /// all clients. Independent from the home row, which is what Jellyfin asks the channel for its latest
+    /// media: with the channel hidden the row does not appear either.
+    /// </summary>
+    public bool EnableRecommendationChannel { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets how often the served slice of the recommendation pool rotates, in hours. 1 keeps the
+    /// previous behaviour (a different slice every hour); 0 always serves the best ranked titles first.
+    /// </summary>
+    public int RecommendationRotationHours { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets how many times the visible row is generated and stored. The extra titles are the
+    /// material the rotation uses once part of the row has been watched; more titles cost more time in
+    /// the weekly run.
+    /// </summary>
+    public int RecommendationPoolFactor { get; set; } = 2;
+
+    /// <summary>
+    /// Gets or sets the number of consumed titles below which a profile counts as cold and the row falls
+    /// back to what the rest of the server watches.
+    /// </summary>
+    public int ColdStartMinWatched { get; set; } = 10;
+
+    /// <summary>
+    /// Gets or sets an alternative folder for the JSON data files. Empty keeps them under
+    /// <c>{DataPath}/JellyTrend</c>, which is what survives a plugin update. Only an absolute path is
+    /// accepted; a relative one is ignored so the data never lands next to the process.
+    /// </summary>
+    public string JsonDataPath { get; set; } = string.Empty;
 }

@@ -118,7 +118,8 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
 
     /// <inheritdoc />
     public bool IsEnabledFor(string userId)
-        => Plugin.Instance?.Configuration.EnableRecommendationRow == true;
+        => Plugin.Instance?.Configuration.EnableRecommendationChannel == true
+            || Plugin.Instance?.Configuration.EnableRecommendationRow == true;
 
     /// <summary>
     /// Returns a per-user cache key so Jellyfin never mixes the recommendations of
@@ -134,7 +135,23 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
             userId = ResolveUserId(Guid.Empty).ToString("N", CultureInfo.InvariantCulture);
         }
 
-        return "u" + userId;
+        // Con rotacion activa la clave cambia de ventana, para que Jellyfin pida la lista otra vez en
+        // lugar de servir el tramo anterior. Sin rotacion se mantiene la clave de siempre y no se
+        // descarta ninguna cache.
+        var rotation = RotationWindow();
+        return rotation == 0
+            ? "u" + userId
+            : "u" + userId + "-r" + rotation.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Gets the rotation window in force, or 0 when the row must keep its ranking fixed.
+    /// </summary>
+    /// <returns>An integer that only changes when the configured window elapses.</returns>
+    private static int RotationWindow()
+    {
+        var hours = Plugin.Instance?.Configuration.RecommendationRotationHours ?? 1;
+        return hours <= 0 ? 0 : (int)(DateTimeOffset.UtcNow.Ticks / TimeSpan.FromHours(hours).Ticks);
     }
 
     /// <summary>
@@ -243,7 +260,12 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         // La fila muestra como mucho lo configurado; los ids guardados son un pool mayor a proposito,
         // para que lo ya visto se descarte sin dejar la fila corta.
         var max = Math.Max(1, Plugin.Instance?.Configuration.RecommendationMaxItems ?? 50);
-        var data = RecommendationStorage.Read(resolved) ?? RecommendationStorage.ReadAny();
+
+        // Solo la llamada sin usuario autenticado puede caer en "cualquier usuario": con identidad, sus
+        // recomendaciones son las suyas y, si no tiene, la fila va vacia en lugar de enseñar la lista de
+        // otro.
+        var data = RecommendationStorage.Read(resolved)
+            ?? (resolved == Guid.Empty ? RecommendationStorage.ReadAny() : null);
         if (data is null || data.ItemIds.Count == 0)
         {
             _logger.LogDebug("Sin recomendaciones para el usuario {UserId}.", resolved);
@@ -251,11 +273,11 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         }
 
         // Shuffle the stored ids so the home row shows a different selection on each refresh.
-        // Seed by (userId XOR current hour) so the order rotates every hour but stays stable
-        // for the duration of a session — clients that paginate within the same hour see a
-        // consistent list, while the next hour brings a fresh shuffle.
-        var hourSlot = (int)(DateTimeOffset.UtcNow.Ticks / TimeSpan.TicksPerHour);
-        var seed = resolved.GetHashCode() ^ hourSlot;
+        // Seed by (userId XOR rotation window) so the order rotates every configured window but stays
+        // stable inside it — clients that paginate see a consistent list. Con la rotacion desactivada la
+        // semilla es solo el usuario: el mismo orden, el mejor puntuado primero.
+        var rotation = RotationWindow();
+        var seed = rotation == 0 ? resolved.GetHashCode() : resolved.GetHashCode() ^ rotation;
         var shuffled = data.ItemIds.OrderBy(_ => unchecked((uint)(seed = (seed * 1664525) + 1013904223))).ToList();
 
         var result = new List<ChannelItemInfo>(shuffled.Count);

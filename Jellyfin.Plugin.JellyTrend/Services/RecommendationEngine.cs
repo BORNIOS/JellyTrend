@@ -98,7 +98,7 @@ internal static class RecommendationEngine
         // Capa 3: manda el perfil que la capa 2 ya guardo. El historial crudo solo decide cuando no hay
         // perfil guardado (primera corrida tras instalar, o almacen ilegible).
         var storeProfile = AffinityProfile.From(JellyTrendStore.ReadAffinities(user.Id));
-        if (storeProfile.Count > 0 && watched.Count >= TasteProfileService.ColdStartThreshold)
+        if (storeProfile.Count > 0 && watched.Count >= TasteProfileService.MinWatched)
         {
             return Report(user, maxItems, BuildFromStoreProfile(
                 source, user, watched, storeProfile, trendingItemIds, maxItems, topParentIds, features, nowUtc));

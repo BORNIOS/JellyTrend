@@ -156,6 +156,10 @@ public sealed class TrendingSyncTask : IScheduledTask
                 _logger.LogDebug("Match serie '{Name}' (TMDB {Id})", match.Name, tmdbId);
             }
 
+            // Reparto del cupo configurado: cuantas series caben en la lista. Se aplica antes de guardar
+            // y de materializar sombras, para que el canal nunca sirva mas de lo configurado.
+            matchedItems = ApplyQuota(matchedItems, config);
+
             progress.Report(70);
 
             var movieCount = matchedItems.Count(static item => item.MediaType == TrendingMediaType.Movie);
@@ -207,6 +211,42 @@ public sealed class TrendingSyncTask : IScheduledTask
             JellyTrendStore.CompleteRun(runId, "failed", 0, 0, (int)stopwatch.ElapsedMilliseconds, ex.Message);
             throw;
         }
+    }
+
+    // Reparte el cupo entre peliculas y series segun el porcentaje configurado. Si un tipo no llega a su
+    // parte (hay pocas series en tendencia), los huecos los ocupa el otro para no servir una lista corta; el
+    // orden de TMDB se conserva para que la fila no aparezca reordenada por tipo.
+    private static List<TrendingCacheEntry> ApplyQuota(List<TrendingCacheEntry> items, PluginConfiguration config)
+    {
+        var total = Math.Max(1, config.MaxItems);
+
+        if (!config.EnableTrendingSeries)
+        {
+            return [.. items.Where(static item => item.MediaType == TrendingMediaType.Movie).Take(total)];
+        }
+
+        var seriesQuota = (int)Math.Round(total * (Math.Clamp(config.TrendingSeriesShare, 0, 100) / 100d));
+        var movieQuota = total - seriesQuota;
+
+        var series = items.Where(static item => item.MediaType == TrendingMediaType.Series).ToList();
+        var movies = items.Where(static item => item.MediaType == TrendingMediaType.Movie).ToList();
+
+        var picked = new List<TrendingCacheEntry>(total);
+        picked.AddRange(series.Take(seriesQuota));
+        picked.AddRange(movies.Take(movieQuota));
+
+        if (picked.Count < total)
+        {
+            picked.AddRange(series.Skip(seriesQuota).Take(total - picked.Count));
+        }
+
+        if (picked.Count < total)
+        {
+            picked.AddRange(movies.Skip(movieQuota).Take(total - picked.Count));
+        }
+
+        var selected = picked.Select(static entry => entry.ItemId).ToHashSet();
+        return [.. items.Where(entry => selected.Contains(entry.ItemId))];
     }
 
     private async Task EnsureLocalImagesAsync(TrendingCacheEntry cacheEntry, CancellationToken cancellationToken)
