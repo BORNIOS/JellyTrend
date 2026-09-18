@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <title>JellyTrend</title>
+    <meta charset="utf-8" />
     <style>
         /* Lenguaje visual homologado con el panel del proveedor PostgreSQL: variables propias, tarjetas y
            pestanas en forma de pildora sobre un fondo con degradado. Todo va prefijado y con ambito para no
@@ -181,25 +182,46 @@
      class="page type-interior pluginConfigurationPage"
      data-require="emby-input,emby-button,emby-select,emby-checkbox">
 
-    <div data-role="content">
-        <div class="content-primary">
+    <!-- Copia corta de las reglas DENTRO del cuerpo. Jellyfin inyecta el cuerpo de la pagina en su propio
+         panel y el <style> declarado en el <head> no llega: por eso esta pagina se veia sin fondo, sin
+         tarjetas y con las pestanas planas. El proveedor PostgreSQL hace lo mismo, solo que reparte los
+         estilos en linea sobre cada objeto. Aqui se hace lo uno y lo otro. -->
+    <style>
+        #jellyTrendConfigPage .jt-card h2 { margin: 0 0 10px; font-size: 1.1rem; }
+        #jellyTrendConfigPage .jtIntro { color: #9ab0d4; margin: 0 0 16px; line-height: 1.55; }
+        #jellyTrendConfigPage .fieldDescription { color: #9ab0d4; }
+        #jellyTrendConfigPage .jtPanel[hidden] { display: none; }
+        #jellyTrendConfigPage .jtKV { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        #jellyTrendConfigPage .jtKV td { padding: 6px 10px; border-bottom: 1px solid rgba(124,146,196,.14); vertical-align: top; }
+        #jellyTrendConfigPage .jtKV td:first-child { color: #9ab0d4; white-space: nowrap; width: 1%; }
+        #jellyTrendConfigPage .jtTableWrap { max-height: 420px; overflow: auto; border: 1px solid rgba(124,146,196,.28); border-radius: 8px; background: rgba(9,14,28,.55); }
+        #jellyTrendConfigPage .jtTableWrap table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        #jellyTrendConfigPage .jtTableWrap th { position: sticky; top: 0; text-align: left; padding: 8px 10px; background: rgba(13,20,38,.94); border-bottom: 1px solid rgba(124,146,196,.28); color: #cfe0ff; font-weight: 600; white-space: nowrap; }
+        #jellyTrendConfigPage .jtTableWrap td { padding: 7px 10px; border-bottom: 1px solid rgba(124,146,196,.14); vertical-align: top; }
+        #jellyTrendConfigPage .jtTableWrap tbody tr:nth-child(even) { background: rgba(255,255,255,.02); }
+        #jellyTrendConfigPage .jt-tab-btn { cursor: pointer; }
+        #jellyTrendConfigPage :focus-visible { outline: 2px solid #74b6ff; outline-offset: 2px; }
+    </style>
 
-            <h1 class="jtTitle"><span data-jt="heading">JellyTrend</span></h1>
+    <div data-role="content">
+        <div class="content-primary" style="background:radial-gradient(1200px 500px at -15% -20%, rgba(82,132,255,.24), transparent 60%), radial-gradient(900px 420px at 110% 0%, rgba(104,194,255,.2), transparent 55%), linear-gradient(180deg,#111935,#0b1020); border:1px solid rgba(144,170,225,.22); border-radius:14px; padding:18px; color:#dbe7ff;">
+
+            <h1 class="jtTitle" style="margin:4px 0 6px; font-size:1.5rem; letter-spacing:.2px;"><span data-jt="heading">JellyTrend</span></h1>
             <p class="jtIntro" data-jt-html="true" data-jt="intro_html"></p>
 
-            <div id="jtBanner" class="jtBanner" style="display:none"></div>
+            <div id="jtBanner" class="jtBanner" style="display:none; padding:12px 16px; border-radius:8px; margin-bottom:18px; font-weight:500;"></div>
 
             <form id="jellyTrendConfigForm" onsubmit="return false;">
-                <nav class="jt-tabbar" role="tablist">
-                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="trending" aria-selected="true"><span data-jt="tabTrending"></span></button>
-                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="recommendations" aria-selected="false"><span data-jt="tabRecommendations"></span></button>
-                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="storage" aria-selected="false"><span data-jt="tabStorage"></span></button>
-                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="status" aria-selected="false"><span data-jt="tabStatus"></span></button>
+                <nav class="jt-tabbar" role="tablist" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; border-bottom:1px solid rgba(144,170,225,.25); padding-bottom:10px;">
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="trending" aria-selected="true" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#128200; <span data-jt="tabTrending"></span></button>
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="recommendations" aria-selected="false" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#10024; <span data-jt="tabRecommendations"></span></button>
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="storage" aria-selected="false" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#128190; <span data-jt="tabStorage"></span></button>
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="status" aria-selected="false" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#9881; <span data-jt="tabStatus"></span></button>
                 </nav>
 
                 <div class="jtPanel" data-jt-panel="trending">
 
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secTmdb"></h2>
 
                     <div class="inputContainer">
@@ -237,7 +259,7 @@
 
                     </div>
 
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secTrending"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -311,7 +333,7 @@
                 </div>
 
                 <div class="jtPanel" data-jt-panel="recommendations" hidden>
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secRecommendations"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -325,7 +347,7 @@
                     </div>
                     </div>
 
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secRecChannel"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -350,7 +372,7 @@
                     </div>
                     </div>
 
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secEngine"></h2>
 
                     <div class="inputContainer">
@@ -409,7 +431,7 @@
                 </div>
 
                 <div class="jtPanel" data-jt-panel="storage" hidden>
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secDataFolder"></h2>
 
                         <table class="jtKV"><tbody id="jtFolderInfo"></tbody></table>
@@ -427,7 +449,7 @@
 
                     </div>
 
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secStore"></h2>
 
                         <table class="jtKV"><tbody id="jtStoreInfo"></tbody></table>
@@ -447,9 +469,15 @@
                 <div id="jtSaveStatus" data-jt-savebar style="margin-top:.5em;min-height:1.2em;font-size:.9em;"></div>
 
                 <div class="jtPanel" data-jt-panel="status" hidden>
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                        <h2 class="jtCardTitle" data-jt="secState"></h2>
+                        <div id="jtStatusBox" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; color:#a0c4ff; font-size:14px; margin-bottom:16px; white-space:pre-line; line-height:1.6;">...</div>
+                        <table class="jtKV"><tbody id="jtStatusInfo"></tbody></table>
+                    </div>
+
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secActions"></h2>
-                        <div style="display:flex;flex-wrap:wrap;gap:.6em;margin-bottom:1em">
+                        <div style="display:flex;flex-wrap:wrap;gap:.6em;margin-bottom:12px">
                             <button id="jtRunNow" is="emby-button" type="button" class="raised emby-button">
                                 <span data-jt="btnRunSync"></span>
                             </button>
@@ -457,10 +485,10 @@
                                 <span data-jt="btnRunRecommendations"></span>
                             </button>
                         </div>
-                        <table class="jtKV"><tbody id="jtStatusInfo"></tbody></table>
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descActions_html"></div>
                     </div>
 
-                    <div class="jt-card">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secUserRecs"></h2>
 
                         <div class="inputContainer">
@@ -473,14 +501,14 @@
 
                         <table class="jtKV"><tbody id="jtUserProfile"></tbody></table>
 
-                        <div id="jtUserItems" class="jtTableWrap" style="display:none;margin-top:12px">
-                            <table>
+                        <div id="jtUserItems" class="jtTableWrap" style="display:none;margin-top:12px;max-height:420px;overflow:auto;border:1px solid rgba(124,146,196,.28);border-radius:8px;background:rgba(9,14,28,.55)">
+                            <table style="width:100%;border-collapse:collapse;font-size:.85rem">
                                 <thead>
                                     <tr>
-                                        <th data-jt="thTitle"></th>
-                                        <th data-jt="thYear"></th>
-                                        <th data-jt="thGenres"></th>
-                                        <th data-jt="thRating"></th>
+                                        <th data-jt="thTitle" style="position:sticky;top:0;text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                        <th data-jt="thYear" style="position:sticky;top:0;text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                        <th data-jt="thGenres" style="position:sticky;top:0;text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                        <th data-jt="thRating" style="position:sticky;top:0;text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="jtUserItemsBody"></tbody>
@@ -502,6 +530,15 @@
     var currentLang = 'en';
     var officialLabels = null;   // official Jellyfin UI strings from /Localization/{culture}
 
+    // Colores en linea, no solo en la hoja de estilos: Jellyfin inyecta el cuerpo de la pagina en su panel
+    // y el <style> declarado en el <head> se queda por el camino. Eso era exactamente lo que dejaba esta
+    // pagina sin fondo, sin tarjetas y con las pestanas planas al lado del panel del proveedor PostgreSQL.
+    var TAB_BASE = 'border-radius:999px; padding:8px 16px; font-weight:600; cursor:pointer; ';
+    var TAB_ACTIVE = 'border:1px solid rgba(140,190,255,.55); background:linear-gradient(135deg,#3a6dd8,#5a8ff0); color:#fff;';
+    var TAB_IDLE = 'border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff;';
+    var CELL_LABEL = 'padding:6px 10px; border-bottom:1px solid rgba(124,146,196,.14); vertical-align:top; color:#9ab0d4; white-space:nowrap;';
+    var CELL_VALUE = 'padding:6px 10px; border-bottom:1px solid rgba(124,146,196,.14); vertical-align:top;';
+
     var I18N = {
         en: {
             pageTitle: 'JellyTrend',
@@ -511,6 +548,8 @@
             secTrending: 'Trending',
             secRecommendations: 'Recommendations',
             secActions: 'Actions',
+            secState: 'Current state',
+            descActions_html: 'Both buttons run the matching scheduled task right now, without waiting for its schedule. They change no setting.',
             lblTmdbApiKey: 'TMDB API key',
             phTmdbApiKey: 'Paste your TMDB v3 API key',
             descTmdbApiKey_html: 'Required. Get a free key at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>.',
@@ -615,6 +654,8 @@
             secTrending: 'Trendings',
             secRecommendations: 'Recomendaciones',
             secActions: 'Acciones',
+            secState: 'Estado actual',
+            descActions_html: 'Los dos botones lanzan ahora la tarea programada correspondiente, sin esperar a su calendario. No cambian ningún ajuste.',
             lblTmdbApiKey: 'Clave API de TMDB',
             phTmdbApiKey: 'Pega aquí tu clave API v3 de TMDB',
             descTmdbApiKey_html: 'Obligatoria. Consigue una clave gratuita en <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>.',
@@ -971,6 +1012,9 @@
                 btn.classList.add('button-default');
             }
 
+            // El color va tambien en linea para que la pestana activa se vea azul con o sin hoja de estilos.
+            btn.style.cssText = TAB_BASE + (active ? TAB_ACTIVE : TAB_IDLE);
+
             btn.setAttribute('aria-selected', active ? 'true' : 'false');
         });
 
@@ -1178,6 +1222,19 @@
         })
             .then(function (r) { return r.json(); })
             .then(function (s) {
+                // Caja de resumen del panel, igual que la de "Estado actual" del proveedor PostgreSQL: lo que
+                // hay que leer de un vistazo, y el detalle queda en la tabla de abajo.
+                var box = q('jtStatusBox');
+                if (box) {
+                    box.textContent =
+                        '\u2713 ' + t('heading') + ' ' + (s.Version || '\u2014') +
+                        '\n' + t('kvStoreActive') + ': ' + (s.StoreActive ? escapeText(s.StoreBackend || '') : t('valNo')) +
+                        '\n' + t('kvDataFolder') + ': ' + escapeText(s.DataFolder || t('msgNoFolder')) +
+                        '\nTMDB: ' + escapeText(s.TmdbLanguage || '\u2014') + ' \u00b7 ' + escapeText(s.TmdbRegion || '\u2014') + ' \u00b7 ' + t('stTmdbKey') + ': ' + (s.TmdbKeyConfigured ? t('valYes') : t('valNo')) +
+                        '\n' + t('stCached') + ': ' + (s.CachedItemCount || 0) + ' \u00b7 ' + t('stLastSync') + ': ' + (s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever')) +
+                        '\n' + t('tabRecommendations') + ': ' + (s.RecommendationMaxItems || 0) + ' \u00b7 ' + t('lblRotation') + ': ' + (s.RecommendationRotationHours || 0) + ' h \u00b7 ' + t('lblPoolFactor') + ': x' + (s.RecommendationPoolFactor || 0) + ' \u00b7 ' + t('lblColdStart') + ': ' + (s.ColdStartMinWatched || 0);
+                }
+
                 var el = q('jtStatusInfo');
                 if (el) {
                     el.innerHTML =
@@ -1209,7 +1266,7 @@
     }
 
     function row(labelKey, value) {
-        return '<tr><td>' + t(labelKey) + '</td><td>' + value + '</td></tr>';
+        return '<tr><td style="' + CELL_LABEL + '">' + t(labelKey) + '</td><td style="' + CELL_VALUE + '">' + value + '</td></tr>';
     }
 
     // Lista de usuarios del servidor para el selector de la pestana Estado.
@@ -1291,6 +1348,7 @@
                     var tr = document.createElement('tr');
                     [item.Name || '', item.ProductionYear || '', item.Genres || '', item.CommunityRating === null || item.CommunityRating === undefined ? '' : item.CommunityRating].forEach(function (value) {
                         var td = document.createElement('td');
+                        td.style.cssText = CELL_VALUE;
                         td.textContent = value;
                         tr.appendChild(td);
                     });

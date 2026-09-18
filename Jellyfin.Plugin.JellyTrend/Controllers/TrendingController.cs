@@ -185,6 +185,8 @@ public sealed class TrendingController : ControllerBase
         {
             Version = Plugin.Instance?.Version?.ToString(),
             TmdbKeyConfigured = !string.IsNullOrWhiteSpace(cfg?.TmdbApiKey),
+            TmdbLanguage = cfg?.TmdbLanguage,
+            TmdbRegion = cfg?.TmdbRegion,
             EnableBannerMode = cfg?.EnableBannerMode,
             EnableTrendingSeries = cfg?.EnableTrendingSeries,
             TrendingSeriesShare = cfg?.TrendingSeriesShare,
@@ -333,7 +335,12 @@ public sealed class TrendingController : ControllerBase
         var idText = User.FindFirstValue("Jellyfin-UserId")
             ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        if (string.IsNullOrEmpty(idText) || !Guid.TryParse(idText, out var userId))
+        // Guid.TryParse acepta la cadena de ceros, asi que el vacio hay que descartarlo aqui: una clave de
+        // servidor llega con la reclamacion presente pero sin usuario, y UserManager.GetUserById lanza
+        // "Guid can't be empty" en vez de devolver null. Sin esta guarda el endpoint respondia 500.
+        if (string.IsNullOrWhiteSpace(idText)
+            || !Guid.TryParse(idText, out var userId)
+            || userId == Guid.Empty)
         {
             return null;
         }
