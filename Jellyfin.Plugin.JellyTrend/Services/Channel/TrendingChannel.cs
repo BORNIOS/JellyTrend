@@ -308,23 +308,5 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
     private ChannelItemInfo BuildMovieChannelItem(BaseItem item, TrendingCacheEntry cacheItem)
         => ChannelItemFactory.BuildMovieItem(_libraryManager, _appHost, item, cacheItem.TmdbPosterPath, cacheItem.TmdbBackdropPath);
 
-    private static TrendingCache? ReadCache()
-    {
-        var path = JellyTrendStorage.TrendingFile;
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
-        try
-        {
-            var cache = JsonSerializer.Deserialize<TrendingCache>(File.ReadAllText(path));
-            cache?.Normalize();
-            return cache;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static TrendingCache? ReadCache() => JellyTrendStore.ReadTrendingCache();
 }

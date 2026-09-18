@@ -11,6 +11,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend.Controllers.Models;
 using Jellyfin.Plugin.JellyTrend.Services;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 using Jellyfin.Plugin.JellyTrend.Services.Sync;
 using Jellyfin.Plugin.JellyTrend.Tasks;
 using MediaBrowser.Controller.Entities;
@@ -243,26 +244,8 @@ public sealed class TrendingController : ControllerBase
         return File(stream, contentType);
     }
 
-    private static async Task<TrendingCache?> ReadCacheAsync()
-    {
-        var dataPath = JellyTrendStorage.TrendingFile;
-        if (!System.IO.File.Exists(dataPath))
-        {
-            return null;
-        }
-
-        try
-        {
-            var json = await System.IO.File.ReadAllTextAsync(dataPath).ConfigureAwait(false);
-            var cache = JsonSerializer.Deserialize<TrendingCache>(json);
-            cache?.Normalize();
-            return cache;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static Task<TrendingCache?> ReadCacheAsync()
+        => Task.FromResult(JellyTrendStore.ReadTrendingCache());
 
     private static string? ResolveImageUrl(
         BaseItem item,

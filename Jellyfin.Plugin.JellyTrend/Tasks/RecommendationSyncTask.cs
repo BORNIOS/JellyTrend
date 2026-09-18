@@ -13,6 +13,7 @@ using Jellyfin.Plugin.JellyTrend.Services;
 using Jellyfin.Plugin.JellyTrend.Services.Backend;
 using Jellyfin.Plugin.JellyTrend.Services.Models;
 using Jellyfin.Plugin.JellyTrend.Services.Recommendation;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 using Jellyfin.Plugin.JellyTrend.Services.Sync;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Tasks;
@@ -192,22 +193,5 @@ public sealed class RecommendationSyncTask : IScheduledTask
     }
 
     private static HashSet<Guid> LoadTrendingItemIds()
-    {
-        var path = JellyTrendStorage.TrendingFile;
-        if (!File.Exists(path))
-        {
-            return new HashSet<Guid>();
-        }
-
-        try
-        {
-            var cache = JsonSerializer.Deserialize<TrendingCache>(File.ReadAllText(path));
-            cache?.Normalize();
-            return cache?.Items.Select(static x => x.ItemId).ToHashSet() ?? new HashSet<Guid>();
-        }
-        catch
-        {
-            return new HashSet<Guid>();
-        }
-    }
+        => JellyTrendStore.ReadTrendingCache()?.Items.Select(static entry => entry.ItemId).ToHashSet() ?? [];
 }

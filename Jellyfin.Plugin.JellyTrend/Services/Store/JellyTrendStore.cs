@@ -173,11 +173,13 @@ public static class JellyTrendStore
 
         if (Active)
         {
+            // Con el almacen externo el archivo sobra: los canales leen por ReadTrendingCache, que
+            // consulta la base primero. Se retira la copia heredada para no dejar dos verdades.
             WriteTrending(cache);
+            DeleteTrendingFile();
+            return;
         }
 
-        // El archivo se mantiene como copia local: los canales lo leen al servir y su marca de tiempo
-        // alimenta la version de datos, asi que tener los datos en la base no deja a nadie sin contenido.
         var path = JellyTrendStorage.TrendingFile;
         if (path.Length == 0)
         {
@@ -366,6 +368,28 @@ public static class JellyTrendStore
             },
             false,
             "cerrar la corrida");
+    }
+
+    private static void DeleteTrendingFile()
+    {
+        var path = JellyTrendStorage.TrendingFile;
+        if (path.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                JellyTrendLog.Info("[Almacen] Copia JSON de tendencias retirada: los datos viven en la base.");
+            }
+        }
+        catch (Exception ex)
+        {
+            JellyTrendLog.Warn($"[Almacen] No se pudo retirar la copia JSON de tendencias: {ex.Message}");
+        }
     }
 
     private static T Guard<T>(Func<IJellyTrendStoreProvider, T> action, T fallback, string operation)

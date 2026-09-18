@@ -13,6 +13,7 @@ using Jellyfin.Plugin.JellyTrend.Controllers;
 using Jellyfin.Plugin.JellyTrend.Services;
 using Jellyfin.Plugin.JellyTrend.Services.Channel;
 using Jellyfin.Plugin.JellyTrend.Services.Models;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 using Jellyfin.Plugin.JellyTrend.Tasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Events;
@@ -380,28 +381,5 @@ public sealed class TrendingLibraryLinkService
         return cache is not null && cache.Items.Any(cacheItem => cacheItem.ItemId == item.Id);
     }
 
-    private static TrendingCache? ReadTrendingCache()
-    {
-        if (Plugin.Instance is null)
-        {
-            return null;
-        }
-
-        var path = JellyTrendStorage.TrendingFile;
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
-        try
-        {
-            var cache = JsonSerializer.Deserialize<TrendingCache>(File.ReadAllText(path));
-            cache?.Normalize();
-            return cache;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static TrendingCache? ReadTrendingCache() => JellyTrendStore.ReadTrendingCache();
 }
