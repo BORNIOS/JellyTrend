@@ -230,6 +230,10 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         // recommendations only when there is no authenticated context.
         var resolved = ResolveUserId(userId);
         var viewer = resolved == Guid.Empty ? null : SafeGetUser(resolved);
+
+        // La fila muestra como mucho lo configurado; los ids guardados son un pool mayor a proposito,
+        // para que lo ya visto se descarte sin dejar la fila corta.
+        var max = Math.Max(1, Plugin.Instance?.Configuration.RecommendationMaxItems ?? 50);
         var data = RecommendationStorage.Read(resolved) ?? RecommendationStorage.ReadAny();
         if (data is null || data.ItemIds.Count == 0)
         {
@@ -269,6 +273,11 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
             // se resuelve por el callback GetChannelItemMediaInfo y las imágenes/metadatos
             // locales las copia TrendingShadowMetadataSync (mismo tratamiento que trending).
             result.Add(ChannelItemFactory.BuildMovieItem(_libraryManager, _appHost, item, null, null));
+
+            if (result.Count >= max)
+            {
+                break;
+            }
         }
 
         _logger.LogDebug("Leídos {Total} ids, devueltos {Count} para el usuario {UserId}.", data.ItemIds.Count, result.Count, resolved);

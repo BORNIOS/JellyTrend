@@ -87,7 +87,7 @@ public sealed class RecommendationSyncTask : IScheduledTask
 
         // La cache de caracteristicas por item se guarda en disco al terminar, de modo que un reinicio
         // del servidor no obligue a releer personas y facetas de toda la biblioteca.
-        var features = FeatureStore.Open(Plugin.Instance?.PluginFolder);
+        var features = FeatureStore.Open(JellyTrendStorage.Folder);
 
         try
         {
@@ -100,9 +100,14 @@ public sealed class RecommendationSyncTask : IScheduledTask
             var providerState = _backend.CreateRunState();
             _logger.LogDebug("[Recomendaciones] Backend: {Backend}.", _backend.Recommendation);
 
+            // Se genera un pool mayor que la fila visible: los ids ya vistos se descartan al servir y
+            // asi la fila sigue llena en lugar de quedarse corta hasta la proxima corrida semanal.
+            var poolSize = Math.Max(1, config.RecommendationMaxItems) * 2;
+
             var allRecommendedIds = new List<Guid>();
             var generated = 0;
             var failed = 0;
+
             for (var i = 0; i < users.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -115,7 +120,7 @@ public sealed class RecommendationSyncTask : IScheduledTask
                         _userDataManager,
                         user,
                         trendingItemIds,
-                        config.RecommendationMaxItems,
+                        poolSize,
                         _logger,
                         features,
                         providerState);
@@ -188,7 +193,7 @@ public sealed class RecommendationSyncTask : IScheduledTask
 
     private static HashSet<Guid> LoadTrendingItemIds()
     {
-        var path = Path.Combine(Plugin.Instance!.PluginFolder, "trending.json");
+        var path = JellyTrendStorage.TrendingFile;
         if (!File.Exists(path))
         {
             return new HashSet<Guid>();
