@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Jellyfin.Plugin.JellyTrend.Logging;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 
 namespace Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 
@@ -92,7 +93,30 @@ internal sealed class FeatureStore
     /// </summary>
     public void Flush()
     {
-        if (!_dirty || _path is null)
+        if (!_dirty)
+        {
+            return;
+        }
+
+        var cached = _features.ToDictionary(
+            static pair => pair.Key,
+            static pair => ToCached(pair.Value));
+
+        // Con almacen externo la cache vive en la base de datos y el archivo sobra: solo queda como
+        // respaldo de un servidor sin proveedor. La huella de cada item es su propio documento, para
+        // que el almacen pueda saltarse mas adelante lo que no ha cambiado.
+        if (JellyTrendStore.Active)
+        {
+            var facets = cached.ToDictionary(
+                static pair => pair.Key,
+                static pair => JsonSerializer.Serialize(pair.Value, SerializerOptions));
+
+            JellyTrendStore.WriteItemFeatures(facets, facets);
+            _dirty = false;
+            return;
+        }
+
+        if (_path is null)
         {
             return;
         }
@@ -102,17 +126,9 @@ internal sealed class FeatureStore
             var payload = new CacheFile
             {
                 Version = CurrentVersion,
-                Items = _features.ToDictionary(
+                Items = cached.ToDictionary(
                     static pair => pair.Key.ToString("N"),
-                    static pair => (CachedItem?)new CachedItem
-                    {
-                        Genres = [.. pair.Value.Genres],
-                        Tags = [.. pair.Value.Tags],
-                        Studios = [.. pair.Value.Studios],
-                        People = [.. pair.Value.People.Select(static person => person.ToString("N"))],
-                        CommunityRating = pair.Value.CommunityRating,
-                        PremiereDate = pair.Value.PremiereDate
-                    })
+                    static pair => (CachedItem?)pair.Value)
             };
 
             var temporary = _path + ".tmp";
@@ -130,6 +146,21 @@ internal sealed class FeatureStore
     private static Dictionary<Guid, ItemFeatures> Load(string path)
     {
         var features = new Dictionary<Guid, ItemFeatures>();
+
+        // Con almacen externo la cache se lee de la base: el archivo solo se mira sin proveedor.
+        if (JellyTrendStore.Active)
+        {
+            foreach (var pair in JellyTrendStore.ReadItemFeatures())
+            {
+                var stored = Deserialize(pair.Value);
+                if (stored is not null)
+                {
+                    features[pair.Key] = stored;
+                }
+            }
+
+            return features;
+        }
 
         try
         {
@@ -167,6 +198,52 @@ internal sealed class FeatureStore
 
         return features;
     }
+
+    /// <summary>
+    /// Reads one cached item document coming from the database store.
+    /// </summary>
+    /// <param name="json">Document holding the facets of a single item.</param>
+    /// <returns>The features, or null when the document cannot be read.</returns>
+    private static ItemFeatures? Deserialize(string json)
+    {
+        try
+        {
+            var cached = JsonSerializer.Deserialize<CachedItem>(json, SerializerOptions);
+            if (cached is null)
+            {
+                return null;
+            }
+
+            return new ItemFeatures(
+                cached.Genres ?? [],
+                cached.Tags ?? [],
+                cached.Studios ?? [],
+                [.. (cached.People ?? []).Select(static person => Guid.TryParseExact(person, "N", out var personId) ? personId : Guid.Empty).Where(static personId => personId != Guid.Empty)],
+                cached.CommunityRating,
+                cached.PremiereDate);
+        }
+        catch (JsonException ex)
+        {
+            JellyTrendLog.Warn($"[Almacen] Caracteristicas ilegibles en el almacen externo: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Builds the serializable shape of one item's facets.
+    /// </summary>
+    /// <param name="features">Features to convert.</param>
+    /// <returns>The serializable document.</returns>
+    private static CachedItem ToCached(ItemFeatures features)
+        => new()
+        {
+            Genres = [.. features.Genres],
+            Tags = [.. features.Tags],
+            Studios = [.. features.Studios],
+            People = [.. features.People.Select(static person => person.ToString("N"))],
+            CommunityRating = features.CommunityRating,
+            PremiereDate = features.PremiereDate
+        };
 
     private sealed class CacheFile
     {
