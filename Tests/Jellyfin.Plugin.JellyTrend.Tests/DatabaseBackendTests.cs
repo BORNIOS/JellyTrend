@@ -130,6 +130,20 @@ public class DatabaseBackendTests
         Assert.Contains("sin comprobar (la biblioteca no tiene peliculas sin ver)", backend.Summary, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UnRegistroIncompatibleEnElContenedorNoRompeLaDeteccion()
+    {
+        // Caso real: el plugin de PostgreSQL registra su copia del contrato contra nuestro tipo, asi que
+        // resolverlo lanza InvalidCastException. Eso no debe tumbar el arranque ni la busqueda.
+        var backend = new DatabaseBackend();
+
+        var error = Record.Exception(() => backend.Detect(new ThrowingServices(), NullLoggerFactory.Instance));
+
+        Assert.Null(error);
+        Assert.False(backend.IndexUsable);
+        Assert.Contains("no se pudo cargar", backend.Summary, StringComparison.Ordinal);
+    }
+
     private static void Probe(DatabaseBackend backend, IRecommendationQueryProvider provider, bool hasUnwatchedMovies)
     {
         var users = DispatchProxy.Create<IUserManager, Users>();
@@ -200,6 +214,18 @@ public class DatabaseBackendTests
             => Enumerable.Range(0, Math.Min(_count, limit))
                 .Select(index => new RecommendationItem(Guid.NewGuid(), null, [], [], [], null, null))
                 .ToList();
+    }
+
+    /// <summary>Contenedor vacío: reproduce un Jellyfin donde nadie registró nada.</summary>
+    private sealed class NoServices : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => null;
+    }
+
+    /// <summary>Contenedor que falla al resolver, como cuando el otro plugin registró algo incompatible.</summary>
+    private sealed class ThrowingServices : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => throw new InvalidOperationException("registro incompatible");
     }
 
     /// <summary>Usuarios falsos: la comprobación necesita uno con el que preguntar.</summary>

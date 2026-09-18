@@ -7,8 +7,8 @@
 
 | Métrica | Valor |
 |---|---|
-| Total | 48 |
-| Correctas | 48 |
+| Total | 53 |
+| Correctas | 53 |
 | Fallidas | 0 |
 | Omitidas | 0 |
 | Estado | OK |
@@ -18,7 +18,8 @@
 | Clase | Total | Correctas | Fallidas |
 |---|---|---|---|
 | ConfigurationTests | 3 | 3 | 0 |
-| DatabaseBackendTests | 8 | 8 | 0 |
+| ContractFingerprintTests | 4 | 4 | 0 |
+| DatabaseBackendTests | 9 | 9 | 0 |
 | ForeignProviderDiscoveryTests | 3 | 3 | 0 |
 | LibraryIndexResolverTests | 4 | 4 | 0 |
 | LoggingTests | 4 | 4 | 0 |
