@@ -126,11 +126,10 @@ internal sealed class DatabaseBackendStartupService : IHostedService
 
         _backend.RejectRecommendations("devolvio 0 candidatos aunque la biblioteca tiene peliculas sin ver");
 
-        // Caso real de la linea 10.11: la base guarda el nombre del tipo CLR en BaseItems."Type", asi que
-        // una consulta que filtra por Type = 'Movie' no devuelve ninguna fila. Se dice aqui, con el aviso,
-        // para que el sintoma no vuelva a parecer un problema del motor de recomendaciones.
+        // El proveedor atrapa sus propios errores y devuelve vacio, asi que aqui no se puede saber la causa:
+        // se dice lo medido y donde mirar, sin inventar el motivo.
         _logger.LogWarning(
-            "[JellyTrend] El proveedor de base de datos esta instalado pero no ve las peliculas de la biblioteca; se usara ILibraryManager. Revise en el plugin de base de datos los filtros por tipo de item (BaseItems.\"Type\" guarda el nombre del tipo CLR, no 'Movie').");
+            "[JellyTrend] El proveedor de base de datos esta instalado pero no devolvio candidatos; se usara ILibraryManager. El motivo concreto queda en el log del propio proveedor.");
     }
 
     private void ProbeIndex()

@@ -108,7 +108,7 @@ public sealed class DatabaseBackend
             return registered;
         }
 
-        var found = ForeignProviderDiscovery.Find<TProvider>(loggerFactory, out var search);
+        var found = ForeignProviderDiscovery.Find<TProvider>(services, loggerFactory, out var search);
         detail = found is null
             ? $"no disponible: {containerError ?? search}"
             : $"{search}; comprobando";
