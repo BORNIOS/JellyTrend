@@ -72,6 +72,15 @@ public static class TrendingShadowMetadataSync
 
                 await SyncLibraryItemAsync(libraryManager, channelFolderIds, library, cancellationToken).ConfigureAwait(false);
             }
+            catch (Exception ex) when (string.Equals(ex.GetType().Name, "DbUpdateConcurrencyException", StringComparison.Ordinal))
+            {
+                // El sombra desaparecio entre que se cargo y se guardo (el canal los borra y los vuelve a
+                // crear): es una carrera esperable, no un fallo. Se omite sin ruido.
+                logger.LogDebug(
+                    "JellyTrend: el sombra {ItemId} ya no existe; se omite su sincronizacion ({Message}).",
+                    entry.ItemId,
+                    ex.Message);
+            }
             catch (Exception ex)
             {
                 // Una linea, con el motivo. La traza completa queda en Debug para no inundar el log.
@@ -121,6 +130,15 @@ public static class TrendingShadowMetadataSync
                 }
 
                 await SyncLibraryItemAsync(libraryManager, channelFolderIds, library, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (string.Equals(ex.GetType().Name, "DbUpdateConcurrencyException", StringComparison.Ordinal))
+            {
+                // El sombra desaparecio entre que se cargo y se guardo (el canal los borra y los vuelve a
+                // crear): es una carrera esperable, no un fallo. Se omite sin ruido.
+                logger.LogDebug(
+                    "JellyTrend: el sombra {ItemId} ya no existe; se omite su sincronizacion ({Message}).",
+                    id,
+                    ex.Message);
             }
             catch (Exception ex)
             {
