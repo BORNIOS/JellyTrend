@@ -190,9 +190,9 @@ internal sealed class CandidateSource
 
         JellyTrendLog.Info(string.Format(
             CultureInfo.InvariantCulture,
-            "[Recomendaciones] fuente={0} | alcance={1} bibliotecas | candidatos: dentro del alcance={2}, tras facetas={3}, materializados={4} (generos={5}, tags={6}, personas={7})",
+            "[Recomendaciones] fuente={0} | alcance={1} | candidatos: dentro del alcance={2}, tras facetas={3}, materializados={4} (generos={5}, tags={6}, personas={7})",
             Description,
-            topParentIds.Count,
+            DescribeScope(topParentIds),
             scoped,
             ids.Count,
             candidates.Count,
@@ -201,6 +201,25 @@ internal sealed class CandidateSource
             people.Count));
 
         return candidates;
+    }
+
+    /// <summary>
+    /// Describe el alcance por sus nombres, no solo por el numero de ids.
+    /// </summary>
+    /// <param name="topParentIds">Ids usados como alcance.</param>
+    /// <returns>Numero de ids y los nombres que se han podido resolver.</returns>
+    private string DescribeScope(IReadOnlyList<Guid> topParentIds)
+    {
+        var names = topParentIds
+            .Select(id => _libraryManager.GetItemById(id)?.Name)
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .Distinct()
+            .Take(4)
+            .ToList();
+
+        return names.Count == 0
+            ? $"{topParentIds.Count} ids"
+            : $"{topParentIds.Count} ids: {string.Join(", ", names)}";
     }
 
     private bool TryCollectFromProvider(

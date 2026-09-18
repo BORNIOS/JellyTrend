@@ -7,8 +7,8 @@
 
 | Métrica | Valor |
 |---|---|
-| Total | 53 |
-| Correctas | 53 |
+| Total | 57 |
+| Correctas | 57 |
 | Fallidas | 0 |
 | Omitidas | 0 |
 | Estado | OK |
@@ -22,6 +22,7 @@
 | DatabaseBackendTests | 9 | 9 | 0 |
 | ForeignProviderDiscoveryTests | 3 | 3 | 0 |
 | LibraryIndexResolverTests | 4 | 4 | 0 |
+| LibraryScopeTests | 4 | 4 | 0 |
 | LoggingTests | 4 | 4 | 0 |
 | PluginMetadataTests | 5 | 5 | 0 |
 | RecommendationLibrarySnapshotTests | 1 | 1 | 0 |

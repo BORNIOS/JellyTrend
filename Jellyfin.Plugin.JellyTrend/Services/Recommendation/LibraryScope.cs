@@ -6,6 +6,8 @@ using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 
+using ChannelItem = MediaBrowser.Controller.Channels.Channel;
+
 namespace Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 
 /// <summary>
@@ -50,8 +52,30 @@ internal static class LibraryScope
         return libraryIds.Distinct().ToList();
     }
 
+    /// <summary>
+    /// Indica si un elemento del arbol del usuario aporta bibliotecas al alcance.
+    /// </summary>
+    /// <param name="item">Elemento visto bajo la raiz del usuario.</param>
+    /// <returns><see langword="true"/> cuando es una biblioteca o una vista que las agrupa.</returns>
+    /// <remarks>
+    /// Los canales cuelgan del usuario como si fueran vistas y derivan de <c>Folder</c>, asi que la recursion
+    /// los tomaria por bibliotecas: eso infla el alcance y, peor, mete en la consulta los items sombra del
+    /// propio plugin, que no estan marcados como virtuales y podrian aparecer en la fila.
+    /// </remarks>
+    internal static bool IsLibrary(BaseItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return item is not ChannelItem && item.ChannelId == Guid.Empty;
+    }
+
     private static void AddLibraryIds(BaseItem item, User user, List<Guid> libraryIds)
     {
+        if (!IsLibrary(item))
+        {
+            return;
+        }
+
         if (item is CollectionFolder collectionFolder)
         {
             libraryIds.Add(collectionFolder.Id);
@@ -59,13 +83,9 @@ internal static class LibraryScope
             return;
         }
 
-        if (item is ICollectionFolder)
-        {
-            libraryIds.Add(item.Id);
-            return;
-        }
-
-        // Vista agrupada o nombrada: las bibliotecas reales cuelgan de ella.
+        // Vistas que agrupan o acompanan a las bibliotecas: "Playlists" o "TV en vivo" tambien son vistas
+        // navegables, pero no son bibliotecas de contenido, asi que no aportan ids por si mismas. Se sigue
+        // bajando por ellas porque las agrupadas contienen las bibliotecas reales.
         if (item is not Folder folder)
         {
             return;
