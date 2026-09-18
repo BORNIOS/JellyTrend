@@ -382,13 +382,12 @@ public sealed class TrendingLibraryLinkService
 
     private static TrendingCache? ReadTrendingCache()
     {
-        var inst = Plugin.Instance;
-        if (inst is null)
+        if (Plugin.Instance is null)
         {
             return null;
         }
 
-        var path = Path.Combine(inst.PluginFolder, "trending.json");
+        var path = JellyTrendStorage.TrendingFile;
         if (!File.Exists(path))
         {
             return null;

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Jellyfin.Database.Implementations.Entities;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 using Jellyfin.Plugin.JellyTrend.Services.Sync;
 using Jellyfin.Plugin.JellyTrend.Tasks;
 using MediaBrowser.Controller;
@@ -100,10 +101,12 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
     {
         get
         {
-            var path = Path.Combine(Plugin.Instance!.PluginFolder, "trending.json");
-            var dataTicks = File.Exists(path)
-                ? File.GetLastWriteTimeUtc(path).Ticks.ToString(CultureInfo.InvariantCulture)
-                : "1";
+            // Con el almacen en base de datos no hay archivo que mirar: el sello en memoria marca el cambio.
+            var dataTicks = JellyTrendStore.Active
+                ? JellyTrendStore.DataStamp
+                : File.Exists(JellyTrendStorage.TrendingFile)
+                    ? File.GetLastWriteTimeUtc(JellyTrendStorage.TrendingFile).Ticks.ToString(CultureInfo.InvariantCulture)
+                    : "1";
 
             var configPath = Plugin.Instance?.ConfigurationFilePath;
             var configTicks = !string.IsNullOrEmpty(configPath) && File.Exists(configPath)
@@ -278,9 +281,9 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
                 continue;
             }
 
-            // Hide already-watched movies. In-progress titles stay visible so the
-            // user can resume them. Series are never filtered (episode-level tracking
-            // is too granular for a series-root item).
+            // Hide what the user has already seen: finished or started. Leaving in-progress titles in the
+            // row is redundant for someone who already began them, and the row is not a resume queue.
+            // Series are never filtered (episode-level tracking is too granular for a series-root item).
             if (viewer is not null && IsMovieWatched(viewer, item))
             {
                 continue;
@@ -296,7 +299,7 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
     private bool IsMovieWatched(User viewer, BaseItem item)
     {
         var ud = _userDataManager.GetUserData(viewer, item);
-        return ud is not null && ud.Played;
+        return ud is not null && (ud.Played || ud.PlaybackPositionTicks > 0);
     }
 
     private ChannelItemInfo? BuildSeriesChannelItem(BaseItem item, TrendingCacheEntry cacheItem)
@@ -307,7 +310,7 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
 
     private static TrendingCache? ReadCache()
     {
-        var path = Path.Combine(Plugin.Instance!.PluginFolder, "trending.json");
+        var path = JellyTrendStorage.TrendingFile;
         if (!File.Exists(path))
         {
             return null;

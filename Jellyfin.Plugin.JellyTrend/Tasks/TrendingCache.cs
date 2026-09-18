@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 namespace Jellyfin.Plugin.JellyTrend.Tasks;
 
 /// <summary>
-/// Persisted to {DataFolderPath}/trending.json between sync runs.
+/// Persisted to the plugin data folder ({DataPath}/JellyTrend/trending.json) between sync runs.
 /// The API controller reads this file instead of re-querying the library on every request.
 /// </summary>
 public sealed class TrendingCache

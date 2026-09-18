@@ -9,8 +9,10 @@ using System.Threading.Tasks;
 
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.JellyTrend.Logging;
+using Jellyfin.Plugin.JellyTrend.Services;
 using Jellyfin.Plugin.JellyTrend.Services.Backend;
 using Jellyfin.Plugin.JellyTrend.Services.ExternalApi;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 using Jellyfin.Plugin.JellyTrend.Services.Sync;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
@@ -27,8 +29,6 @@ public sealed class TrendingSyncTask : IScheduledTask
 {
     private static readonly Uri TmdbBackdropBaseUrl = BuildTmdbImageBaseUri("original");
     private static readonly Uri TmdbPosterBaseUrl = BuildTmdbImageBaseUri("w780");
-
-    private static readonly JsonSerializerOptions CacheJsonOptions = new() { WriteIndented = true };
 
     private readonly ILibraryManager _libraryManager;
     private readonly IProviderManager _providerManager;
@@ -161,11 +161,7 @@ public sealed class TrendingSyncTask : IScheduledTask
 
             // ── 4. Guardar caché JSON ───────────────────────────────────────────
             var cache = new TrendingCache { Items = matchedItems, LastUpdated = DateTime.UtcNow };
-            var dataPath = Path.Combine(Plugin.Instance.PluginFolder, "trending.json");
-            await File.WriteAllTextAsync(
-                dataPath,
-                JsonSerializer.Serialize(cache, CacheJsonOptions),
-                cancellationToken).ConfigureAwait(false);
+            JellyTrendStore.WriteTrendingCache(cache);
 
             await TrendingShadowMetadataSync
                 .SyncAllAsync(_libraryManager, matchedItems, _logger, cancellationToken)

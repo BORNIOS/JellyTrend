@@ -5,11 +5,12 @@ using System.Linq;
 using System.Text.Json;
 
 using Jellyfin.Plugin.JellyTrend.Services.Models;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 
 namespace Jellyfin.Plugin.JellyTrend.Services;
 
 /// <summary>
-/// Reads and writes per-user recommendation files under {PluginFolder}/recommendations/.
+/// Reads and writes per-user recommendation files under {DataPath}/JellyTrend/recommendations/.
 /// Each user gets their own file (userId as the filename) so the channel can read exactly
 /// what to recommend for the requesting user without parsing unrelated data.
 /// </summary>
@@ -18,7 +19,7 @@ public static class RecommendationStorage
     private static readonly JsonSerializerOptions CacheJsonOptions = new() { WriteIndented = true };
 
     private static string Folder
-        => Path.Combine(Plugin.Instance!.PluginFolder, "recommendations");
+        => JellyTrendStorage.RecommendationsFolder;
 
     private static string GetUserFilePath(Guid userId)
         => Path.Combine(Folder, userId.ToString("D") + ".json");
@@ -30,6 +31,14 @@ public static class RecommendationStorage
     /// <returns>The stored recommendations, or <c>null</c> when none exist for that user.</returns>
     public static UserRecommendations? Read(Guid userId)
     {
+        if (JellyTrendStore.Active)
+        {
+            var stored = JellyTrendStore.ReadRecommendations(userId);
+            return stored.Length == 0
+                ? null
+                : new UserRecommendations { ItemIds = [.. stored], UpdatedAt = DateTime.UtcNow };
+        }
+
         var path = GetUserFilePath(userId);
         if (!File.Exists(path))
         {
@@ -56,6 +65,12 @@ public static class RecommendationStorage
     /// <returns>The stored recommendations, or <c>null</c> when no recommendation file exists.</returns>
     public static UserRecommendations? ReadAny()
     {
+        if (JellyTrendStore.Active)
+        {
+            var users = JellyTrendStore.ReadUsersWithRecommendations();
+            return users.Length == 0 ? null : Read(users[0]);
+        }
+
         var folder = Folder;
         if (!Directory.Exists(folder))
         {
@@ -87,6 +102,14 @@ public static class RecommendationStorage
     /// <param name="data">The recommendations to persist.</param>
     public static void Write(Guid userId, UserRecommendations data)
     {
+        ArgumentNullException.ThrowIfNull(data);
+
+        if (JellyTrendStore.Active)
+        {
+            JellyTrendStore.WriteRecommendations(userId, data.ItemIds);
+            return;
+        }
+
         Directory.CreateDirectory(Folder);
         File.WriteAllText(GetUserFilePath(userId), JsonSerializer.Serialize(data, CacheJsonOptions));
     }
@@ -98,6 +121,12 @@ public static class RecommendationStorage
     /// <returns>The newest file modification time (UTC), or <see cref="DateTime.MinValue"/> when empty.</returns>
     public static DateTime GetLastModifiedUtc()
     {
+        if (JellyTrendStore.Active)
+        {
+            // Con el almacen en base de datos no hay archivos que mirar: el sello de datos manda.
+            return DateTime.MinValue;
+        }
+
         var folder = Folder;
         if (!Directory.Exists(folder))
         {
@@ -115,6 +144,20 @@ public static class RecommendationStorage
     /// <returns>The unique recommended item ids.</returns>
     public static IReadOnlyList<Guid> ReadAllItemIds()
     {
+        if (JellyTrendStore.Active)
+        {
+            var stored = new HashSet<Guid>();
+            foreach (var user in JellyTrendStore.ReadUsersWithRecommendations())
+            {
+                foreach (var id in JellyTrendStore.ReadRecommendations(user))
+                {
+                    stored.Add(id);
+                }
+            }
+
+            return [.. stored];
+        }
+
         var folder = Folder;
         if (!Directory.Exists(folder))
         {

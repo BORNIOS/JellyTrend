@@ -32,12 +32,19 @@ public sealed class DatabaseBackend
     private string _recommendationLabel = NoProviderLabel;
     private string _recommendationState = string.Empty;
     private string _indexLabel = "indice de biblioteca";
+    private string _storeLabel = "archivos JSON";
 
     /// <summary>Gets the recommendation backend offered by another plugin, when it is installed.</summary>
     public IRecommendationQueryProvider? RecommendationProvider { get; private set; }
 
     /// <summary>Gets the library index backend offered by another plugin, when it is installed.</summary>
     public ILibraryIndexQueryProvider? LibraryIndex { get; private set; }
+
+    /// <summary>Gets the persistent store offered by another plugin, when it is installed.</summary>
+    public IJellyTrendStoreProvider? Store { get; private set; }
+
+    /// <summary>Gets where the plugin data is kept, as one short phrase.</summary>
+    public string Storage => Store is null ? "archivos JSON" : _storeLabel;
 
     /// <summary>Gets a value indicating whether the recommendation backend may be used.</summary>
     public bool RecommendationUsable { get; private set; }
@@ -82,6 +89,12 @@ public sealed class DatabaseBackend
             loggerFactory,
             out var indexLabel);
         _indexLabel = indexLabel;
+
+        Store = Detect<IJellyTrendStoreProvider>(
+            services,
+            loggerFactory,
+            out var storeLabel);
+        _storeLabel = storeLabel;
 
         // Presente no significa utilizable: queda "comprobando" hasta que la sonda real confirme que
         // devuelve datos (ver DatabaseBackendStartupService).

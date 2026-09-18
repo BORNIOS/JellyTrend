@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 
 using Jellyfin.Plugin.JellyTrend.Logging;
+using Jellyfin.Plugin.JellyTrend.Services;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -28,6 +29,11 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         _ = loggerFactory;
         Instance = this;
         InitializeLog(applicationPaths);
+
+        // Los datos viven en {DataPath}/JellyTrend, no en la carpeta del plugin: Jellyfin reemplaza esa
+        // carpeta al actualizar. La migracion mueve lo que dejaron las versiones anteriores.
+        JellyTrendStorage.Initialize(applicationPaths.DataPath);
+        JellyTrendStorage.MigrateFromPluginFolder(PluginFolder);
         JellyTrendLog.Info($"=== JellyTrend v{Version} cargado. Log: {JellyTrendLog.CurrentLogPath} ===");
     }
 

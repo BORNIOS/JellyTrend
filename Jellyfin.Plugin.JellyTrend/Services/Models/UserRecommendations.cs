@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Jellyfin.Plugin.JellyTrend.Services.Models;
 
 /// <summary>
-/// Persisted per user to {PluginFolder}/recommendations/{userId}.json by the weekly
+/// Persisted per user to {DataPath}/JellyTrend/recommendations/{userId}.json by the weekly
 /// RecommendationSyncTask. Only item ids are stored; the channel resolves each id to
 /// the library item at read time (same pattern as trending.json).
 /// </summary>

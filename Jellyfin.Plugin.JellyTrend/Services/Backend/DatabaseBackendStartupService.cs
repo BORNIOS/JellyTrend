@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend.Logging;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Hosting;
@@ -62,10 +63,13 @@ internal sealed class DatabaseBackendStartupService : IHostedService
     {
         _backend.Detect(_services, _loggerFactory);
 
+        // El almacen externo es opcional: se adopta aqui y el esquema se crea a demanda en la comprobacion.
+        JellyTrendStore.Use(_backend.Store);
+
         // Una sola linea en INFO: quien es el backend y como esta. El detalle, en Debug.
         _logger.LogDebug("[JellyTrend] Backend detectado: {Recommendation} | {Index}", _backend.Recommendation, _backend.Summary);
 
-        if (_backend.RecommendationProvider is not null || _backend.LibraryIndex is not null)
+        if (_backend.RecommendationProvider is not null || _backend.LibraryIndex is not null || _backend.Store is not null)
         {
             // La comprobacion consulta la base de datos: va en segundo plano para no retrasar el arranque
             // del servidor, y todo fallo queda dentro de Probe.
@@ -90,6 +94,9 @@ internal sealed class DatabaseBackendStartupService : IHostedService
     {
         try
         {
+            // El esquema del almacen se prepara aqui, a demanda: un servidor sin JellyTrend nunca lo tiene.
+            JellyTrendStore.Prepare();
+
             var user = _userManager.GetUsers().FirstOrDefault();
             if (user is null)
             {

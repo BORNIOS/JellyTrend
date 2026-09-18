@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend.Controllers.Models;
+using Jellyfin.Plugin.JellyTrend.Services;
 using Jellyfin.Plugin.JellyTrend.Services.Sync;
 using Jellyfin.Plugin.JellyTrend.Tasks;
 using MediaBrowser.Controller.Entities;
@@ -244,7 +245,7 @@ public sealed class TrendingController : ControllerBase
 
     private static async Task<TrendingCache?> ReadCacheAsync()
     {
-        var dataPath = Path.Combine(Plugin.Instance!.PluginFolder, "trending.json");
+        var dataPath = JellyTrendStorage.TrendingFile;
         if (!System.IO.File.Exists(dataPath))
         {
             return null;
