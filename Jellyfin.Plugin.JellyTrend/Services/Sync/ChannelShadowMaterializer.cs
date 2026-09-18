@@ -92,6 +92,9 @@ public sealed class ChannelShadowMaterializer
                         new InternalItemsQuery
                         {
                             ChannelIds = [channelId],
+
+                            // El canal filtra por lo que cada uno ha visto, y resuelve el espectador a partir
+                            // de este usuario: sin el, la consulta llegaba sin espectador y devolvia cero.
                             User = user,
                             Limit = MaxItemsPerChannel
                         },
@@ -99,8 +102,8 @@ public sealed class ChannelShadowMaterializer
                     .ConfigureAwait(false);
 
                 materialized += result.Items.Count;
-                _logger.LogDebug(
-                    "JellyTrend: canal {ChannelId} con {Count} elementos materializados.",
+                _logger.LogInformation(
+                    "JellyTrend: canal {ChannelId} materializado con {Count} elementos.",
                     channelId,
                     result.Items.Count);
             }

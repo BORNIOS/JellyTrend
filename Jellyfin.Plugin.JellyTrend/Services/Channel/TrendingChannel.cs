@@ -36,11 +36,11 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Channel;
 /// automatically after each TrendingSyncTask run because DataVersion is derived from the
 /// trending.json file timestamp.
 /// </summary>
-public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISupportsLatestMedia
+public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISupportsLatestMedia, IHasCacheKey
 {
     // Bump cuando cambia la lógica de generación de items del canal (p. ej. resolución de librería)
     // para forzar a Jellyfin a re-fetch y re-materializar las sombras con los ExternalId correctos.
-    private const string DataVersionSchema = "3";
+    private const string DataVersionSchema = "4";
 
     private readonly ILibraryManager _libraryManager;
     private readonly IMediaSourceManager _mediaSourceManager;
@@ -118,6 +118,20 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
             return $"{pluginVersion}-{DataVersionSchema}-{dataTicks}-{configTicks}-s{(showSeries ? "1" : "0")}";
         }
     }
+
+    /// <summary>
+    /// Returns a cache key scoped to the user.
+    /// </summary>
+    /// <remarks>
+    /// La fila de tendencias oculta lo que cada usuario ya vio, asi que la lista no es la misma para todos:
+    /// sin clave por usuario Jellyfin guardaba una sola lista y la servia a todo el mundo. Cuando el
+    /// refresco de la fila llega sin usuario se devuelve null y Jellyfin usa su clave por defecto, que es
+    /// el comportamiento que ya habia.
+    /// </remarks>
+    /// <param name="userId">The user id passed by Jellyfin.</param>
+    /// <returns>A cache key scoped to the user, or null to use Jellyfin's default one.</returns>
+    public string? GetCacheKey(string? userId)
+        => string.IsNullOrWhiteSpace(userId) ? null : "u" + userId;
 
     // ── IChannel methods ──────────────────────────────────────────────────────
 
