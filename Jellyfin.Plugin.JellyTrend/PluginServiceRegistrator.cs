@@ -44,6 +44,11 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IEventConsumer<PlaybackStopEventArgs>>(sp => sp.GetRequiredService<TrendingLibraryLinkService>());
         serviceCollection.AddSingleton<IEventConsumer<PlaybackProgressEventArgs>>(sp => sp.GetRequiredService<TrendingLibraryLinkService>());
 
+        // Las sombras de los canales se crean en cada sincronizacion en lugar de esperar a que un cliente
+        // abra el canal: es lo que hace que la fila del home use las imagenes locales y que el detalle
+        // tenga reparto.
+        serviceCollection.AddSingleton<ChannelShadowMaterializer>();
+
         // Refresco incremental del perfil: un evento de fin de reproduccion adelanta lo que antes solo
         // ocurria en la corrida semanal.
         serviceCollection.AddSingleton<ConsumptionRefreshConsumer>();

@@ -112,6 +112,7 @@ public static class TrendingShadowMetadataSync
         var channelFolderIds = ChannelIdentity.GetAllChannelFolderIds(libraryManager).ToList();
 
         await CleanupEpisodeShadowsAsync(libraryManager, logger, cancellationToken).ConfigureAwait(false);
+        CleanupOrphanShadows(libraryManager, logger, cancellationToken);
 
         foreach (var id in libraryItemIds)
         {
@@ -285,16 +286,14 @@ public static class TrendingShadowMetadataSync
         // parte del pase → series que se quedan sin imágenes.
         var changed = false;
 
-        // Reparto: solo se reescribe si el sombra tiene menos reparto que la biblioteca.
+        // Reparto: se reescribe cuando el sombra no lleva el mismo reparto que la biblioteca. Se compara
+        // el conjunto (persona, papel) y no el numero: contar dejaba pasar un reparto cambiado con la
+        // misma cantidad de personas.
         var people = libraryManager.GetPeople(library);
-        if (people.Count > 0)
+        if (people.Count > 0 && !SamePeople(libraryManager.GetPeople(shadow), people))
         {
-            var shadowPeople = libraryManager.GetPeople(shadow);
-            if (shadowPeople.Count < people.Count)
-            {
-                await libraryManager.UpdatePeopleAsync(shadow, people, cancellationToken).ConfigureAwait(false);
-                changed = true;
-            }
+            await libraryManager.UpdatePeopleAsync(shadow, people, cancellationToken).ConfigureAwait(false);
+            changed = true;
         }
 
         changed |= SyncCoreMetadata(shadow, library);
@@ -306,12 +305,12 @@ public static class TrendingShadowMetadataSync
             changed |= SyncVideoMetadata(shVideo, libVideo);
         }
 
-        var imagesBefore = shadow.ImageInfos.Length;
-        CopyImages(library, shadow);
-        if (shadow.ImageInfos.Length != imagesBefore)
+        if (library is Series libSeries && shadow is Series shSeries)
         {
-            changed = true;
+            changed |= SyncSeriesMetadata(shSeries, libSeries);
         }
+
+        changed |= CopyImages(library, shadow);
 
         // Asegurar que el sombra quede como item virtual (sin Path local heredado de versiones
         // anteriores que embebían MediaSources y lo volvían LocationType FileSystem).
@@ -528,6 +527,108 @@ public static class TrendingShadowMetadataSync
         return changed;
     }
 
+    // Estado y emision de una serie: sin esto el sombra se queda "en emision" para siempre y el detalle
+    // no coincide con la serie que la biblioteca tiene.
+    private static bool SyncSeriesMetadata(Series shadow, Series library)
+    {
+        var changed = false;
+
+        if (shadow.Status != library.Status)
+        {
+            shadow.Status = library.Status;
+            changed = true;
+        }
+
+        if (shadow.EndDate != library.EndDate)
+        {
+            shadow.EndDate = library.EndDate;
+            changed = true;
+        }
+
+        if (shadow.AirTime != library.AirTime)
+        {
+            shadow.AirTime = library.AirTime;
+            changed = true;
+        }
+
+        if (!SameStrings(
+            shadow.AirDays?.Select(static day => day.ToString()).ToArray(),
+            library.AirDays?.Select(static day => day.ToString()).ToArray()))
+        {
+            shadow.AirDays = library.AirDays;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    // Compara el reparto por persona, tipo y papel, en cualquier orden: la posicion en la lista no
+    // significa nada para la biblioteca, pero si importa que la persona este.
+    private static bool SamePeople(IReadOnlyList<PersonInfo> shadow, IReadOnlyList<PersonInfo> library)
+    {
+        if (shadow.Count != library.Count)
+        {
+            return false;
+        }
+
+        var shadowKeys = shadow.Select(Key).OrderBy(static key => key, StringComparer.Ordinal).ToList();
+        var libraryKeys = library.Select(Key).OrderBy(static key => key, StringComparer.Ordinal).ToList();
+
+        return shadowKeys.SequenceEqual(libraryKeys, StringComparer.Ordinal);
+
+        static string Key(PersonInfo person) => $"{person.Id:N}|{person.Type}|{person.Role}";
+    }
+
+    // Una sombra cuyo item de biblioteca ya no existe se queda para siempre en el canal: no entra en
+    // ninguna lista, asi que ninguna sincronizacion la vuelve a mirar. Se borra para que el canal
+    // contenga exactamente lo que la biblioteca tiene.
+    private static void CleanupOrphanShadows(ILibraryManager libraryManager, ILogger logger, CancellationToken cancellationToken)
+    {
+        var deleted = 0;
+
+        foreach (var channelFolderId in ChannelIdentity.GetAllChannelFolderIds(libraryManager))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var shadows = libraryManager.GetItemList(new InternalItemsQuery
+            {
+                ChannelIds = [channelFolderId],
+                IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Season]
+            });
+
+            foreach (var shadow in shadows)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!Guid.TryParse(shadow.ExternalId, out var libraryId)
+                    || libraryId == Guid.Empty
+                    || libraryManager.GetItemById(libraryId) is not null)
+                {
+                    continue;
+                }
+
+                var options = new DeleteOptions { DeleteFileLocation = false, DeleteFromExternalProvider = false };
+                var parent = shadow.ParentId != Guid.Empty ? libraryManager.GetItemById(shadow.ParentId) : null;
+
+                if (parent is not null)
+                {
+                    libraryManager.DeleteItem(shadow, options, parent, false);
+                }
+                else
+                {
+                    libraryManager.DeleteItem(shadow, options);
+                }
+
+                deleted++;
+            }
+        }
+
+        if (deleted > 0)
+        {
+            logger.LogInformation("JellyTrend: {Count} sombras huerfanas eliminadas de los canales.", deleted);
+        }
+    }
+
     private static bool SameStrings(string[]? a, string[]? b)
     {
         if (ReferenceEquals(a, b))
@@ -570,11 +671,12 @@ public static class TrendingShadowMetadataSync
     /// </summary>
     /// <param name="library">The source library item.</param>
     /// <param name="shadow">The destination channel shadow item.</param>
-    private static void CopyImages(BaseItem library, BaseItem shadow)
+    /// <returns><see langword="true"/> when the shadow images had to be rewritten.</returns>
+    private static bool CopyImages(BaseItem library, BaseItem shadow)
     {
         if (library.ImageInfos.Length == 0)
         {
-            return;
+            return false;
         }
 
         var referencedImages = new List<ItemImageInfo>(library.ImageInfos.Length);
@@ -595,9 +697,29 @@ public static class TrendingShadowMetadataSync
             });
         }
 
-        if (referencedImages.Count > 0)
+        // Solo se reescribe cuando las imagenes son otras: editar un titulo de metadatos no debe arrastrar
+        // la reescritura de todas las imagenes del sombra.
+        if (referencedImages.Count == 0 || SameImages(shadow.ImageInfos, referencedImages))
         {
-            shadow.ImageInfos = referencedImages.ToArray();
+            return false;
         }
+
+        shadow.ImageInfos = [.. referencedImages];
+        return true;
+    }
+
+    private static bool SameImages(ItemImageInfo[] current, List<ItemImageInfo> wanted)
+    {
+        if (current.Length != wanted.Count)
+        {
+            return false;
+        }
+
+        var currentKeys = current.Select(Key).OrderBy(static key => key, StringComparer.Ordinal).ToList();
+        var wantedKeys = wanted.Select(Key).OrderBy(static key => key, StringComparer.Ordinal).ToList();
+
+        return currentKeys.SequenceEqual(wantedKeys, StringComparer.Ordinal);
+
+        static string Key(ItemImageInfo image) => $"{image.Type}|{image.Path}";
     }
 }

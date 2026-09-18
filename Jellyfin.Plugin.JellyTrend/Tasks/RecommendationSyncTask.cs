@@ -12,6 +12,7 @@ using Jellyfin.Plugin.JellyTrend.Controllers;
 using Jellyfin.Plugin.JellyTrend.Logging;
 using Jellyfin.Plugin.JellyTrend.Services;
 using Jellyfin.Plugin.JellyTrend.Services.Backend;
+using Jellyfin.Plugin.JellyTrend.Services.Channel;
 using Jellyfin.Plugin.JellyTrend.Services.Models;
 using Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 using Jellyfin.Plugin.JellyTrend.Services.Store;
@@ -32,6 +33,7 @@ public sealed class RecommendationSyncTask : IScheduledTask
     private readonly IUserManager _userManager;
     private readonly IUserDataManager _userDataManager;
     private readonly DatabaseBackend _backend;
+    private readonly ChannelShadowMaterializer _shadowMaterializer;
     private readonly ILogger _logger;
 
     /// <summary>
@@ -41,18 +43,21 @@ public sealed class RecommendationSyncTask : IScheduledTask
     /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
     /// <param name="userDataManager">Instance of the <see cref="IUserDataManager"/> interface.</param>
     /// <param name="backend">Backend de base de datos detectado al arrancar el plugin.</param>
+    /// <param name="shadowMaterializer">Crea las sombras de los canales antes de copiarles metadatos.</param>
     /// <param name="loggerFactory">Instance of the <see cref="ILoggerFactory"/> interface.</param>
     public RecommendationSyncTask(
         ILibraryManager libraryManager,
         IUserManager userManager,
         IUserDataManager userDataManager,
         DatabaseBackend backend,
+        ChannelShadowMaterializer shadowMaterializer,
         ILoggerFactory loggerFactory)
     {
         _libraryManager = libraryManager;
         _userManager = userManager;
         _userDataManager = userDataManager;
         _backend = backend;
+        _shadowMaterializer = shadowMaterializer;
         _logger = loggerFactory.CreateLogger<RecommendationSyncTask>();
     }
 
@@ -167,6 +172,14 @@ public sealed class RecommendationSyncTask : IScheduledTask
             // muestran el poster local y el detalle no queda como un item sombra pobre.
             if (allRecommendedIds.Count > 0)
             {
+                // Primero se crean las sombras del canal (si un cliente no lo ha abierto nunca, no
+                // existen), y solo despues se les copian metadatos, reparto e imagenes locales.
+                var channels = ChannelIdentity.GetAllChannelFolderIds(_libraryManager).ToList();
+                var materialized = await _shadowMaterializer
+                    .MaterializeAsync(channels, cancellationToken)
+                    .ConfigureAwait(false);
+                _logger.LogDebug("[Recomendaciones] Sombras materializadas en {Channels} canales: {Count} elementos.", channels.Count, materialized);
+
                 await TrendingShadowMetadataSync
                     .SyncAllAsync(_libraryManager, allRecommendedIds, _logger, cancellationToken)
                     .ConfigureAwait(false);

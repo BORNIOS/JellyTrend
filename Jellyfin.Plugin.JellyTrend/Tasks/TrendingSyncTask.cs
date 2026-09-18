@@ -11,6 +11,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.JellyTrend.Logging;
 using Jellyfin.Plugin.JellyTrend.Services;
 using Jellyfin.Plugin.JellyTrend.Services.Backend;
+using Jellyfin.Plugin.JellyTrend.Services.Channel;
 using Jellyfin.Plugin.JellyTrend.Services.ExternalApi;
 using Jellyfin.Plugin.JellyTrend.Services.Store;
 using Jellyfin.Plugin.JellyTrend.Services.Sync;
@@ -34,6 +35,7 @@ public sealed class TrendingSyncTask : IScheduledTask
     private readonly IProviderManager _providerManager;
     private readonly DatabaseBackend _backend;
     private readonly TmdbClient _tmdbClient;
+    private readonly ChannelShadowMaterializer _shadowMaterializer;
     private readonly ILogger _logger;
 
     /// <summary>
@@ -43,18 +45,21 @@ public sealed class TrendingSyncTask : IScheduledTask
     /// <param name="providerManager">Instance of the <see cref="IProviderManager"/> interface.</param>
     /// <param name="backend">Backend de base de datos detectado al arrancar el plugin.</param>
     /// <param name="tmdbClient">The TMDB client.</param>
+    /// <param name="shadowMaterializer">Crea las sombras de los canales antes de copiarles metadatos.</param>
     /// <param name="loggerFactory">Instance of the <see cref="ILoggerFactory"/> interface.</param>
     public TrendingSyncTask(
         ILibraryManager libraryManager,
         IProviderManager providerManager,
         DatabaseBackend backend,
         TmdbClient tmdbClient,
+        ChannelShadowMaterializer shadowMaterializer,
         ILoggerFactory loggerFactory)
     {
         _libraryManager = libraryManager;
         _providerManager = providerManager;
         _backend = backend;
         _tmdbClient = tmdbClient;
+        _shadowMaterializer = shadowMaterializer;
         _logger = loggerFactory.CreateLogger<TrendingSyncTask>();
     }
 
@@ -162,6 +167,13 @@ public sealed class TrendingSyncTask : IScheduledTask
             // ── 4. Guardar caché JSON ───────────────────────────────────────────
             var cache = new TrendingCache { Items = matchedItems, LastUpdated = DateTime.UtcNow };
             JellyTrendStore.WriteTrendingCache(cache);
+
+            // Las sombras se crean aqui, de forma determinista, antes de copiarles nada: sin este paso
+            // solo existian si un cliente habia abierto el canal, asi que no habia donde copiar las
+            // imagenes locales ni el reparto.
+            var channels = ChannelIdentity.GetAllChannelFolderIds(_libraryManager).ToList();
+            var materialized = await _shadowMaterializer.MaterializeAsync(channels, cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("Sombras materializadas en {Channels} canales: {Count} elementos.", channels.Count, materialized);
 
             await TrendingShadowMetadataSync
                 .SyncAllAsync(_libraryManager, matchedItems, _logger, cancellationToken)
