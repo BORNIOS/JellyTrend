@@ -268,6 +268,71 @@ public static class JellyTrendStore
     }
 
     /// <summary>
+    /// Reads the aggregated consumption of a user from the database store.
+    /// </summary>
+    /// <param name="userId">User to read.</param>
+    /// <returns>Consumption documents keyed by item id; empty when the store is not in use.</returns>
+    public static IReadOnlyDictionary<Guid, string> ReadConsumption(Guid userId)
+    {
+        var json = Guard(provider => provider.GetUserConsumption(userId), null, "leer consumo");
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var consumption = new Dictionary<Guid, string>();
+
+            foreach (var property in document.RootElement.EnumerateObject())
+            {
+                if (Guid.TryParse(property.Name, out var id))
+                {
+                    consumption[id] = property.Value.GetRawText();
+                }
+            }
+
+            return consumption;
+        }
+        catch (JsonException ex)
+        {
+            JellyTrendLog.Warn($"[Almacen] Consumo ilegible en el almacen externo: {ex.Message}");
+            return new Dictionary<Guid, string>();
+        }
+    }
+
+    /// <summary>
+    /// Writes the aggregated consumption of a user, when the database store is in use.
+    /// </summary>
+    /// <param name="userId">User the consumption belongs to.</param>
+    /// <param name="items">Consumption documents keyed by item id.</param>
+    public static void WriteConsumption(Guid userId, IReadOnlyDictionary<Guid, string> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+
+        var ids = new Guid[items.Count];
+        var documents = new string[items.Count];
+        var index = 0;
+
+        foreach (var pair in items)
+        {
+            ids[index] = pair.Key;
+            documents[index] = pair.Value;
+            index++;
+        }
+
+        Guard(
+            provider =>
+            {
+                provider.ReplaceConsumption(userId, ids, documents);
+                return true;
+            },
+            false,
+            "guardar consumo");
+    }
+
+    /// <summary>
     /// Reads the recommendations of a user from the database store.
     /// </summary>
     /// <param name="userId">User to read.</param>
