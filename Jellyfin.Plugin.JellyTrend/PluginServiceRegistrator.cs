@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.JellyTrend.Services;
+using Jellyfin.Plugin.JellyTrend.Services.Backend;
 using Jellyfin.Plugin.JellyTrend.Services.Channel;
 using Jellyfin.Plugin.JellyTrend.Services.ExternalApi;
 using Jellyfin.Plugin.JellyTrend.Services.Sync;
@@ -30,6 +31,11 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TmdbClient>();
         serviceCollection.AddSingleton<IScheduledTask, TrendingSyncTask>();
         serviceCollection.AddSingleton<IScheduledTask, RecommendationSyncTask>();
+
+        // El backend de base de datos (plugin PostgreSQL) se detecta y se comprueba UNA vez al arrancar:
+        // las tareas de recomendaciones y de tendencias leen ese resultado en lugar de averiguarlo cada una.
+        serviceCollection.AddSingleton<DatabaseBackend>();
+        serviceCollection.AddSingleton<IHostedService, DatabaseBackendStartupService>();
         serviceCollection.AddSingleton<IChannel, TrendingChannel>();
         serviceCollection.AddSingleton<IChannel, RecommendedChannel>();
 

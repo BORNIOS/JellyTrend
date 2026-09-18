@@ -31,6 +31,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Jellyfin.Plugin.JellyTrend\Jellyfin.Plugin.JellyTrend.csproj" />
+
+    <!--
+      El plugin de mentira replica el contrato con el mismo nombre completo, asi que se referencia con
+      alias: solo se puede nombrar con 'fakeprovider::', que es justo lo que le pasa a un plugin real.
+    -->
+    <ProjectReference Include="..\Jellyfin.Plugin.JellyTrend.FakeProvider\Jellyfin.Plugin.JellyTrend.FakeProvider.csproj">
+      <Aliases>fakeprovider</Aliases>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

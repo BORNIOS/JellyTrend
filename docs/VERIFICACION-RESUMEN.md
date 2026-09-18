@@ -7,8 +7,8 @@
 
 | Métrica | Valor |
 |---|---|
-| Total | 29 |
-| Correctas | 29 |
+| Total | 48 |
+| Correctas | 48 |
 | Fallidas | 0 |
 | Omitidas | 0 |
 | Estado | OK |
@@ -18,11 +18,14 @@
 | Clase | Total | Correctas | Fallidas |
 |---|---|---|---|
 | ConfigurationTests | 3 | 3 | 0 |
+| DatabaseBackendTests | 8 | 8 | 0 |
+| ForeignProviderDiscoveryTests | 3 | 3 | 0 |
+| LibraryIndexResolverTests | 4 | 4 | 0 |
 | LoggingTests | 4 | 4 | 0 |
 | PluginMetadataTests | 5 | 5 | 0 |
 | RecommendationLibrarySnapshotTests | 1 | 1 | 0 |
 | RecommendationScoringTests | 8 | 8 | 0 |
-| RecommendationSourceTests | 4 | 4 | 0 |
+| RecommendationSourceTests | 8 | 8 | 0 |
 | WebPageTests | 4 | 4 | 0 |
 
 ## Cómo reproducirlo

@@ -13,6 +13,7 @@ namespace Jellyfin.Plugin.JellyTrend.Tests;
 /// las tres propiedades que importan: que no vuelva a entrar una librería de logging del
 /// servidor, que el archivo exista con el nombre esperado y que un error llegue con su traza.
 /// </summary>
+[Collection(LogStateCollection.Name)]
 public sealed class LoggingTests
 {
     /// <summary>

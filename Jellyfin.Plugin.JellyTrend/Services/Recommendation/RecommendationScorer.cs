@@ -31,14 +31,21 @@ internal static class RecommendationScorer
     /// <summary>Weight of the "recently released" bonus in the final score.</summary>
     internal const double FreshnessWeight = 0.10d;
 
-    /// <summary>Weight of the genre family.</summary>
-    internal const double GenreFamilyWeight = 0.45d;
+    /// <summary>
+    /// Weight of the genre family. Lower than before on purpose: measured on a real library movies
+    /// carry ~2.4 genres from a vocabulary of ~30 names, so genres are broad and say little.
+    /// </summary>
+    internal const double GenreFamilyWeight = 0.35d;
 
     /// <summary>Weight of the people family (cast and crew).</summary>
     internal const double PeopleFamilyWeight = 0.25d;
 
-    /// <summary>Weight of the tag family.</summary>
-    internal const double TagFamilyWeight = 0.20d;
+    /// <summary>
+    /// Weight of the tag family. Measured on the same library: ~10.4 tags per movie (up to 47) from a
+    /// vocabulary of thousands of names and a higher average IDF, so tags describe a movie far better
+    /// than its genre list.
+    /// </summary>
+    internal const double TagFamilyWeight = 0.30d;
 
     /// <summary>Weight of the studio family.</summary>
     internal const double StudioFamilyWeight = 0.10d;

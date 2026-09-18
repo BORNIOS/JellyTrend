@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
 using Jellyfin.Plugin.JellyTrend.Api;
+using Jellyfin.Plugin.JellyTrend.Logging;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
@@ -30,55 +32,65 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 /// </remarks>
 internal sealed class CandidateSource
 {
-    private const int MaxWatchedItems = 300;
+    private const int MaxWatchedItems = 1000;
     private const int BroadPoolLimit = 400;
     private const int MaxCandidatesPerFacet = 150;
 
     private readonly ILibraryManager _libraryManager;
     private readonly IUserDataManager _userDataManager;
-    private readonly IRecommendationQueryProvider? _provider;
+    private readonly ProviderState _providerState;
     private readonly ILogger _logger;
-    private bool _providerRejected;
+    private readonly FeatureStore _features;
 
     private CandidateSource(
         ILibraryManager libraryManager,
         IUserDataManager userDataManager,
-        IRecommendationQueryProvider? provider,
-        ILogger logger)
+        ProviderState providerState,
+        ILogger logger,
+        FeatureStore features)
     {
         _libraryManager = libraryManager;
         _userDataManager = userDataManager;
-        _provider = provider;
+        _providerState = providerState;
         _logger = logger;
+        _features = features;
     }
 
     /// <summary>Gets a value indicating whether candidate discovery is currently running on the provider.</summary>
-    public bool UsingProvider => _provider is not null && !_providerRejected;
+    public bool UsingProvider => _providerState.IsUsable;
 
     /// <summary>Gets the data source description used in the task log.</summary>
     public string Description => UsingProvider
         ? "proveedor de base de datos"
-        : _provider is null ? "ILibraryManager (sin proveedor)" : "ILibraryManager (proveedor descartado)";
+        : $"ILibraryManager ({_providerState.UnavailableReason ?? "sin proveedor"})";
 
     /// <summary>
     /// Creates the source.
     /// </summary>
     /// <param name="libraryManager">Library manager.</param>
     /// <param name="userDataManager">User data manager.</param>
-    /// <param name="provider">Optional database-provider backend.</param>
+    /// <param name="providerState">Estado del backend opcional de base de datos; <c>null</c> equivale a no tener proveedor.</param>
     /// <param name="logger">Logger.</param>
+    /// <param name="features">Cache persistente de caracteristicas por item.</param>
     /// <returns>The candidate source.</returns>
     public static CandidateSource Create(
         ILibraryManager libraryManager,
         IUserDataManager userDataManager,
-        IRecommendationQueryProvider? provider,
-        ILogger logger)
+        ProviderState? providerState,
+        ILogger logger,
+        FeatureStore features)
     {
         ArgumentNullException.ThrowIfNull(libraryManager);
         ArgumentNullException.ThrowIfNull(userDataManager);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(features);
 
-        return new CandidateSource(libraryManager, userDataManager, provider, logger);
+        return new CandidateSource(
+            libraryManager,
+            userDataManager,
+            providerState ?? new ProviderState(),
+            logger,
+            features);
     }
 
     /// <summary>
@@ -98,6 +110,7 @@ internal sealed class CandidateSource
             Recursive = true,
             IncludeItemTypes = [BaseItemKind.Movie],
             IsPlayed = true,
+            OrderBy = [(ItemSortBy.DatePlayed, SortOrder.Descending)],
             Limit = MaxWatchedItems
         }));
 
@@ -107,6 +120,7 @@ internal sealed class CandidateSource
             Recursive = true,
             IncludeItemTypes = [BaseItemKind.Movie],
             IsResumable = true,
+            OrderBy = [(ItemSortBy.DatePlayed, SortOrder.Descending)],
             Limit = MaxWatchedItems
         }));
 
@@ -120,8 +134,8 @@ internal sealed class CandidateSource
             return [];
         }
 
-        var userData = _userDataManager.GetUserDataBatch(distinct, user);
-        var people = GetPeopleByItem(distinct.Select(static item => item.Id).ToList());
+        var userData = ApiCompat.GetUserData(_userDataManager, distinct, user);
+        var people = GetPeopleByItem(distinct);
 
         return distinct
             .Select(item => BuildTasteItem(item, userData, people, nowUtc))
@@ -153,12 +167,42 @@ internal sealed class CandidateSource
             RejectProvider();
         }
 
+        var scoped = ids.Count;
         if (ids.Count == 0)
         {
             CollectFromLibrary(user, genres, tags, people, topParentIds, ids);
+            scoped = ids.Count;
+
+            if (ids.Count == 0 && topParentIds.Count > 0)
+            {
+                // El alcance por vista no siempre coincide con el TopParentId de los items: Jellyfin
+                // agrupa bibliotecas y esas vistas llevan un id sintetico, asi que el filtro no deja
+                // pasar nada. Antes de devolver una fila vacia se reintenta sin alcance.
+                var warning = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "[Recomendaciones] 0 candidatos dentro del alcance de {0} vistas; se reintenta sin alcance.",
+                    topParentIds.Count);
+                _logger.LogWarning("[Recomendaciones] 0 candidatos dentro del alcance de {Views} vistas; se reintenta sin alcance.", topParentIds.Count);
+                JellyTrendLog.Warn(warning);
+                CollectFromLibrary(user, genres, tags, people, [], ids);
+            }
         }
 
-        return Materialize(ids);
+        var candidates = Materialize(ids);
+
+        JellyTrendLog.Info(string.Format(
+            CultureInfo.InvariantCulture,
+            "[Recomendaciones] fuente={0} | alcance={1} bibliotecas | candidatos: dentro del alcance={2}, tras facetas={3}, materializados={4} (generos={5}, tags={6}, personas={7})",
+            Description,
+            topParentIds.Count,
+            scoped,
+            ids.Count,
+            candidates.Count,
+            genres.Count,
+            tags.Count,
+            people.Count));
+
+        return candidates;
     }
 
     private bool TryCollectFromProvider(
@@ -171,7 +215,7 @@ internal sealed class CandidateSource
     {
         try
         {
-            var answer = _provider!;
+            var answer = _providerState.Provider!;
             var found = 0;
 
             if (genres.Count > 0)
@@ -296,12 +340,16 @@ internal sealed class CandidateSource
             ItemIds = ids.ToArray()
         });
 
+        // Los ítems virtuales son sombras de canal (los canales de tendencias y recomendados del propio
+        // plugin, entre otros): recomendar una sombra de nosotros mismos no aporta nada y ensucia el pool.
+        items = items.Where(static item => !item.IsVirtualItem).ToList();
+
         if (items.Count == 0)
         {
             return [];
         }
 
-        var people = GetPeopleByItem(items.Select(static item => item.Id).ToList());
+        var people = GetPeopleByItem(items);
 
         return items
             .Select(item => new CandidateItem(
@@ -311,7 +359,7 @@ internal sealed class CandidateSource
                 item.Genres ?? [],
                 item.Tags ?? [],
                 item.Studios ?? [],
-                RelevantPeople(people, item.Id),
+                people.TryGetValue(item.Id, out var personIds) ? personIds : [],
                 item.CommunityRating,
                 item.PremiereDate))
             .ToList();
@@ -331,15 +379,64 @@ internal sealed class CandidateSource
         return probe.Count > 0;
     }
 
-    private IReadOnlyDictionary<Guid, IReadOnlyList<PersonInfo>> GetPeopleByItem(List<Guid> itemIds)
-        => itemIds.Count == 0
-            ? new Dictionary<Guid, IReadOnlyList<PersonInfo>>()
-            : _libraryManager.GetPeopleByItems(itemIds);
+    private Dictionary<Guid, IReadOnlyList<Guid>> GetPeopleByItem(IReadOnlyList<BaseItem> items)
+    {
+        if (items.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<Guid>>();
+        }
+
+        var people = new Dictionary<Guid, IReadOnlyList<Guid>>(items.Count);
+        var missing = new List<BaseItem>();
+
+        foreach (var item in items)
+        {
+            if (_features.TryGet(item.Id, out var cached))
+            {
+                if (cached.People.Count > 0)
+                {
+                    people[item.Id] = cached.People;
+                }
+
+                continue;
+            }
+
+            missing.Add(item);
+        }
+
+        if (missing.Count > 0)
+        {
+            var loaded = ApiCompat.GetPeopleByItems(_libraryManager, missing);
+            foreach (var item in missing)
+            {
+                var relevant = loaded.TryGetValue(item.Id, out var itemPeople)
+                    ? RelevantPeople(itemPeople)
+                    : [];
+
+                // Se guarda el item completo (generos, etiquetas, estudios y personas) para que las
+                // siguientes ejecuciones no vuelvan a leer nada de este titulo.
+                _features.Set(item.Id, new ItemFeatures(
+                    item.Genres ?? [],
+                    item.Tags ?? [],
+                    item.Studios ?? [],
+                    relevant,
+                    item.CommunityRating,
+                    item.PremiereDate));
+
+                if (relevant.Count > 0)
+                {
+                    people[item.Id] = relevant;
+                }
+            }
+        }
+
+        return people;
+    }
 
     private static TasteItem BuildTasteItem(
         BaseItem item,
         Dictionary<Guid, UserItemData> userData,
-        IReadOnlyDictionary<Guid, IReadOnlyList<PersonInfo>> people,
+        Dictionary<Guid, IReadOnlyList<Guid>> people,
         DateTime nowUtc)
     {
         userData.TryGetValue(item.Id, out var data);
@@ -362,21 +459,14 @@ internal sealed class CandidateSource
             item.Genres ?? [],
             item.Tags ?? [],
             item.Studios ?? [],
-            RelevantPeople(people, item.Id),
+            people.TryGetValue(item.Id, out var personIds) ? personIds : [],
             weight);
     }
 
-    private static List<Guid> RelevantPeople(
-        IReadOnlyDictionary<Guid, IReadOnlyList<PersonInfo>> people,
-        Guid itemId)
+    private static List<Guid> RelevantPeople(IReadOnlyList<PersonInfo> people)
     {
-        if (!people.TryGetValue(itemId, out var itemPeople) || itemPeople.Count == 0)
-        {
-            return [];
-        }
-
-        var ids = new List<Guid>(itemPeople.Count);
-        foreach (var person in itemPeople)
+        var ids = new List<Guid>(people.Count);
+        foreach (var person in people)
         {
             if (person.Id == Guid.Empty)
             {
@@ -409,5 +499,5 @@ internal sealed class CandidateSource
     }
 
     private void RejectProvider()
-        => _providerRejected = true;
+        => _providerState.Reject();
 }

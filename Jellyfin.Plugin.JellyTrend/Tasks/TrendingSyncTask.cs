@@ -9,11 +9,9 @@ using System.Threading.Tasks;
 
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.JellyTrend.Logging;
+using Jellyfin.Plugin.JellyTrend.Services.Backend;
 using Jellyfin.Plugin.JellyTrend.Services.ExternalApi;
 using Jellyfin.Plugin.JellyTrend.Services.Sync;
-using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Entities.Movies;
-using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
@@ -34,6 +32,7 @@ public sealed class TrendingSyncTask : IScheduledTask
 
     private readonly ILibraryManager _libraryManager;
     private readonly IProviderManager _providerManager;
+    private readonly DatabaseBackend _backend;
     private readonly TmdbClient _tmdbClient;
     private readonly ILogger _logger;
 
@@ -42,16 +41,19 @@ public sealed class TrendingSyncTask : IScheduledTask
     /// </summary>
     /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
     /// <param name="providerManager">Instance of the <see cref="IProviderManager"/> interface.</param>
+    /// <param name="backend">Backend de base de datos detectado al arrancar el plugin.</param>
     /// <param name="tmdbClient">The TMDB client.</param>
     /// <param name="loggerFactory">Instance of the <see cref="ILoggerFactory"/> interface.</param>
     public TrendingSyncTask(
         ILibraryManager libraryManager,
         IProviderManager providerManager,
+        DatabaseBackend backend,
         TmdbClient tmdbClient,
         ILoggerFactory loggerFactory)
     {
         _libraryManager = libraryManager;
         _providerManager = providerManager;
+        _backend = backend;
         _tmdbClient = tmdbClient;
         _logger = loggerFactory.CreateLogger<TrendingSyncTask>();
     }
@@ -95,42 +97,52 @@ public sealed class TrendingSyncTask : IScheduledTask
             progress.Report(30);
 
             // ── 2. Emparejar con la librería local ─────────────────────────────
+            // El backend se detecto y se comprobo al arrancar el plugin: si el proveedor de base de datos
+            // expone el indice, el emparejamiento cuesta una consulta por tipo en lugar de una por id.
+            var resolver = new LibraryIndexResolver(_libraryManager, _backend.UsableLibraryIndex, _logger);
+            var movieTmdbIds = trendingMovies.Select(static item => item.Id.ToString(CultureInfo.InvariantCulture)).ToList();
+            var seriesTmdbIds = trendingShows.Select(static item => item.Id.ToString(CultureInfo.InvariantCulture)).ToList();
+            var movieMatches = resolver.Resolve(movieTmdbIds, BaseItemKind.Movie);
+            var seriesMatches = resolver.Resolve(seriesTmdbIds, BaseItemKind.Series);
+
             var matchedItems = new List<TrendingCacheEntry>();
 
             foreach (var tmdbItem in trendingMovies)
             {
                 var tmdbId = tmdbItem.Id.ToString(CultureInfo.InvariantCulture);
-                var match = FindByTmdbId(tmdbId, BaseItemKind.Movie);
-                if (match is not null)
+                if (!movieMatches.TryGetValue(tmdbId, out var match))
                 {
-                    matchedItems.Add(new TrendingCacheEntry
-                    {
-                        ItemId = match.Id,
-                        MediaType = TrendingMediaType.Movie,
-                        TmdbId = tmdbId,
-                        TmdbBackdropPath = tmdbItem.BackdropPath,
-                        TmdbPosterPath = tmdbItem.PosterPath
-                    });
-                    _logger.LogDebug("Match '{Name}' (TMDB {Id})", match.Name, tmdbId);
+                    continue;
                 }
+
+                matchedItems.Add(new TrendingCacheEntry
+                {
+                    ItemId = match.Id,
+                    MediaType = TrendingMediaType.Movie,
+                    TmdbId = tmdbId,
+                    TmdbBackdropPath = tmdbItem.BackdropPath,
+                    TmdbPosterPath = tmdbItem.PosterPath
+                });
+                _logger.LogDebug("Match '{Name}' (TMDB {Id})", match.Name, tmdbId);
             }
 
             foreach (var tmdbItem in trendingShows)
             {
                 var tmdbId = tmdbItem.Id.ToString(CultureInfo.InvariantCulture);
-                var match = FindByTmdbId(tmdbId, BaseItemKind.Series);
-                if (match is not null)
+                if (!seriesMatches.TryGetValue(tmdbId, out var match))
                 {
-                    matchedItems.Add(new TrendingCacheEntry
-                    {
-                        ItemId = match.Id,
-                        MediaType = TrendingMediaType.Series,
-                        TmdbId = tmdbId,
-                        TmdbBackdropPath = tmdbItem.BackdropPath,
-                        TmdbPosterPath = tmdbItem.PosterPath
-                    });
-                    _logger.LogDebug("Match serie '{Name}' (TMDB {Id})", match.Name, tmdbId);
+                    continue;
                 }
+
+                matchedItems.Add(new TrendingCacheEntry
+                {
+                    ItemId = match.Id,
+                    MediaType = TrendingMediaType.Series,
+                    TmdbId = tmdbId,
+                    TmdbBackdropPath = tmdbItem.BackdropPath,
+                    TmdbPosterPath = tmdbItem.PosterPath
+                });
+                _logger.LogDebug("Match serie '{Name}' (TMDB {Id})", match.Name, tmdbId);
             }
 
             progress.Report(70);
@@ -216,38 +228,6 @@ public sealed class TrendingSyncTask : IScheduledTask
 
     private static Uri BuildTmdbImageBaseUri(string size)
         => new(string.Concat("https", "://", "image.tmdb.org", "/t/p/", size));
-
-    private BaseItem? FindByTmdbId(string tmdbId, BaseItemKind kind)
-    {
-        var items = _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            HasAnyProviderId = new Dictionary<string, string> { ["Tmdb"] = tmdbId },
-            IncludeItemTypes = [kind],
-            IsVirtualItem = false,
-            Limit = 10
-        });
-
-        foreach (var item in items)
-        {
-            // Excluir sombras de canal (copian el Tmdb provider id y no se marcan como virtuales)
-            // y validar que el tipo coincida: el provider puede ignorar IncludeItemTypes en algunas
-            // combinaciones de filtros.
-            if (item.ChannelId == Guid.Empty && MatchesKind(item, kind))
-            {
-                return item;
-            }
-        }
-
-        return null;
-    }
-
-    private static bool MatchesKind(BaseItem item, BaseItemKind kind)
-        => kind switch
-        {
-            BaseItemKind.Movie => item is Movie,
-            BaseItemKind.Series => item is Series,
-            _ => true
-        };
 
     /// <inheritdoc />
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()

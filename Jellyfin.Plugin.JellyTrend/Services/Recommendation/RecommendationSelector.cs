@@ -229,7 +229,7 @@ internal static class RecommendationSelector
     }
 
     // The genre that best identifies the movie for this user: the one with the largest profile share.
-    private static string? BestGenre(CandidateItem movie, TasteProfile profile)
+    internal static string? BestGenre(CandidateItem movie, TasteProfile profile)
     {
         string? best = null;
         var bestShare = 0d;

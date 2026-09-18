@@ -5,6 +5,7 @@ using System.Linq;
 
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.JellyTrend.Api;
+using Jellyfin.Plugin.JellyTrend.Logging;
 using Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
@@ -45,9 +46,10 @@ internal static class RecommendationEngine
     /// <param name="trendingItemIds">Ids already shown in the trending row, excluded from results.</param>
     /// <param name="maxItems">Maximum number of recommendations.</param>
     /// <param name="logger">Logger used for data-source diagnostics.</param>
-    /// <param name="queryProvider">
-    /// Optional database-provider-specific backend. When present it is used only to discover
-    /// candidate ids faster; the engine produces the same kind of list without it.
+    /// <param name="features">Cache persistente de caracteristicas por item, compartida por la ejecucion.</param>
+    /// <param name="providerState">
+    /// Estado del backend opcional de base de datos. Cuando esta disponible se usa solo para descubrir
+    /// ids candidatos mas rapido; el motor produce la misma clase de lista sin el.
     /// </param>
     /// <returns>The recommended item ids and the diagnostics of the run.</returns>
     public static RecommendationResult BuildRecommendations(
@@ -57,28 +59,36 @@ internal static class RecommendationEngine
         IReadOnlySet<Guid> trendingItemIds,
         int maxItems,
         ILogger logger,
-        IRecommendationQueryProvider? queryProvider = null)
+        FeatureStore features,
+        ProviderState? providerState = null)
     {
         ArgumentNullException.ThrowIfNull(libraryManager);
         ArgumentNullException.ThrowIfNull(userDataManager);
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(trendingItemIds);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(features);
 
-        var source = CandidateSource.Create(libraryManager, userDataManager, queryProvider, logger);
-        var topParentIds = GetTopParentIds(libraryManager, user);
+        var source = CandidateSource.Create(
+            libraryManager,
+            userDataManager,
+            providerState ?? new ProviderState(),
+            logger,
+            features);
+        var topParentIds = LibraryScope.Resolve(libraryManager, user);
         var watched = source.GetWatched(user, DateTime.UtcNow);
 
         if (watched.Count == 0)
         {
             var coldIds = BuildColdStart(source, user, trendingItemIds, maxItems, topParentIds);
-            return new RecommendationResult(
+            return Report(user, maxItems, new RecommendationResult(
                 coldIds,
                 string.Format(
                     CultureInfo.InvariantCulture,
-                    "fuente={0} | sin historial: fila por calidad y variedad | lista({1})",
+                    "fuente={0} | alcance={1} bibliotecas | sin historial: fila por calidad y variedad | lista({2})",
                     source.Description,
-                    coldIds.Count));
+                    topParentIds.Count,
+                    coldIds.Count)));
         }
 
         // Provisional profile, built from the watch history alone, only to decide which facets are
@@ -93,7 +103,9 @@ internal static class RecommendationEngine
 
         if (candidates.Count == 0)
         {
-            return new RecommendationResult([], $"fuente={source.Description} | sin candidatos que puntuar");
+            return Report(user, maxItems, new RecommendationResult(
+                [],
+                $"fuente={source.Description} | alcance={topParentIds.Count} bibliotecas | sin candidatos que puntuar"));
         }
 
         var index = new FacetIndex();
@@ -119,7 +131,21 @@ internal static class RecommendationEngine
 
         var selectedIds = RecommendationSelector.Select(scored, profile, maxItems);
 
-        return new RecommendationResult(selectedIds, BuildDiagnostics(source, profile, scored, selectedIds));
+        return Report(user, maxItems, new RecommendationResult(selectedIds, BuildDiagnostics(source, profile, scored, selectedIds)));
+    }
+
+    // Deja el resultado en los dos logs: el del servidor (tarea) y el propio del plugin, que es el que
+    // se consulta primero cuando una fila sale vacia o inesperada.
+    private static RecommendationResult Report(User user, int maxItems, RecommendationResult result)
+    {
+        JellyTrendLog.Info(string.Format(
+            CultureInfo.InvariantCulture,
+            "[Recomendaciones] '{0}' (max={1}): {2}",
+            user.Username,
+            maxItems,
+            result.Diagnostics));
+
+        return result;
     }
 
     // Without history there is nothing to model, so the row is the best-rated diverse set: the scorer
@@ -168,13 +194,6 @@ internal static class RecommendationEngine
         return TasteProfile.Build(watched, index);
     }
 
-    private static List<Guid> GetTopParentIds(ILibraryManager libraryManager, User user)
-        => libraryManager
-            .GetUserRootFolder()
-            .GetChildren(user, true)
-            .Select(static folder => folder.Id)
-            .ToList();
-
     private static string BuildDiagnostics(
         CandidateSource source,
         TasteProfile profile,
@@ -182,14 +201,25 @@ internal static class RecommendationEngine
         List<Guid> selectedIds)
     {
         var selected = new HashSet<Guid>(selectedIds);
-
-        var profileSummary = string.Join(", ", profile.TopGenres(MaxDiagnosticFacets).Select(
-            static genre => string.Format(CultureInfo.InvariantCulture, "{0} {1:P0}", genre.Key, genre.Value)));
-
-        var composition = string.Join(", ", scored
+        var selectedMovies = scored
             .Where(candidate => selected.Contains(candidate.Movie.Id))
-            .SelectMany(static candidate => candidate.Movie.Genres)
-            .GroupBy(static genre => genre, StringComparer.OrdinalIgnoreCase)
+            .Select(static candidate => candidate.Movie)
+            .ToList();
+
+        var profileSummary = string.Format(
+            CultureInfo.InvariantCulture,
+            "generos {0} | tags {1}",
+            Describe(profile.TopGenres(MaxDiagnosticFacets)),
+            Describe(profile.TopTags(MaxDiagnosticFacets)));
+
+        // Composición por genero identidad (el que manda para este usuario) y no por cada co-genero:
+        // contar todos los generos hacia parecer que la fila es de Drama cuando en realidad son
+        // titulos de Terror o Animacion que ademas llevan Drama.
+        var composition = string.Join(", ", selectedMovies
+            .GroupBy(
+                movie => RecommendationSelector.BestGenre(movie, profile)
+                    ?? (movie.Genres.Count > 0 ? movie.Genres[0] : "(sin genero)"),
+                StringComparer.OrdinalIgnoreCase)
             .OrderByDescending(static group => group.Count())
             .ThenBy(static group => group.Key, StringComparer.OrdinalIgnoreCase)
             .Take(MaxDiagnosticFacets)
@@ -197,7 +227,7 @@ internal static class RecommendationEngine
 
         return string.Format(
             CultureInfo.InvariantCulture,
-            "fuente={0} | perfil({1} vistos, {2} personas): {3} | lista({4} de {5} candidatos): {6}",
+            "fuente={0} | perfil({1} vistos, {2} personas): {3} | lista({4} de {5} candidatos, por genero identidad): {6}",
             source.Description,
             profile.ItemCount,
             profile.PersonCount,
@@ -206,4 +236,8 @@ internal static class RecommendationEngine
             scored.Count,
             composition);
     }
+
+    private static string Describe(IReadOnlyList<KeyValuePair<string, double>> facets)
+        => string.Join(", ", facets.Select(
+            static facet => string.Format(CultureInfo.InvariantCulture, "{0} {1:P0}", facet.Key, facet.Value)));
 }
