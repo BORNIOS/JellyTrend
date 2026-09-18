@@ -27,10 +27,11 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Backend;
 /// </remarks>
 public sealed class DatabaseBackend
 {
-    private const string NotInstalled = "no instalado";
+    private const string NoProviderLabel = "ILibraryManager (sin proveedor externo)";
 
-    private string _recommendationDetail = NotInstalled;
-    private string _indexDetail = NotInstalled;
+    private string _recommendationLabel = NoProviderLabel;
+    private string _recommendationState = string.Empty;
+    private string _indexLabel = "indice de biblioteca";
 
     /// <summary>Gets the recommendation backend offered by another plugin, when it is installed.</summary>
     public IRecommendationQueryProvider? RecommendationProvider { get; private set; }
@@ -49,22 +50,15 @@ public sealed class DatabaseBackend
 
     /// <summary>Gets one line describing the detected backend and its verification state.</summary>
     public string Summary
-        => $"{Describe()} | indice de biblioteca: {_indexDetail}";
+        => IndexUsable
+            ? $"{Recommendation} + indice de biblioteca"
+            : Recommendation;
 
-    private string Describe()
+    /// <summary>Gets the recommendation backend as one short phrase: who it is and how it is doing.</summary>
+    public string Recommendation
         => RecommendationProvider is null
-            ? $"sin proveedor de base de datos ({_recommendationDetail}); se usa ILibraryManager"
-            : $"{Describe(RecommendationProvider)}: {_recommendationDetail}";
-
-    private static string Describe(IRecommendationQueryProvider provider)
-    {
-        if (!typeof(ForeignForwardingProxy).IsAssignableFrom(provider.GetType()))
-        {
-            return provider.GetType().Name;
-        }
-
-        return ((ForeignForwardingProxy)(object)provider).ForeignName;
-    }
+            ? "ILibraryManager (sin proveedor externo)"
+            : string.IsNullOrEmpty(_recommendationState) ? _recommendationLabel : $"{_recommendationLabel} {_recommendationState}";
 
     /// <summary>
     /// Resolves the backends: first from the Jellyfin service container, and otherwise by looking for them
@@ -80,38 +74,37 @@ public sealed class DatabaseBackend
         RecommendationProvider = Detect<IRecommendationQueryProvider>(
             services,
             loggerFactory,
-            out var recommendationDetail);
-        _recommendationDetail = recommendationDetail;
+            out var recommendationLabel);
+        _recommendationLabel = recommendationLabel;
 
         LibraryIndex = Detect<ILibraryIndexQueryProvider>(
             services,
             loggerFactory,
-            out var indexDetail);
-        _indexDetail = indexDetail;
+            out var indexLabel);
+        _indexLabel = indexLabel;
 
         // Presente no significa utilizable: queda "comprobando" hasta que la sonda real confirme que
         // devuelve datos (ver DatabaseBackendStartupService).
         RecommendationUsable = RecommendationProvider is not null;
         IndexUsable = LibraryIndex is not null;
+        _recommendationState = RecommendationUsable ? "(comprobando)" : string.Empty;
     }
 
     private static TProvider? Detect<TProvider>(
         IServiceProvider services,
         ILoggerFactory loggerFactory,
-        out string detail)
+        out string label)
         where TProvider : class
     {
         var registered = TryResolve<TProvider>(services, out var containerError);
         if (registered is not null)
         {
-            detail = "registrado en el contenedor de Jellyfin; comprobando";
+            label = registered.GetType().Name;
             return registered;
         }
 
         var found = ForeignProviderDiscovery.Find<TProvider>(services, loggerFactory, out var search);
-        detail = found is null
-            ? $"no disponible: {containerError ?? search}"
-            : $"{search}; comprobando";
+        label = found is null ? containerError ?? search : search;
 
         return found;
     }
@@ -123,7 +116,7 @@ public sealed class DatabaseBackend
     public void VerifyRecommendations(int sampleRows)
     {
         RecommendationUsable = true;
-        _recommendationDetail = $"verificado ({sampleRows} candidatos de muestra)";
+        _recommendationState = $"(verificado, {sampleRows} candidatos)";
     }
 
     /// <summary>
@@ -133,14 +126,15 @@ public sealed class DatabaseBackend
     public void RejectRecommendations(string reason)
     {
         RecommendationUsable = false;
-        _recommendationDetail = reason;
+        _recommendationState = $"(descartado: {reason})";
     }
 
     /// <summary>
     /// Records that the recommendation backend could not be verified either way.
     /// </summary>
     /// <param name="reason">Why the verification was not conclusive.</param>
-    public void InconclusiveRecommendations(string reason) => _recommendationDetail = $"sin comprobar ({reason})";
+    public void InconclusiveRecommendations(string reason)
+        => _recommendationState = $"(sin comprobar: {reason})";
 
     /// <summary>
     /// Marks the library index as answering, with the measured sample size.
@@ -149,7 +143,7 @@ public sealed class DatabaseBackend
     public void VerifyIndex(int resolvedIds)
     {
         IndexUsable = true;
-        _indexDetail = $"verificado ({resolvedIds} ids de muestra)";
+        _indexLabel = $"{_indexLabel} (verificado, {resolvedIds} ids)";
     }
 
     /// <summary>
@@ -159,14 +153,15 @@ public sealed class DatabaseBackend
     public void RejectIndex(string reason)
     {
         IndexUsable = false;
-        _indexDetail = reason;
+        _indexLabel = $"indice de biblioteca descartado: {reason}";
     }
 
     /// <summary>
     /// Records that the library index could not be verified either way.
     /// </summary>
     /// <param name="reason">Why the verification was not conclusive.</param>
-    public void InconclusiveIndex(string reason) => _indexDetail = $"sin comprobar ({reason})";
+    public void InconclusiveIndex(string reason)
+        => _indexLabel = $"indice de biblioteca sin comprobar ({reason})";
 
     /// <summary>
     /// Creates the state shared by one recommendation run, so a failure is discarded once per run
@@ -176,8 +171,8 @@ public sealed class DatabaseBackend
     internal ProviderState CreateRunState()
         => new(
             RecommendationUsable ? RecommendationProvider : null,
-            () => RejectRecommendations("descartado durante una ejecucion (no devolvio candidatos o fallo)"),
-            RecommendationProvider is null ? null : _recommendationDetail);
+            () => RejectRecommendations("fallo o respuesta vacia durante una ejecucion"),
+            RecommendationProvider is null ? null : _recommendationState);
 
     private static T? TryResolve<T>(IServiceProvider services, out string? error)
         where T : class

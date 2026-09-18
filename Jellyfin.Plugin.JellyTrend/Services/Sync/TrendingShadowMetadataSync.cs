@@ -74,7 +74,13 @@ public static class TrendingShadowMetadataSync
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "JellyTrend: no se pudo sincronizar metadatos del sombra para {ItemId}.", entry.ItemId);
+                // Una linea, con el motivo. La traza completa queda en Debug para no inundar el log.
+                logger.LogWarning(
+                    "JellyTrend: no se pudo sincronizar metadatos del sombra para {ItemId}: {Error} {Message}",
+                    entry.ItemId,
+                    ex.GetType().Name,
+                    ex.Message);
+                logger.LogDebug(ex, "JellyTrend: traza de la sincronizacion del sombra {ItemId}.", entry.ItemId);
             }
         }
     }
@@ -118,7 +124,13 @@ public static class TrendingShadowMetadataSync
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "JellyTrend: no se pudo sincronizar metadatos del sombra para {ItemId}.", id);
+                // Una linea, con el motivo. La traza completa queda en Debug para no inundar el log.
+                logger.LogWarning(
+                    "JellyTrend: no se pudo sincronizar metadatos del sombra para {ItemId}: {Error} {Message}",
+                    id,
+                    ex.GetType().Name,
+                    ex.Message);
+                logger.LogDebug(ex, "JellyTrend: traza de la sincronizacion del sombra {ItemId}.", id);
             }
         }
     }

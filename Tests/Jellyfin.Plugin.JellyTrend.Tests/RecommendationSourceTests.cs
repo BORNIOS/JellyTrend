@@ -35,7 +35,7 @@ public sealed class RecommendationSourceTests
         var source = CandidateSource.Create(BuildLibrary(), BuildUserData(), null, NullLogger.Instance, Store());
 
         Assert.False(source.UsingProvider);
-        Assert.Contains("sin proveedor", source.Description, StringComparison.Ordinal);
+        Assert.Equal("ILibraryManager", source.Description, StringComparer.Ordinal);
 
         var watched = source.GetWatched(NewUser(), Now);
         var candidates = source.GetCandidates(NewUser(), ["Terror"], [], [], []);
@@ -83,7 +83,7 @@ public sealed class RecommendationSourceTests
         var candidates = source.GetCandidates(NewUser(), ["Terror"], [], [], []);
 
         Assert.False(source.UsingProvider);
-        Assert.Contains("proveedor descartado", source.Description, StringComparison.Ordinal);
+        Assert.Equal("ILibraryManager", source.Description, StringComparer.Ordinal);
         Assert.Single(candidates);
         Assert.Contains(logger.Messages, message => message.Contains("no devolvió candidatos", StringComparison.Ordinal));
     }

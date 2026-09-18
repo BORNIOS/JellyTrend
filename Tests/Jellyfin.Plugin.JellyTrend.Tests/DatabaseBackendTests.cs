@@ -31,7 +31,7 @@ public class DatabaseBackendTests
         // El indice de biblioteca no lo ofrece nadie todavia: no hay nada que ofrecer ni que comprobar.
         Assert.False(backend.IndexUsable);
         Assert.Null(backend.UsableLibraryIndex);
-        Assert.Contains("indice de biblioteca: no disponible", backend.Summary, StringComparison.Ordinal);
+        Assert.DoesNotContain("indice de biblioteca", backend.Summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class DatabaseBackendTests
         backend.Detect(new FakeServices(provider));
 
         Assert.Same(provider, backend.CreateRunState().Provider);
-        Assert.Contains("registrado en el contenedor", backend.Summary, StringComparison.Ordinal);
+        Assert.Contains("comprobando", backend.Summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class DatabaseBackendTests
         backend.VerifyRecommendations(5);
 
         Assert.True(backend.RecommendationUsable);
-        Assert.Contains("verificado (5 candidatos de muestra)", backend.Summary, StringComparison.Ordinal);
+        Assert.Contains("verificado, 5 candidatos", backend.Summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class DatabaseBackendTests
 
         Assert.False(backend.RecommendationUsable);
         Assert.Null(backend.CreateRunState().Provider);
-        Assert.Contains("descartado durante una ejecucion", backend.Summary, StringComparison.Ordinal);
+        Assert.Contains("descartado: fallo o respuesta vacia durante una ejecucion", backend.Summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public class DatabaseBackendTests
 
         Assert.False(backend.RecommendationUsable);
         Assert.Null(backend.CreateRunState().Provider);
-        Assert.Contains("devolvio 0 candidatos aunque la biblioteca tiene peliculas sin ver", backend.Summary, StringComparison.Ordinal);
+        Assert.Contains("descartado: devolvio 0 candidatos", backend.Summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class DatabaseBackendTests
         Probe(backend, provider, hasUnwatchedMovies: true);
 
         Assert.True(backend.RecommendationUsable);
-        Assert.Contains("verificado (3 candidatos de muestra)", backend.Summary, StringComparison.Ordinal);
+        Assert.Contains("verificado, 3 candidatos", backend.Summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public class DatabaseBackendTests
         Probe(backend, provider, hasUnwatchedMovies: false);
 
         Assert.True(backend.RecommendationUsable);
-        Assert.Contains("sin comprobar (la biblioteca no tiene peliculas sin ver)", backend.Summary, StringComparison.Ordinal);
+        Assert.Contains("sin comprobar: la biblioteca no tiene peliculas sin ver", backend.Summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -141,7 +141,6 @@ public class DatabaseBackendTests
 
         Assert.Null(error);
         Assert.False(backend.IndexUsable);
-        Assert.Contains("no se pudo cargar", backend.Summary, StringComparison.Ordinal);
     }
 
     private static void Probe(DatabaseBackend backend, IRecommendationQueryProvider provider, bool hasUnwatchedMovies)

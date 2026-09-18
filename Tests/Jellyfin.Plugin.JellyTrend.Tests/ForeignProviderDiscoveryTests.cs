@@ -26,8 +26,7 @@ public class ForeignProviderDiscoveryTests
 
         Assert.True(backend.RecommendationUsable);
         Assert.NotNull(backend.RecommendationProvider);
-        Assert.Contains("encontrado por busqueda", backend.Summary, StringComparison.Ordinal);
-        Assert.Contains("FakeRecommendationQueryProvider", backend.Summary, StringComparison.Ordinal);
+        Assert.Contains("Jellyfin.Plugin.JellyTrend.FakeProvider", backend.Summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -61,7 +60,6 @@ public class ForeignProviderDiscoveryTests
         // El plugin de mentira solo replica el contrato de recomendaciones, no el indice de biblioteca.
         Assert.False(backend.IndexUsable);
         Assert.Null(backend.UsableLibraryIndex);
-        Assert.Contains("indice de biblioteca: no disponible", backend.Summary, StringComparison.Ordinal);
     }
 
     // Como en Jellyfin: el ensamblado del otro plugin esta cargado en el proceso.

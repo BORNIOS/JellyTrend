@@ -61,13 +61,20 @@ internal sealed class DatabaseBackendStartupService : IHostedService
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _backend.Detect(_services, _loggerFactory);
-        Announce("Backend de base de datos detectado al arrancar el plugin");
+
+        // Una sola linea en INFO: quien es el backend y como esta. El detalle, en Debug.
+        _logger.LogDebug("[JellyTrend] Backend detectado: {Recommendation} | {Index}", _backend.Recommendation, _backend.Summary);
 
         if (_backend.RecommendationProvider is not null || _backend.LibraryIndex is not null)
         {
             // La comprobacion consulta la base de datos: va en segundo plano para no retrasar el arranque
             // del servidor, y todo fallo queda dentro de Probe.
             _ = Task.Run(Probe, CancellationToken.None);
+        }
+        else
+        {
+            // Sin nada que comprobar, la unica linea informativa se da aqui.
+            Announce();
         }
 
         return Task.CompletedTask;
@@ -95,12 +102,13 @@ internal sealed class DatabaseBackendStartupService : IHostedService
         }
         catch (Exception ex)
         {
-            _backend.RejectRecommendations($"la comprobacion fallo ({ex.GetType().Name})");
-            _logger.LogWarning(ex, "[JellyTrend] La comprobacion del proveedor de base de datos fallo; se usara ILibraryManager.");
+            _backend.RejectRecommendations($"error en la comprobacion ({ex.GetType().Name})");
+            _logger.LogWarning("[JellyTrend] No se pudo comprobar el proveedor de base de datos ({Type}); se usa ILibraryManager.", ex.GetType().Name);
+            _logger.LogDebug(ex, "[JellyTrend] Detalle de la comprobacion fallida del proveedor.");
         }
         finally
         {
-            Announce("Comprobacion del backend terminada");
+            Announce();
         }
     }
 
@@ -124,12 +132,12 @@ internal sealed class DatabaseBackendStartupService : IHostedService
             return;
         }
 
-        _backend.RejectRecommendations("devolvio 0 candidatos aunque la biblioteca tiene peliculas sin ver");
+        _backend.RejectRecommendations("devolvio 0 candidatos");
 
         // El proveedor atrapa sus propios errores y devuelve vacio, asi que aqui no se puede saber la causa:
         // se dice lo medido y donde mirar, sin inventar el motivo.
         _logger.LogWarning(
-            "[JellyTrend] El proveedor de base de datos esta instalado pero no devolvio candidatos; se usara ILibraryManager. El motivo concreto queda en el log del propio proveedor.");
+            "[JellyTrend] El proveedor de base de datos no devolvio candidatos; se usa ILibraryManager. El motivo queda en el log del proveedor.");
     }
 
     private void ProbeIndex()
@@ -174,9 +182,9 @@ internal sealed class DatabaseBackendStartupService : IHostedService
             Limit = 1
         }).Count > 0;
 
-    private void Announce(string message)
+    private void Announce()
     {
-        _logger.LogInformation("[JellyTrend] {Message}: {Summary}", message, _backend.Summary);
-        JellyTrendLog.Info($"[JellyTrend] {message}: {_backend.Summary}");
+        _logger.LogInformation("[JellyTrend] Backend: {Backend}.", _backend.Recommendation);
+        JellyTrendLog.Info($"[JellyTrend] Backend: {_backend.Recommendation}.");
     }
 }

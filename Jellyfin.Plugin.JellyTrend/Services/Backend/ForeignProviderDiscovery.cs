@@ -48,7 +48,7 @@ internal static class ForeignProviderDiscovery
         var ourAssembly = typeof(TContract).Assembly;
         string? lastProblem = null;
 
-        foreach (var (assembly, origin) in CandidateAssemblies(services))
+        foreach (var (assembly, label) in CandidateAssemblies(services))
         {
             if (assembly == ourAssembly)
             {
@@ -69,38 +69,31 @@ internal static class ForeignProviderDiscovery
 
             if (!TryCreate(implementation, services, loggerFactory, out var instance, out var creationError))
             {
-                lastProblem = $"{assembly.GetName().Name}: {creationError}";
+                lastProblem = $"{label}: {creationError}";
                 continue;
             }
 
-            detail = $"encontrado por busqueda en {assembly.GetName().Name} {assembly.GetName().Version} ({origin})";
+            detail = label;
             return Adapt<TContract>(mirror, instance);
         }
 
-        detail = lastProblem is null
-            ? "ningun plugin cargado ofrece este contrato"
-            : $"encontrado pero no se pudo usar ({lastProblem})";
+        detail = lastProblem is null ? "ningun plugin ofrece este contrato" : lastProblem;
 
         return null;
     }
 
     /// <summary>
-    /// Los ensamblados donde buscar, empezando por los de los plugins vivos.
+    /// Los ensamblados donde buscar y como llamarlos en el log, empezando por los de los plugins vivos.
     /// </summary>
-    private static List<(Assembly Assembly, string Origin)> CandidateAssemblies(IServiceProvider services)
+    private static List<(Assembly Assembly, string Label)> CandidateAssemblies(IServiceProvider services)
     {
-        var candidates = new List<(Assembly Assembly, string Origin)>();
-
-        foreach (var assembly in LivePluginAssemblies(services))
-        {
-            candidates.Add((assembly, "plugin activo"));
-        }
+        var candidates = LivePluginAssemblies(services);
 
         foreach (var assembly in LoadedAssemblies())
         {
             if (!candidates.Any(candidate => candidate.Assembly == assembly))
             {
-                candidates.Add((assembly, "ensamblado cargado"));
+                candidates.Add((assembly, $"{assembly.GetName().Name} {assembly.GetName().Version}"));
             }
         }
 
@@ -110,9 +103,9 @@ internal static class ForeignProviderDiscovery
     /// <summary>
     /// Ensamblados de los plugins que Jellyfin tiene cargados como plugins, no solo presentes en memoria.
     /// </summary>
-    private static List<Assembly> LivePluginAssemblies(IServiceProvider services)
+    private static List<(Assembly Assembly, string Label)> LivePluginAssemblies(IServiceProvider services)
     {
-        var assemblies = new List<Assembly>();
+        var found = new List<(Assembly Assembly, string Label)>();
 
         try
         {
@@ -120,10 +113,13 @@ internal static class ForeignProviderDiscovery
             {
                 foreach (var plugin in pluginManager.Plugins)
                 {
-                    if (plugin.Instance is { } instance)
+                    if (plugin.Instance is not { } instance)
                     {
-                        assemblies.Add(instance.GetType().Assembly);
+                        continue;
                     }
+
+                    var assembly = instance.GetType().Assembly;
+                    found.Add((assembly, $"{plugin.Manifest.Name} {assembly.GetName().Version}"));
                 }
             }
         }
@@ -132,7 +128,7 @@ internal static class ForeignProviderDiscovery
             // Sin lista de plugins seguimos con el resto de ensamblados.
         }
 
-        return assemblies.Distinct().ToList();
+        return found.Distinct().ToList();
     }
 
     private static TContract Adapt<TContract>(Type mirror, object instance)

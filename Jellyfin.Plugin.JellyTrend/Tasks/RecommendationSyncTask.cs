@@ -98,7 +98,7 @@ public sealed class RecommendationSyncTask : IScheduledTask
             // el estado del run es compartido para que un proveedor que falle se descarte UNA vez, en
             // lugar de reintentarse con cada usuario.
             var providerState = _backend.CreateRunState();
-            _logger.LogInformation("[Recomendaciones] Backend de base de datos: {Summary}", _backend.Summary);
+            _logger.LogDebug("[Recomendaciones] Backend: {Backend}.", _backend.Recommendation);
 
             var allRecommendedIds = new List<Guid>();
             var generated = 0;

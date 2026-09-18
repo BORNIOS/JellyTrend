@@ -60,9 +60,7 @@ internal sealed class CandidateSource
     public bool UsingProvider => _providerState.IsUsable;
 
     /// <summary>Gets the data source description used in the task log.</summary>
-    public string Description => UsingProvider
-        ? "proveedor de base de datos"
-        : $"ILibraryManager ({_providerState.UnavailableReason ?? "sin proveedor"})";
+    public string Description => UsingProvider ? "proveedor de base de datos" : "ILibraryManager";
 
     /// <summary>
     /// Creates the source.
