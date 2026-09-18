@@ -100,6 +100,31 @@ internal sealed class TasteProfile
             items.Count);
     }
 
+    /// <summary>
+    /// Builds the profile the selector needs (per-genre quotas, "which genre identifies this movie for
+    /// this user") from the profile layer 2 already stored, without touching the watch history.
+    /// </summary>
+    /// <param name="profile">Stored taste profile.</param>
+    /// <param name="itemCount">Number of consumed titles behind the profile.</param>
+    /// <returns>The taste profile used for selection.</returns>
+    public static TasteProfile FromAffinities(AffinityProfile profile, int itemCount)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+
+        return new TasteProfile(
+            Shares(profile, "genre"),
+            Shares(profile, "tag"),
+            Shares(profile, "studio"),
+            [],
+            itemCount);
+
+        static Dictionary<string, double> Shares(AffinityProfile source, string facet)
+            => source.Distribution(facet).ToDictionary(
+                static entry => entry.Key,
+                static entry => entry.Value,
+                StringComparer.OrdinalIgnoreCase);
+    }
+
     /// <summary>Gets the share of the profile accounted for by a genre.</summary>
     /// <param name="genre">Genre name.</param>
     /// <returns>Value between 0 and 1.</returns>

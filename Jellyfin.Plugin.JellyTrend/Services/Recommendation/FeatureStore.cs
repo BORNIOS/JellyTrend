@@ -32,7 +32,10 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 internal sealed class FeatureStore
 {
     private const string FileName = "features.json";
-    private const int CurrentVersion = 1;
+
+    // Version 2 anade el reparto por rol y la coleccion al documento cacheado: la 1 no los tiene y se
+    // descarta para no arrastrar entradas sin nombres de personas.
+    private const int CurrentVersion = 2;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -188,7 +191,11 @@ internal sealed class FeatureStore
                     pair.Value.Studios ?? [],
                     [.. (pair.Value.People ?? []).Select(static person => Guid.TryParseExact(person, "N", out var personId) ? personId : Guid.Empty).Where(static personId => personId != Guid.Empty)],
                     pair.Value.CommunityRating,
-                    pair.Value.PremiereDate);
+                    pair.Value.PremiereDate,
+                    pair.Value.Directors ?? [],
+                    pair.Value.Actors ?? [],
+                    pair.Value.Writers ?? [],
+                    pair.Value.Collection);
             }
         }
         catch (Exception ex)
@@ -220,7 +227,11 @@ internal sealed class FeatureStore
                 cached.Studios ?? [],
                 [.. (cached.People ?? []).Select(static person => Guid.TryParseExact(person, "N", out var personId) ? personId : Guid.Empty).Where(static personId => personId != Guid.Empty)],
                 cached.CommunityRating,
-                cached.PremiereDate);
+                cached.PremiereDate,
+                cached.Directors ?? [],
+                cached.Actors ?? [],
+                cached.Writers ?? [],
+                cached.Collection);
         }
         catch (JsonException ex)
         {
@@ -242,7 +253,11 @@ internal sealed class FeatureStore
             Studios = [.. features.Studios],
             People = [.. features.People.Select(static person => person.ToString("N"))],
             CommunityRating = features.CommunityRating,
-            PremiereDate = features.PremiereDate
+            PremiereDate = features.PremiereDate,
+            Directors = [.. features.Directors],
+            Actors = [.. features.Actors],
+            Writers = [.. features.Writers],
+            Collection = features.Collection
         };
 
     private sealed class CacheFile
@@ -265,5 +280,13 @@ internal sealed class FeatureStore
         public float? CommunityRating { get; set; }
 
         public DateTime? PremiereDate { get; set; }
+
+        public string[]? Directors { get; set; }
+
+        public string[]? Actors { get; set; }
+
+        public string[]? Writers { get; set; }
+
+        public string? Collection { get; set; }
     }
 }

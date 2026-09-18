@@ -44,6 +44,11 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IEventConsumer<PlaybackStopEventArgs>>(sp => sp.GetRequiredService<TrendingLibraryLinkService>());
         serviceCollection.AddSingleton<IEventConsumer<PlaybackProgressEventArgs>>(sp => sp.GetRequiredService<TrendingLibraryLinkService>());
 
+        // Refresco incremental del perfil: un evento de fin de reproduccion adelanta lo que antes solo
+        // ocurria en la corrida semanal.
+        serviceCollection.AddSingleton<ConsumptionRefreshConsumer>();
+        serviceCollection.AddSingleton<IEventConsumer<PlaybackStopEventArgs>, ConsumptionRefreshConsumer>();
+
         // ScriptInjectionService patches index.html on disk at startup so the banner
         // script is served without any pipeline middleware (IStartupFilter is not
         // reliable for dynamically loaded plugins).

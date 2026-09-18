@@ -154,22 +154,9 @@ public static class TasteProfileBuilder
     private static double WeightOf(string facet)
         => FacetWeights.TryGetValue(facet, out var weight) ? weight : UnknownFacetWeight;
 
-    private static string[] Bucket(double? rating) => rating switch
-    {
-        null => [],
-        >= 8d => ["8-10"],
-        >= 6.5d => ["6.5-8"],
-        >= 5d => ["5-6.5"],
-        _ => ["menos de 5"]
-    };
+    private static string[] Bucket(double? rating) => FacetLabels.RatingBucket(rating) is { } label ? [label] : [];
 
-    private static string[] RuntimeBucket(int? minutes) => minutes switch
-    {
-        null => [],
-        < 90 => ["menos de 90 min"],
-        <= 120 => ["90-120 min"],
-        _ => ["mas de 120 min"]
-    };
+    private static string[] RuntimeBucket(int? minutes) => FacetLabels.RuntimeBucket(minutes) is { } label ? [label] : [];
 
     private static void Add(
         Dictionary<string, Dictionary<string, double>> target,

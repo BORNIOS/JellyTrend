@@ -36,8 +36,12 @@ internal sealed class CandidateSource
     private const int BroadPoolLimit = 400;
     private const int MaxCandidatesPerFacet = 150;
 
+    /// <summary>Posiciones de reparto que cuentan, igual que en la capa 2.</summary>
+    private const int MainCast = 4;
+
     private readonly ILibraryManager _libraryManager;
     private readonly IUserDataManager _userDataManager;
+    private readonly IUserManager? _userManager;
     private readonly ProviderState _providerState;
     private readonly ILogger _logger;
     private readonly FeatureStore _features;
@@ -45,12 +49,14 @@ internal sealed class CandidateSource
     private CandidateSource(
         ILibraryManager libraryManager,
         IUserDataManager userDataManager,
+        IUserManager? userManager,
         ProviderState providerState,
         ILogger logger,
         FeatureStore features)
     {
         _libraryManager = libraryManager;
         _userDataManager = userDataManager;
+        _userManager = userManager;
         _providerState = providerState;
         _logger = logger;
         _features = features;
@@ -70,13 +76,18 @@ internal sealed class CandidateSource
     /// <param name="providerState">Estado del backend opcional de base de datos; <c>null</c> equivale a no tener proveedor.</param>
     /// <param name="logger">Logger.</param>
     /// <param name="features">Cache persistente de caracteristicas por item.</param>
+    /// <param name="userManager">
+    /// Gestor de usuarios, necesario para medir la popularidad local (lo que ve el resto del servidor);
+    /// sin el, el arranque en frio solo puede contar la calidad y la novedad.
+    /// </param>
     /// <returns>The candidate source.</returns>
     public static CandidateSource Create(
         ILibraryManager libraryManager,
         IUserDataManager userDataManager,
         ProviderState? providerState,
         ILogger logger,
-        FeatureStore features)
+        FeatureStore features,
+        IUserManager? userManager = null)
     {
         ArgumentNullException.ThrowIfNull(libraryManager);
         ArgumentNullException.ThrowIfNull(userDataManager);
@@ -86,6 +97,7 @@ internal sealed class CandidateSource
         return new CandidateSource(
             libraryManager,
             userDataManager,
+            userManager,
             providerState ?? new ProviderState(),
             logger,
             features);
@@ -408,7 +420,10 @@ internal sealed class CandidateSource
 
         foreach (var item in items)
         {
-            if (_features.TryGet(item.Id, out var cached))
+            // Una entrada con personas pero sin nombres viene de antes de que el reparto se guardara por
+            // rol y no sirve para el perfil: se lee de nuevo y la propia lectura la reescribe. Una entrada
+            // sin personas es un titulo sin reparto util, y esa si se respeta.
+            if (_features.TryGet(item.Id, out var cached) && (cached.People.Count == 0 || cached.HasRoles))
             {
                 if (cached.People.Count > 0)
                 {
@@ -426,19 +441,22 @@ internal sealed class CandidateSource
             var loaded = ApiCompat.GetPeopleByItems(_libraryManager, missing);
             foreach (var item in missing)
             {
-                var relevant = loaded.TryGetValue(item.Id, out var itemPeople)
-                    ? RelevantPeople(itemPeople)
-                    : [];
+                var itemPeople = loaded.TryGetValue(item.Id, out var found) ? found : [];
+                var relevant = RelevantPeople(itemPeople);
 
-                // Se guarda el item completo (generos, etiquetas, estudios y personas) para que las
-                // siguientes ejecuciones no vuelvan a leer nada de este titulo.
+                // Se guarda el item completo (generos, etiquetas, estudios, personas por id y por nombre)
+                // para que las siguientes ejecuciones no vuelvan a leer nada de este titulo.
                 _features.Set(item.Id, new ItemFeatures(
                     item.Genres ?? [],
                     item.Tags ?? [],
                     item.Studios ?? [],
                     relevant,
                     item.CommunityRating,
-                    item.PremiereDate));
+                    item.PremiereDate,
+                    Names(itemPeople, PersonKind.Director),
+                    Names(itemPeople, PersonKind.Actor, MainCast),
+                    Names(itemPeople, PersonKind.Writer),
+                    null));
 
                 if (relevant.Count > 0)
                 {
@@ -449,6 +467,91 @@ internal sealed class CandidateSource
 
         return people;
     }
+
+    /// <summary>
+    /// Mide lo que el resto del servidor ve cada titulo, para el arranque en frio de un usuario nuevo.
+    /// </summary>
+    /// <param name="candidates">Titulos candidatos.</param>
+    /// <param name="viewer">Usuario al que se le va a recomendar.</param>
+    /// <returns>Engagement agregado de cada titulo, normalizado de forma que el mas visto vale 1.</returns>
+    public Dictionary<Guid, double> GetLocalPopularity(IReadOnlyList<CandidateItem> candidates, User viewer)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(viewer);
+
+        var popularity = new Dictionary<Guid, double>();
+        if (candidates.Count == 0)
+        {
+            return popularity;
+        }
+
+        var items = _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            Recursive = true,
+            IncludeItemTypes = [BaseItemKind.Movie],
+            ItemIds = [.. candidates.Select(static candidate => candidate.Id)]
+        });
+
+        if (items.Count == 0)
+        {
+            return popularity;
+        }
+
+        var viewers = new List<User> { viewer };
+        if (_userManager is not null)
+        {
+            viewers.AddRange(_userManager.GetUsers().Where(user => user.Id != viewer.Id));
+        }
+
+        foreach (var user in viewers)
+        {
+            Dictionary<Guid, UserItemData> userData;
+            try
+            {
+                userData = ApiCompat.GetUserData(_userDataManager, items, user);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "JellyTrend: sin datos de '{User}' para la popularidad local.", user.Username);
+                continue;
+            }
+
+            foreach (var item in items)
+            {
+                if (!userData.TryGetValue(item.Id, out var data) || data is null)
+                {
+                    continue;
+                }
+
+                var engagement = data.PlayCount
+                    + (data.IsFavorite ? 2 : 0)
+                    + (data.Played ? 1 : 0);
+
+                if (engagement > 0)
+                {
+                    popularity[item.Id] = popularity.GetValueOrDefault(item.Id) + engagement;
+                }
+            }
+        }
+
+        var maximum = popularity.Count == 0 ? 0d : popularity.Values.Max();
+        if (maximum > 0d)
+        {
+            foreach (var id in popularity.Keys.ToList())
+            {
+                popularity[id] /= maximum;
+            }
+        }
+
+        return popularity;
+    }
+
+    private static List<string> Names(IReadOnlyList<PersonInfo> people, PersonKind kind, int limit = int.MaxValue)
+        => [.. people
+            .Where(person => person.Type == kind && !string.IsNullOrWhiteSpace(person.Name))
+            .Select(static person => person.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(limit)];
 
     private static TasteItem BuildTasteItem(
         BaseItem item,

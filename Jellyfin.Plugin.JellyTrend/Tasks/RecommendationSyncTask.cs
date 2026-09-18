@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -86,6 +87,12 @@ public sealed class RecommendationSyncTask : IScheduledTask
 
         using var scope = JellyTrendLog.TaskScope.Begin("Recomendaciones semanales");
 
+        // Historia de la corrida en el almacen: la tabla sync_run deja de estar siempre vacia.
+        var runId = JellyTrendStore.BeginRun("recommendations");
+        var stopwatch = Stopwatch.StartNew();
+        var generated = 0;
+        var failed = 0;
+
         // La cache de caracteristicas por item se guarda en disco al terminar, de modo que un reinicio
         // del servidor no obligue a releer personas y facetas de toda la biblioteca.
         var features = FeatureStore.Open(JellyTrendStorage.Folder);
@@ -106,8 +113,6 @@ public sealed class RecommendationSyncTask : IScheduledTask
             var poolSize = Math.Max(1, config.RecommendationMaxItems) * 2;
 
             var allRecommendedIds = new List<Guid>();
-            var generated = 0;
-            var failed = 0;
 
             for (var i = 0; i < users.Count; i++)
             {
@@ -134,7 +139,8 @@ public sealed class RecommendationSyncTask : IScheduledTask
                         poolSize,
                         _logger,
                         features,
-                        providerState);
+                        providerState,
+                        _userManager);
 
                     _logger.LogInformation("[Recomendaciones] '{User}': {Diagnostics}", user.Username, result.Diagnostics);
 
@@ -167,16 +173,26 @@ public sealed class RecommendationSyncTask : IScheduledTask
             }
 
             scope.Complete($"{generated} usuarios con recomendaciones, {failed} con errores de {users.Count}");
+            JellyTrendStore.CompleteRun(
+                runId,
+                failed == 0 ? "ok" : generated > 0 ? "partial" : "failed",
+                generated,
+                failed,
+                (int)stopwatch.ElapsedMilliseconds,
+                null);
+
             _logger.LogInformation("[Recomendaciones] Cache de caracteristicas: {Count} peliculas.", features.Count);
         }
         catch (OperationCanceledException)
         {
             scope.Cancel("cancelada (usuario o apagado del servidor)");
+            JellyTrendStore.CompleteRun(runId, "canceled", generated, failed, (int)stopwatch.ElapsedMilliseconds, null);
             throw;
         }
         catch (Exception ex)
         {
             scope.Fail(ex, "error al procesar recomendaciones");
+            JellyTrendStore.CompleteRun(runId, "failed", generated, failed, (int)stopwatch.ElapsedMilliseconds, ex.Message);
             throw;
         }
         finally

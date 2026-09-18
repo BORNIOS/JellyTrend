@@ -87,6 +87,10 @@ public static class JellyTrendStore
 
             _description = provider.DescribeBackend();
             JellyTrendLog.Info($"[Almacen] Datos persistentes en {_description}");
+
+            // Copia de cortesia: si el proveedor desaparece, lo que ya estaba guardado queda en disco.
+            StoreDump.Write();
+
             return true;
         }
         catch (Exception ex)
@@ -340,6 +344,11 @@ public static class JellyTrendStore
     {
         ArgumentNullException.ThrowIfNull(affinities);
 
+        // Copia de cortesia: el perfil se guarda SIEMPRE en disco, tambien con el almacen externo activo.
+        // Si el proveedor desaparece (se desinstala, se cambia a SQLite, falla), la capa 3 sigue teniendo
+        // perfil que leer en lugar de empezar de cero.
+        WriteProfileFile(userId, affinities);
+
         var facets = new string[affinities.Count];
         var values = new string[affinities.Count];
         var pairedFacets = new string[affinities.Count];
@@ -370,20 +379,9 @@ public static class JellyTrendStore
     public static IReadOnlyList<AffinityRecord> ReadAffinities(Guid userId)
     {
         var json = Guard(provider => provider.GetAffinities(userId), null, "leer el perfil");
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return [];
-        }
+        var stored = ParseProfile(json);
 
-        try
-        {
-            return JsonSerializer.Deserialize<List<AffinityRecord>>(json) ?? [];
-        }
-        catch (JsonException ex)
-        {
-            JellyTrendLog.Warn($"[Almacen] Perfil ilegible en el almacen externo: {ex.Message}");
-            return [];
-        }
+        return stored.Count > 0 ? stored : ReadProfileFile(userId);
     }
 
     /// <summary>
@@ -492,13 +490,70 @@ public static class JellyTrendStore
             "cerrar la corrida");
     }
 
-    private static void DeleteRetiredFile(string path, string name)
+    // Ruta del perfil en disco. Vive junto al resto de los datos del plugin y es la unica pieza que el
+    // almacen no puede tener en exclusiva: es de donde la capa 3 lee cuando no hay proveedor.
+    private static string ProfilePath(Guid userId)
+        => JellyTrendStorage.Folder.Length == 0
+            ? string.Empty
+            : Path.Combine(JellyTrendStorage.Folder, $"perfil-{userId:N}.json");
+
+    private static List<AffinityRecord> ParseProfile(string? json)
     {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<AffinityRecord>>(json) ?? [];
+        }
+        catch (JsonException ex)
+        {
+            JellyTrendLog.Warn($"[Almacen] Perfil ilegible en el almacen externo: {ex.Message}");
+            return [];
+        }
+    }
+
+    private static List<AffinityRecord> ReadProfileFile(Guid userId)
+    {
+        var path = ProfilePath(userId);
+        if (path.Length == 0 || !File.Exists(path))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<AffinityRecord>>(File.ReadAllText(path)) ?? [];
+        }
+        catch (Exception ex) when (ex is IOException or JsonException)
+        {
+            JellyTrendLog.Warn($"[Almacen] Perfil de disco ilegible: {ex.Message}");
+            return [];
+        }
+    }
+
+    private static void WriteProfileFile(Guid userId, IReadOnlyList<AffinityRecord> affinities)
+    {
+        var path = ProfilePath(userId);
         if (path.Length == 0)
         {
             return;
         }
 
+        try
+        {
+            File.WriteAllText(path, JsonSerializer.Serialize(affinities));
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            JellyTrendLog.Warn($"[Almacen] No se pudo guardar el perfil en disco: {ex.Message}");
+        }
+    }
+
+    private static void DeleteRetiredFile(string path, string name)
+    {
         try
         {
             if (File.Exists(path))
