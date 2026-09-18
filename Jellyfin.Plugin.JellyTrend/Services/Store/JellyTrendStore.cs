@@ -515,6 +515,10 @@ public static class JellyTrendStore
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Security",
+        "CA3003:Review code for file path injection vulnerabilities",
+        Justification = "El identificador es un Guid formateado 'N' (solo hexadecimal, sin separadores) y la ruta se compone con Path.Combine, asi que no puede salirse de la carpeta de datos. El analizador no puede verlo porque el Guid llega de una peticion HTTP.")]
     private static List<AffinityRecord> ReadProfileFile(Guid userId)
     {
         var path = ProfilePath(userId);

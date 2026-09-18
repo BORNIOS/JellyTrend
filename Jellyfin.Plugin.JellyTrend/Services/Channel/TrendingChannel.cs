@@ -182,7 +182,7 @@ public sealed class TrendingChannel : IChannel, IRequiresMediaInfoCallback, ISup
         ImageType type, CancellationToken cancellationToken)
     {
         var stream = GetType().Assembly
-            .GetManifestResourceStream("Jellyfin.Plugin.JellyTrend.Web.channel-trendings.png");
+            .GetManifestResourceStream("Jellyfin.Plugin.JellyTrend.Resources.channel-trendings.png");
 
         if (stream is null)
         {

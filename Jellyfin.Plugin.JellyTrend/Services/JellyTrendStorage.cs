@@ -59,6 +59,13 @@ public static class JellyTrendStorage
     }
 
     /// <summary>
+    /// Gets the folder the plugin uses when nobody replaced it from the panel.
+    /// </summary>
+    /// <value>Absolute path under the server data directory, or an empty string while uninitialized.</value>
+    public static string DefaultFolder
+        => string.IsNullOrEmpty(_dataPath) ? string.Empty : Path.Combine(_dataPath, FolderName);
+
+    /// <summary>
     /// Gets the full path of the feature cache file.
     /// </summary>
     /// <value>Absolute path, or an empty string while the storage is not initialized.</value>

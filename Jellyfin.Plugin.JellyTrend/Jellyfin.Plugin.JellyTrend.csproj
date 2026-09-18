@@ -43,11 +43,13 @@
 
   <ItemGroup>
     <!--
-      All files under Web/ (config page assets, carousel script/styles, channel poster)
-      are embedded into the assembly as resources.
-      configurationPage.html lives in Web/ together with the rest of the panel assets.
+      Web/ holds what the clients download: the configuration page and the carousel script/styles that the
+      server injects into the web client. Resources/ holds the plugin's own assets (the channel artwork),
+      the same split the PostgreSQL provider uses.
     -->
     <EmbeddedResource Include="Web\**\*" Exclude="Web\**\*.cs" />
+    <!-- logo.png es un recurso del catalogo de Jellyfin (viaja en el ZIP, no lo lee el codigo): no se embebe. -->
+    <EmbeddedResource Include="Resources\**\*" Exclude="Resources\logo.png" />
   </ItemGroup>
 
 </Project>

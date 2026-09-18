@@ -7,8 +7,10 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using Jellyfin.Data;
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
+using Jellyfin.Database.Implementations.Enums;
 using Jellyfin.Plugin.JellyTrend.Controllers.Models;
 using Jellyfin.Plugin.JellyTrend.Services;
 using Jellyfin.Plugin.JellyTrend.Services.Store;
@@ -185,9 +187,113 @@ public sealed class TrendingController : ControllerBase
             TmdbKeyConfigured = !string.IsNullOrWhiteSpace(cfg?.TmdbApiKey),
             EnableBannerMode = cfg?.EnableBannerMode,
             EnableTrendingSeries = cfg?.EnableTrendingSeries,
+            TrendingSeriesShare = cfg?.TrendingSeriesShare,
             MaxItems = cfg?.MaxItems,
+            ChannelName = cfg?.ChannelName,
+            EnableChannel = cfg?.EnableChannel,
+            EnableRecommendationChannel = cfg?.EnableRecommendationChannel,
+            RecommendationChannelName = cfg?.RecommendationChannelName,
+            RecommendationMaxItems = cfg?.RecommendationMaxItems,
+            RecommendationRotationHours = cfg?.RecommendationRotationHours,
+            RecommendationPoolFactor = cfg?.RecommendationPoolFactor,
+            ColdStartMinWatched = cfg?.ColdStartMinWatched,
             CachedItemCount = cache?.Items.Count ?? 0,
-            LastUpdated = cache?.LastUpdated
+            LastUpdated = cache?.LastUpdated,
+
+            // Almacen: donde estan los datos AHORA y donde estarian sin tocar nada. Con proveedor de base de
+            // datos los JSON son copia de cortesia, y eso se dice con el nombre del backend.
+            DataFolder = JellyTrendStorage.Folder,
+            DefaultDataFolder = JellyTrendStorage.DefaultFolder,
+            JsonDataPathConfigured = cfg?.JsonDataPath,
+            StoreActive = JellyTrendStore.Active,
+            StoreBackend = JellyTrendStore.Description
+        });
+    }
+
+    /// <summary>
+    /// Lists the users of the server so the panel can show what the plugin stores for each one.
+    /// </summary>
+    /// <returns>The users, ordered by name.</returns>
+    [HttpGet("Users")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public ActionResult GetUsers()
+    {
+        if (!IsCurrentUserAdministrator())
+        {
+            return Forbid();
+        }
+
+        return Ok(_userManager.GetUsers()
+            .OrderBy(static user => user.Username, StringComparer.OrdinalIgnoreCase)
+            .Select(static user => new { Id = user.Id, Name = user.Username }));
+    }
+
+    /// <summary>
+    /// Returns the stored taste profile and the recommended titles of one user.
+    /// </summary>
+    /// <param name="userId">User to inspect.</param>
+    /// <returns>The profile summary and the titles that were stored for that user.</returns>
+    [HttpGet("UserRecommendations")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetUserRecommendations([FromQuery] Guid userId)
+    {
+        if (!IsCurrentUserAdministrator())
+        {
+            return Forbid();
+        }
+
+        var user = userId == Guid.Empty ? null : _userManager.GetUserById(userId);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        var data = RecommendationStorage.Read(userId);
+        var affinities = JellyTrendStore.ReadAffinities(userId);
+        var consumption = JellyTrendStore.ReadConsumption(userId);
+
+        var items = (data?.ItemIds ?? [])
+            .Select(id => _libraryManager.GetItemById(id))
+            .Where(static item => item is not null)
+            .Select(item => new
+            {
+                Id = item!.Id,
+                Name = item.Name,
+                ProductionYear = item.ProductionYear,
+                CommunityRating = item.CommunityRating,
+                Genres = item.Genres is { Length: > 0 } genres ? string.Join(", ", genres) : string.Empty
+            })
+            .ToList();
+
+        return Ok(new
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            UpdatedAt = data?.UpdatedAt,
+            StoredCount = data?.ItemIds.Count ?? 0,
+            AvailableCount = items.Count,
+            Profile = new
+            {
+                Affinities = affinities.Count,
+                Pairs = affinities.Count(static affinity => affinity.PairedFacet is not null),
+                Consumed = consumption.Count,
+                Facets = affinities
+                    .Where(static affinity => affinity.PairedFacet is null)
+                    .GroupBy(static affinity => affinity.Facet)
+                    .OrderByDescending(static group => group.Count())
+                    .ToDictionary(static group => group.Key, static group => group.Count()),
+                Strongest = affinities
+                    .Where(static affinity => affinity.PairedFacet is null)
+                    .OrderByDescending(static affinity => affinity.Weight)
+                    .Take(8)
+                    .Select(affinity => new { affinity.Facet, affinity.Value, affinity.Weight })
+            },
+            Items = items
         });
     }
 
@@ -214,6 +320,9 @@ public sealed class TrendingController : ControllerBase
         => ServeEmbeddedResource("Jellyfin.Plugin.JellyTrend.Web.jellyTrend.css", "text/css");
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
+
+    private bool IsCurrentUserAdministrator()
+        => ResolveCurrentUser() is { } viewer && viewer.HasPermission(PermissionKind.IsAdministrator);
 
     private User? ResolveCurrentUser()
     {

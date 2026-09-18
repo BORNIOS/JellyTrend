@@ -29,6 +29,10 @@ public static class RecommendationStorage
     /// </summary>
     /// <param name="userId">The user id.</param>
     /// <returns>The stored recommendations, or <c>null</c> when none exist for that user.</returns>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Security",
+        "CA3003:Review code for file path injection vulnerabilities",
+        Justification = "El identificador es un Guid formateado 'N' (solo hexadecimal, sin separadores) y la ruta se compone con Path.Combine, asi que no puede salirse de la carpeta de datos. El analizador no puede verlo porque el Guid llega de una peticion HTTP.")]
     public static UserRecommendations? Read(Guid userId)
     {
         if (JellyTrendStore.Active)

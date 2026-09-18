@@ -3,14 +3,175 @@
 <head>
     <title>JellyTrend</title>
     <style>
-        /* Pestanas del panel: botones planos con subrayado, para no pelearse con los componentes de Jellyfin. */
-        .jtTabs { display: flex; flex-wrap: wrap; gap: .25em; border-bottom: 1px solid rgba(128,128,128,.3); margin: .4em 0 1.2em; }
-        .jtTab { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: .6em 1em; cursor: pointer; color: var(--text-color-secondary); font-size: 1em; font-weight: 500; }
-        .jtTab:hover { color: var(--text-color, inherit); }
-        .jtTabActive { color: var(--text-color, inherit); font-weight: 600; }
-        .jtTabActive { border-bottom-color: var(--accent, #00a4dc); }
-        .jtPanel[hidden] { display: none; }
-        .jtLink { color: var(--accent, #00a4dc); }
+        /* Lenguaje visual homologado con el panel del proveedor PostgreSQL: variables propias, tarjetas y
+           pestanas en forma de pildora sobre un fondo con degradado. Todo va prefijado y con ambito para no
+           tocar el resto del panel de Jellyfin. */
+        #jellyTrendConfigPage {
+            --jt-bg: #0b1020;
+            --jt-bg-soft: #111935;
+            --jt-card: rgba(18, 26, 48, 0.88);
+            --jt-border: rgba(124, 146, 196, 0.28);
+            --jt-text: #dbe7ff;
+            --jt-muted: #9ab0d4;
+            --jt-accent: #74b6ff;
+            --jt-good: #6bc47f;
+            --jt-warn: #f3c969;
+            --jt-bad: #ef9a9a;
+        }
+
+        #jellyTrendConfigPage .content-primary {
+            background:
+                radial-gradient(1200px 500px at -15% -20%, rgba(82, 132, 255, 0.24), transparent 60%),
+                radial-gradient(900px 420px at 110% 0%, rgba(104, 194, 255, 0.2), transparent 55%),
+                linear-gradient(180deg, var(--jt-bg-soft), var(--jt-bg));
+            border: 1px solid rgba(144, 170, 225, 0.22);
+            border-radius: 14px;
+            padding: 18px;
+            color: var(--jt-text);
+        }
+
+        #jellyTrendConfigPage .jtTitle {
+            margin: 4px 0 6px;
+            font-size: 1.5rem;
+            letter-spacing: 0.2px;
+        }
+
+        #jellyTrendConfigPage .jtIntro {
+            color: var(--jt-muted);
+            margin: 0 0 16px;
+            line-height: 1.55;
+        }
+
+        #jellyTrendConfigPage .jtBanner {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-weight: 500;
+        }
+
+        #jellyTrendConfigPage .jt-tabbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(144, 170, 225, 0.25);
+            padding-bottom: 10px;
+        }
+
+        #jellyTrendConfigPage .jt-tab-btn {
+            border-radius: 999px !important;
+            padding: 8px 16px !important;
+            border: 1px solid rgba(123, 156, 226, 0.25);
+            background: rgba(22, 32, 58, 0.75);
+            color: #d6e4ff;
+            cursor: pointer;
+        }
+
+        #jellyTrendConfigPage .jt-tab-btn:hover {
+            background: rgba(38, 54, 92, 0.9);
+        }
+
+        #jellyTrendConfigPage .jt-tab-btn.button-submit {
+            background: linear-gradient(135deg, #3a6dd8, #5a8ff0) !important;
+            border-color: rgba(140, 190, 255, 0.55);
+            color: #fff;
+        }
+
+        #jellyTrendConfigPage .jt-card {
+            background: var(--jt-card);
+            border: 1px solid var(--jt-border);
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+            margin-bottom: 16px;
+        }
+
+        #jellyTrendConfigPage .jtCardTitle {
+            margin: 0 0 12px;
+            font-size: 1.1rem;
+            letter-spacing: 0.2px;
+        }
+
+        #jellyTrendConfigPage .jt-card-muted {
+            background: rgba(21, 31, 57, 0.7);
+            margin-bottom: 0;
+        }
+
+        #jellyTrendConfigPage .fieldDescription {
+            color: var(--jt-muted);
+        }
+
+        #jellyTrendConfigPage .jtLink {
+            color: var(--jt-accent);
+        }
+
+        #jellyTrendConfigPage .jtPanel[hidden] {
+            display: none;
+        }
+
+        #jellyTrendConfigPage .jtKV {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        #jellyTrendConfigPage .jtKV td {
+            padding: 5px 10px 5px 0;
+            vertical-align: top;
+            border-bottom: 1px solid rgba(124, 146, 196, 0.14);
+        }
+
+        #jellyTrendConfigPage .jtKV td:first-child {
+            color: var(--jt-muted);
+            white-space: nowrap;
+            width: 1%;
+        }
+
+        #jellyTrendConfigPage .jtTableWrap {
+            max-height: 420px;
+            overflow: auto;
+            border: 1px solid var(--jt-border);
+            border-radius: 8px;
+            background: rgba(9, 14, 28, 0.55);
+        }
+
+        #jellyTrendConfigPage .jtTableWrap table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        #jellyTrendConfigPage .jtTableWrap th {
+            position: sticky;
+            top: 0;
+            text-align: left;
+            padding: 8px 10px;
+            background: rgba(13, 20, 38, 0.94);
+            border-bottom: 1px solid var(--jt-border);
+            color: #cfe0ff;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        #jellyTrendConfigPage .jtTableWrap td {
+            padding: 7px 10px;
+            border-bottom: 1px solid rgba(124, 146, 196, 0.14);
+            vertical-align: top;
+        }
+
+        #jellyTrendConfigPage .jtTableWrap tbody tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        #jellyTrendConfigPage :focus-visible {
+            outline: 2px solid var(--jt-accent);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 767px) {
+            #jellyTrendConfigPage .content-primary { padding: 12px; border-radius: 10px; }
+            #jellyTrendConfigPage .jt-tabbar { overflow-x: auto; padding-bottom: 8px; }
+        }
     </style>
 </head>
 <body>
@@ -23,24 +184,23 @@
     <div data-role="content">
         <div class="content-primary">
 
-            <div class="verticalSection">
-                <div class="sectionTitleContainer flex align-items-center">
-                    <h2 class="sectionTitle"><span data-jt="heading">JellyTrend</span></h2>
-                </div>
-                <p class="jt-intro" style="color:var(--text-color-secondary)" data-jt-html="true" data-jt="intro_html"></p>
-            </div>
+            <h1 class="jtTitle"><span data-jt="heading">JellyTrend</span></h1>
+            <p class="jtIntro" data-jt-html="true" data-jt="intro_html"></p>
+
+            <div id="jtBanner" class="jtBanner" style="display:none"></div>
 
             <form id="jellyTrendConfigForm" onsubmit="return false;">
-                <nav class="jtTabs" role="tablist">
-                    <button type="button" class="jtTab" role="tab" aria-selected="true" data-jt-tab="trending"><span data-jt="tabTrending"></span></button>
-                    <button type="button" class="jtTab" role="tab" aria-selected="false" data-jt-tab="recommendations"><span data-jt="tabRecommendations"></span></button>
-                    <button type="button" class="jtTab" role="tab" aria-selected="false" data-jt-tab="storage"><span data-jt="tabStorage"></span></button>
-                    <button type="button" class="jtTab" role="tab" aria-selected="false" data-jt-tab="status"><span data-jt="tabStatus"></span></button>
+                <nav class="jt-tabbar" role="tablist">
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="trending" aria-selected="true"><span data-jt="tabTrending"></span></button>
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="recommendations" aria-selected="false"><span data-jt="tabRecommendations"></span></button>
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="storage" aria-selected="false"><span data-jt="tabStorage"></span></button>
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="status" aria-selected="false"><span data-jt="tabStatus"></span></button>
                 </nav>
 
-                <div class="verticalSection jtPanel" data-jt-panel="trending">
+                <div class="jtPanel" data-jt-panel="trending">
 
-                    <h3 class="sectionTitle" style="margin-top:1.2em"><span data-jt="secTmdb"></span></h3>
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secTmdb"></h2>
 
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="tmdbApiKey">
@@ -75,7 +235,10 @@
                         <div class="fieldDescription" data-jt-html="true" data-jt="descTmdbRegion_html"></div>
                     </div>
 
-                    <h3 class="sectionTitle" style="margin-top:1.2em"><span data-jt="secTrending"></span></h3>
+                    </div>
+
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secTrending"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
@@ -144,10 +307,12 @@
                         <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descBanner_html"></div>
                     </div>
 
+                    </div>
                 </div>
 
-                <div class="verticalSection jtPanel" data-jt-panel="recommendations" hidden>
-                    <h3 class="sectionTitle" style="margin-top:1.2em"><span data-jt="secRecommendations"></span></h3>
+                <div class="jtPanel" data-jt-panel="recommendations" hidden>
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secRecommendations"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
@@ -158,6 +323,10 @@
                         </label>
                         <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descRecommendationRow_html"></div>
                     </div>
+                    </div>
+
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secRecChannel"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
@@ -179,6 +348,10 @@
                                data-jt-placeholder="phRecommendationChannelName" />
                         <div class="fieldDescription" data-jt-html="true" data-jt="descRecommendationChannelName_html"></div>
                     </div>
+                    </div>
+
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secEngine"></h2>
 
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="recommendationMaxItems">
@@ -232,10 +405,14 @@
                         <div class="fieldDescription" data-jt-html="true" data-jt="descColdStart_html"></div>
                     </div>
 
+                    </div>
                 </div>
 
-                <div class="verticalSection jtPanel" data-jt-panel="storage" hidden>
-                    <h3 class="sectionTitle" style="margin-top:1.2em"><span data-jt="secStorage"></span></h3>
+                <div class="jtPanel" data-jt-panel="storage" hidden>
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secDataFolder"></h2>
+
+                        <table class="jtKV"><tbody id="jtFolderInfo"></tbody></table>
 
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="jsonDataPath">
@@ -248,11 +425,18 @@
                         <div class="fieldDescription" data-jt-html="true" data-jt="descDataPath_html"></div>
                     </div>
 
-                    <div class="fieldDescription" data-jt-html="true" data-jt="descStore_html"></div>
+                    </div>
 
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secStore"></h2>
+
+                        <table class="jtKV"><tbody id="jtStoreInfo"></tbody></table>
+
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descStore_html"></div>
+                    </div>
                 </div>
 
-                <div>
+                <div data-jt-savebar>
                     <button is="emby-button"
                             type="button"
                             id="jellyTrendSaveBtn"
@@ -260,21 +444,51 @@
                         <span data-jt="btnSave"></span>
                     </button>
                 </div>
-                <div id="jtSaveStatus" style="margin-top:.5em;min-height:1.2em;font-size:.9em;"></div>
-            </form>
+                <div id="jtSaveStatus" data-jt-savebar style="margin-top:.5em;min-height:1.2em;font-size:.9em;"></div>
 
-                <div class="verticalSection jtPanel" data-jt-panel="status" hidden>
-                <h3 class="sectionTitle"><span data-jt="secActions"></span></h3>
-                <div style="display:flex;flex-wrap:wrap;gap:.6em;margin-bottom:1em">
-                    <button id="jtRunNow" is="emby-button" type="button" class="raised emby-button">
-                        <span data-jt="btnRunSync"></span>
-                    </button>
-                    <button id="jtRunRecNow" is="emby-button" type="button" class="raised emby-button">
-                        <span data-jt="btnRunRecommendations"></span>
-                    </button>
+                <div class="jtPanel" data-jt-panel="status" hidden>
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secActions"></h2>
+                        <div style="display:flex;flex-wrap:wrap;gap:.6em;margin-bottom:1em">
+                            <button id="jtRunNow" is="emby-button" type="button" class="raised emby-button">
+                                <span data-jt="btnRunSync"></span>
+                            </button>
+                            <button id="jtRunRecNow" is="emby-button" type="button" class="raised emby-button">
+                                <span data-jt="btnRunRecommendations"></span>
+                            </button>
+                        </div>
+                        <table class="jtKV"><tbody id="jtStatusInfo"></tbody></table>
+                    </div>
+
+                    <div class="jt-card">
+                        <h2 class="jtCardTitle" data-jt="secUserRecs"></h2>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="jtUserSelect">
+                                <span data-jt="lblUserSelect"></span>
+                            </label>
+                            <select id="jtUserSelect" is="emby-select"></select>
+                            <div class="fieldDescription" data-jt-html="true" data-jt="descUserRecs_html"></div>
+                        </div>
+
+                        <table class="jtKV"><tbody id="jtUserProfile"></tbody></table>
+
+                        <div id="jtUserItems" class="jtTableWrap" style="display:none;margin-top:12px">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th data-jt="thTitle"></th>
+                                        <th data-jt="thYear"></th>
+                                        <th data-jt="thGenres"></th>
+                                        <th data-jt="thRating"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="jtUserItemsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-                <div id="jtStatusInfo" style="color:var(--text-color-secondary)"></div>
-            </div>
+            </form>
 
         </div>
     </div>
@@ -307,7 +521,7 @@
             phTmdbRegion: 'US',
             descTmdbRegion_html: 'Country code to bias trending (e.g. <code>MX</code>, <code>US</code>). Leave empty for global trending.',
             lblChannel: 'Enable “Trending” channel (all clients)',
-            descChannel_html: 'Adds a channel under <strong>Channels</strong> in every client (web, mobile, Roku, Android TV, etc.). Items play from your library files. The list refreshes after each sync.',
+            descChannel_html: 'Adds a channel under <strong>Channels</strong> in every client (web, mobile, Roku, Android TV, etc.). Items play from your library files. Whether each user sees it at home is decided by that user in Jellyfin (Profile \u2192 Home).',
             lblChannelName: 'Trending channel name',
             phChannelName: 'JellyTrend - Trending Now',
             descChannelName_html: 'Name shown under <strong>Channels</strong> in all clients.',
@@ -331,7 +545,7 @@
             lblSeriesShare: 'Share of the list for TV series (%)',
             descSeriesShare_html: 'Percentage of the <strong>max trending items</strong> reserved for series; movies take the rest. Leftover slots are filled with the other type, so the list is never short.',
             lblRecChannel: 'Show “Recomendados” under Channels',
-            descRecChannel_html: 'Lists the channel under <strong>Channels</strong> in every client. With it hidden the home row does not appear either: the row is what Jellyfin asks the channel for as latest media.',
+            descRecChannel_html: 'Offers the channel to the clients. <strong>What each user then sees at home is decided by that user in Jellyfin</strong> (Profile \u2192 Home: which sections appear, and the order), and the plugin cannot override it: unchecking this only removes the channel from the list.',
             lblRotation: 'Rotate the row every N hours',
             descRotation_html: 'The stored pool is larger than the row, so each window serves a different slice and already-watched titles are skipped. <code>0</code> always serves the best ranked titles first.',
             lblPoolFactor: 'Titles generated per visible title',
@@ -343,6 +557,34 @@
             phDataPath: 'Leave empty to use the server data folder',
             descDataPath_html: 'Absolute folder for the plugin JSON files when no database provider is in use. Empty keeps them under the server data folder, which is what survives a plugin update. A restart is required to apply it everywhere.',
             descStore_html: 'With the <strong>PostgreSQL provider</strong> installed the data lives in the <code>jellytrend</code> schema of your database and the JSON files are kept only as a courtesy copy, so removing the provider never loses anything. Provider repository: <a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener">Jellyfin-Database-Providers-Postgres</a>.',
+            secRecChannel: 'Recommendations channel',
+            secEngine: 'Home row and engine',
+            secDataFolder: 'Data folder',
+            secStore: 'Database provider',
+            secUserRecs: 'Recommendations per user',
+            lblUserSelect: 'User',
+            phUserSelect: '— Select a user —',
+            descUserRecs_html: 'Read-only. Shows what the plugin has stored for the selected user: the profile layer 2 learned and the list that was generated (which is larger than the visible row on purpose, so watched titles can be dropped without shortening it).',
+            thTitle: 'Title',
+            thYear: 'Year',
+            thGenres: 'Genres',
+            thRating: 'Rating',
+            kvStoreBackend: 'Backend',
+            kvStoreActive: 'Store in use',
+            kvDataFolder: 'Folder in use',
+            kvDefaultFolder: 'Default folder',
+            kvJsonPath: 'Configured folder',
+            kvAffinities: 'Learned affinities',
+            kvPairs: 'Combined affinities',
+            kvConsumed: 'Consumed titles',
+            kvUpdated: 'Generated',
+            kvStored: 'Stored titles',
+            kvAvailable: 'Titles still in the library',
+            kvUserProfile: 'Taste profile',
+            msgNoRecs: 'This user has no stored recommendations yet. Run the recommendations task and reload.',
+            msgUsersError: 'Could not load the user list: ',
+            msgUserError: 'Could not load this user\u2019s data: ',
+            msgNoFolder: '—',
             btnSave: 'Save',
             btnRunSync: 'Sync trending now',
             btnRunRecommendations: 'Build recommendations now',
@@ -383,7 +625,7 @@
             phTmdbRegion: 'MX',
             descTmdbRegion_html: 'Código de país para orientar el trending (p. ej. <code>MX</code>, <code>US</code>). Vacío = trending global.',
             lblChannel: 'Activar canal de Trendings (todos los clientes)',
-            descChannel_html: 'Añade un canal en <strong>Canales</strong> visible en todos los clientes (web, móvil, Roku, Android TV, etc.). La reproducción usa los archivos de tu biblioteca. La lista se actualiza tras cada sincronización.',
+            descChannel_html: 'Añade un canal en <strong>Canales</strong> visible en todos los clientes (web, móvil, Roku, Android TV, etc.). La reproducción usa los archivos de tu biblioteca. Que cada usuario lo vea en su inicio lo decide ese usuario en Jellyfin (Perfil \u2192 Inicio).',
             lblChannelName: 'Nombre del canal de Trendings',
             phChannelName: 'JellyTrend - Trending Now',
             descChannelName_html: 'Nombre que aparece en <strong>Canales</strong> en todos los clientes.',
@@ -407,7 +649,7 @@
             lblSeriesShare: 'Porcentaje de la lista para series (%)',
             descSeriesShare_html: 'Porcentaje del <strong>máximo de ítems</strong> reservado a series; las películas toman el resto. Los huecos los rellena el otro tipo, así la lista nunca sale corta.',
             lblRecChannel: 'Mostrar “Recomendados” en Canales',
-            descRecChannel_html: 'Muestra el canal en <strong>Canales</strong> en todos los clientes. Si se oculta, tampoco aparece la fila de inicio: la fila es lo que Jellyfin pide al canal como últimos medios.',
+            descRecChannel_html: 'Ofrece el canal a los clientes. <strong>Lo que cada usuario ve luego en su inicio lo decide ese usuario en Jellyfin</strong> (Perfil \u2192 Inicio: qué secciones aparecen y en qué orden), y el plugin no puede pasar por encima de eso: desmarcar aquí solo quita el canal de la lista.',
             lblRotation: 'Rotar la fila cada N horas',
             descRotation_html: 'El pool guardado es mayor que la fila, así que cada ventana sirve un tramo distinto y se saltan los ya vistos. <code>0</code> sirve siempre primero los mejor puntuados.',
             lblPoolFactor: 'Títulos generados por cada título visible',
@@ -419,6 +661,34 @@
             phDataPath: 'Vacío = carpeta de datos del servidor',
             descDataPath_html: 'Carpeta absoluta de los archivos JSON del plugin cuando no hay proveedor de base de datos. Vacío los deja en la carpeta de datos del servidor, que es lo que sobrevive a una actualización del plugin. Requiere reiniciar para aplicarse en todo el plugin.',
             descStore_html: 'Con el <strong>proveedor PostgreSQL</strong> instalado los datos viven en el esquema <code>jellytrend</code> de tu base y los JSON se guardan solo como copia de cortesía, así que quitar el proveedor nunca pierde nada. Repositorio del proveedor: <a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener">Jellyfin-Database-Providers-Postgres</a>.',
+            secRecChannel: 'Canal de Recomendados',
+            secEngine: 'Fila de inicio y motor',
+            secDataFolder: 'Carpeta de datos',
+            secStore: 'Proveedor de base de datos',
+            secUserRecs: 'Recomendaciones por usuario',
+            lblUserSelect: 'Usuario',
+            phUserSelect: '— Selecciona un usuario —',
+            descUserRecs_html: 'Solo lectura. Muestra lo que el plugin tiene guardado del usuario elegido: el perfil que aprendió la capa 2 y la lista que se generó (más larga que la fila visible a propósito, para poder descartar lo ya visto sin que la fila se acorte).',
+            thTitle: 'Título',
+            thYear: 'Año',
+            thGenres: 'Géneros',
+            thRating: 'Nota',
+            kvStoreBackend: 'Backend',
+            kvStoreActive: 'Almacén en uso',
+            kvDataFolder: 'Carpeta en uso',
+            kvDefaultFolder: 'Carpeta por defecto',
+            kvJsonPath: 'Carpeta configurada',
+            kvAffinities: 'Afinidades aprendidas',
+            kvPairs: 'Afinidades combinadas',
+            kvConsumed: 'Títulos consumidos',
+            kvUpdated: 'Generadas',
+            kvStored: 'Títulos guardados',
+            kvAvailable: 'Títulos que siguen en la biblioteca',
+            kvUserProfile: 'Perfil de gusto',
+            msgNoRecs: 'Este usuario todavía no tiene recomendaciones guardadas. Ejecuta la tarea de recomendaciones y recarga.',
+            msgUsersError: 'No se pudo cargar la lista de usuarios: ',
+            msgUserError: 'No se pudieron cargar los datos de este usuario: ',
+            msgNoFolder: '—',
             btnSave: 'Guardar',
             btnRunSync: 'Sincronizar Trendings ahora',
             btnRunRecommendations: 'Generar Recomendaciones ahora',
@@ -675,9 +945,12 @@
 
     function setStatus(msg, isError) {
         var el = q('jtSaveStatus');
-        if (!el) return;
-        el.textContent = msg;
-        el.style.color = isError ? '#f44336' : '#4caf50';
+        if (el) {
+            el.textContent = msg;
+            el.style.color = isError ? '#ef9a9a' : '#a5d6a7';
+        }
+
+        showBanner(msg, isError ? 'error' : 'success');
     }
 
     function switchTab(name) {
@@ -691,13 +964,51 @@
         page.querySelectorAll('[data-jt-tab]').forEach(function (btn) {
             var active = btn.getAttribute('data-jt-tab') === name;
             if (active) {
-                btn.classList.add('jtTabActive');
+                btn.classList.add('button-submit');
+                btn.classList.remove('button-default');
             } else {
-                btn.classList.remove('jtTabActive');
+                btn.classList.remove('button-submit');
+                btn.classList.add('button-default');
             }
 
             btn.setAttribute('aria-selected', active ? 'true' : 'false');
         });
+
+        // La barra de guardar solo pinta donde hay ajustes: en Estado no se guarda nada.
+        page.querySelectorAll('[data-jt-savebar]').forEach(function (bar) {
+            bar.hidden = name === 'status';
+        });
+
+        if (name === 'status') loadUsers();
+    }
+
+    function showBanner(message, kind) {
+        var el = q('jtBanner');
+        if (!el) return;
+
+        el.textContent = message;
+        el.style.display = '';
+        if (kind === 'error') {
+            el.style.background = 'rgba(58,27,27,.9)';
+            el.style.color = '#ef9a9a';
+            el.style.border = '1px solid #f44336';
+        } else if (kind === 'success') {
+            el.style.background = 'rgba(27,58,27,.9)';
+            el.style.color = '#a5d6a7';
+            el.style.border = '1px solid #4CAF50';
+        } else {
+            el.style.background = 'rgba(26,42,58,.9)';
+            el.style.color = '#90caf9';
+            el.style.border = '1px solid #42a5f5';
+        }
+    }
+
+    function escapeText(value) {
+        return String(value === null || value === undefined ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     // Convierte un valor de input en entero dentro de un rango. No vale `parseInt(x) || def` porque 0 es un
@@ -868,14 +1179,28 @@
             .then(function (r) { return r.json(); })
             .then(function (s) {
                 var el = q('jtStatusInfo');
-                if (!el) return;
-                el.innerHTML =
-                    '<table style="border-spacing:.4em 0">' +
-                    row('stVersion', s.Version || '—') +
-                    row('stTmdbKey', s.TmdbKeyConfigured ? t('valYes') : t('valNo')) +
-                    row('stCached', s.CachedItemCount || 0) +
-                    row('stLastSync', s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever')) +
-                    '</table>';
+                if (el) {
+                    el.innerHTML =
+                        row('stVersion', escapeText(s.Version || '—')) +
+                        row('stTmdbKey', s.TmdbKeyConfigured ? t('valYes') : t('valNo')) +
+                        row('stCached', s.CachedItemCount || 0) +
+                        row('stLastSync', s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever'));
+                }
+
+                var folder = q('jtFolderInfo');
+                if (folder) {
+                    folder.innerHTML =
+                        row('kvDataFolder', escapeText(s.DataFolder || t('msgNoFolder'))) +
+                        row('kvDefaultFolder', escapeText(s.DefaultDataFolder || t('msgNoFolder'))) +
+                        row('kvJsonPath', s.JsonDataPathConfigured ? escapeText(s.JsonDataPathConfigured) : t('msgNoFolder'));
+                }
+
+                var store = q('jtStoreInfo');
+                if (store) {
+                    store.innerHTML =
+                        row('kvStoreBackend', escapeText(s.StoreBackend || t('msgNoFolder'))) +
+                        row('kvStoreActive', s.StoreActive ? t('valYes') : t('valNo'));
+                }
             })
             .catch(function () {
                 var el = q('jtStatusInfo');
@@ -884,7 +1209,96 @@
     }
 
     function row(labelKey, value) {
-        return '<tr><td style="opacity:.7;padding-right:.8em">' + t(labelKey) + '</td><td>' + value + '</td></tr>';
+        return '<tr><td>' + t(labelKey) + '</td><td>' + value + '</td></tr>';
+    }
+
+    // Lista de usuarios del servidor para el selector de la pestana Estado.
+    function loadUsers() {
+        var select = q('jtUserSelect');
+        if (!select || select.getAttribute('data-loaded') === '1') return;
+
+        var token = getAccessToken();
+        fetch('/JellyTrend/Users', {
+            credentials: 'include',
+            headers: token ? { 'Authorization': 'MediaBrowser Token="' + token + '"' } : {}
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (users) {
+                select.innerHTML = '';
+                var placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = t('phUserSelect');
+                select.appendChild(placeholder);
+
+                (users || []).forEach(function (user) {
+                    var option = document.createElement('option');
+                    option.value = user.Id;
+                    option.textContent = user.Name;
+                    select.appendChild(option);
+                });
+
+                select.setAttribute('data-loaded', '1');
+            })
+            .catch(function (err) { showBanner(t('msgUsersError') + (err && err.message || err), 'error'); });
+    }
+
+    // Perfil y recomendaciones guardadas del usuario elegido.
+    function loadUserRecommendations(userId) {
+        var profile = q('jtUserProfile');
+        var wrap = q('jtUserItems');
+        var body = q('jtUserItemsBody');
+
+        if (wrap) wrap.style.display = 'none';
+        if (body) body.innerHTML = '';
+        if (profile) profile.innerHTML = userId ? '<tr><td>' + t('stLoading') + '</td><td></td></tr>' : '';
+        if (!userId) return;
+
+        var token = getAccessToken();
+        fetch('/JellyTrend/UserRecommendations?userId=' + encodeURIComponent(userId), {
+            credentials: 'include',
+            headers: token ? { 'Authorization': 'MediaBrowser Token="' + token + '"' } : {}
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || !data.Username) return;
+
+                var facets = '';
+                if (data.Profile && data.Profile.Facets) {
+                    facets = Object.keys(data.Profile.Facets).map(function (key) {
+                        return key + ' ' + data.Profile.Facets[key];
+                    }).join(', ');
+                }
+
+                if (profile) {
+                    profile.innerHTML =
+                        row('kvStored', data.StoredCount) +
+                        row('kvAvailable', data.AvailableCount) +
+                        row('kvUpdated', data.UpdatedAt ? new Date(data.UpdatedAt).toLocaleString() : t('valNever')) +
+                        row('kvAffinities', (data.Profile && data.Profile.Affinities) || 0) +
+                        row('kvPairs', (data.Profile && data.Profile.Pairs) || 0) +
+                        row('kvConsumed', (data.Profile && data.Profile.Consumed) || 0) +
+                        (facets ? row('kvUserProfile', escapeText(facets)) : '');
+                }
+
+                var items = data.Items || [];
+                if (!items.length) {
+                    if (profile) profile.innerHTML += '<tr><td></td><td>' + t('msgNoRecs') + '</td></tr>';
+                    return;
+                }
+
+                if (!body || !wrap) return;
+                items.forEach(function (item) {
+                    var tr = document.createElement('tr');
+                    [item.Name || '', item.ProductionYear || '', item.Genres || '', item.CommunityRating === null || item.CommunityRating === undefined ? '' : item.CommunityRating].forEach(function (value) {
+                        var td = document.createElement('td');
+                        td.textContent = value;
+                        tr.appendChild(td);
+                    });
+                    body.appendChild(tr);
+                });
+                wrap.style.display = '';
+            })
+            .catch(function (err) { showBanner(t('msgUserError') + (err && err.message || err), 'error'); });
     }
 
     function bindUi() {
@@ -908,6 +1322,11 @@
                 });
             });
             switchTab('trending');
+        }
+
+        var userSelect = q('jtUserSelect');
+        if (userSelect) {
+            userSelect.addEventListener('change', function () { loadUserRecommendations(userSelect.value); });
         }
 
         state.wired = true;

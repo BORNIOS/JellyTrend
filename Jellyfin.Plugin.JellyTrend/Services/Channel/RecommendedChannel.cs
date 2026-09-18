@@ -118,8 +118,7 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
 
     /// <inheritdoc />
     public bool IsEnabledFor(string userId)
-        => Plugin.Instance?.Configuration.EnableRecommendationChannel == true
-            || Plugin.Instance?.Configuration.EnableRecommendationRow == true;
+        => Plugin.Instance?.Configuration.EnableRecommendationChannel == true;
 
     /// <summary>
     /// Returns a per-user cache key so Jellyfin never mixes the recommendations of
@@ -164,7 +163,7 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         ImageType type, CancellationToken cancellationToken)
     {
         var stream = GetType().Assembly
-            .GetManifestResourceStream("Jellyfin.Plugin.JellyTrend.Web.channel-recommendations.png");
+            .GetManifestResourceStream("Jellyfin.Plugin.JellyTrend.Resources.channel-recommendations.png");
 
         if (stream is null)
         {

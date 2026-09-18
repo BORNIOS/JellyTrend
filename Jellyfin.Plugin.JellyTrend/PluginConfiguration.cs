@@ -84,9 +84,10 @@ public class PluginConfiguration : BasePluginConfiguration
     public int TrendingSeriesShare { get; set; } = 50;
 
     /// <summary>
-    /// Gets or sets a value indicating whether the recommendations channel is listed under Channels in
-    /// all clients. Independent from the home row, which is what Jellyfin asks the channel for its latest
-    /// media: with the channel hidden the row does not appear either.
+    /// Gets or sets a value indicating whether the plugin OFFERS the recommendations channel to the
+    /// clients. What each user then sees at home is decided by that user in Jellyfin's own home
+    /// preferences, and the plugin cannot override it: this switch only decides whether the channel is
+    /// listed at all.
     /// </summary>
     public bool EnableRecommendationChannel { get; set; } = true;
 
