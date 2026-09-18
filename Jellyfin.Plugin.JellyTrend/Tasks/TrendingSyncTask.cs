@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -87,6 +88,11 @@ public sealed class TrendingSyncTask : IScheduledTask
         }
 
         using var scope = JellyTrendLog.TaskScope.Begin("Sync de tendencias TMDB");
+
+        // Historia de la corrida en el almacen, igual que la de recomendaciones: la tabla sync_run deja de
+        // tener solo las corridas de un tipo.
+        var runId = JellyTrendStore.BeginRun("trending");
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             progress.Report(0);
@@ -181,15 +187,24 @@ public sealed class TrendingSyncTask : IScheduledTask
 
             progress.Report(100);
             scope.Complete($"{movieCount} películas y {seriesCount} series emparejadas de {trendingMovies.Count}+{trendingShows.Count} de TMDB");
+            JellyTrendStore.CompleteRun(
+                runId,
+                "ok",
+                0,
+                0,
+                (int)stopwatch.ElapsedMilliseconds,
+                $"{movieCount} peliculas y {seriesCount} series emparejadas; {materialized} elementos materializados");
         }
         catch (OperationCanceledException)
         {
             scope.Cancel("cancelada (usuario o apagado del servidor)");
+            JellyTrendStore.CompleteRun(runId, "canceled", 0, 0, (int)stopwatch.ElapsedMilliseconds, null);
             throw;
         }
         catch (Exception ex)
         {
             scope.Fail(ex, "error al sincronizar tendencias");
+            JellyTrendStore.CompleteRun(runId, "failed", 0, 0, (int)stopwatch.ElapsedMilliseconds, ex.Message);
             throw;
         }
     }

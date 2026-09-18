@@ -89,17 +89,37 @@ public sealed class TasteProfileBuilderTests
 
     /// <summary>
     /// La calidad no puede recomendar por si sola: un 9.2 de rating no supera a los generos que el
-    /// usuario si consume.
+    /// usuario si consume. Con la normalizacion por familia los dos valen 1 dentro de la suya, asi que la
+    /// comparacion se hace sobre lo acumulado antes de normalizar, que es donde vive el peso acordado.
     /// </summary>
     [Fact]
     public void QualitySignalsStayBelowTasteSignals()
     {
-        var profile = TasteProfileBuilder.Build([Item(1.0, genres: ["Terror"], rating: 9.2)]);
+        var profile = TasteProfileBuilder.BuildRaw([Item(1.0, genres: ["Terror"], rating: 9.2)]);
 
         var genre = profile.Single(record => record.Facet == Genre).Weight;
         var rating = profile.Single(record => record.Facet == "rating").Weight;
 
         Assert.True(genre > rating, "el genero consumido debe pesar mas que el rating del titulo");
+    }
+
+    /// <summary>
+    /// Cada familia se normaliza contra si misma: el valor mas fuerte de cada una vale 1. Con una
+    /// normalizacion global el genero aplastaba al resto y el reparto aportaba una treintava parte de lo
+    /// que le toca.
+    /// </summary>
+    [Fact]
+    public void EveryFamilyIsNormalizedOnItsOwn()
+    {
+        var profile = TasteProfileBuilder.Build(
+            [Item(1.0, genres: ["Terror"], actors: ["Ana"], directors: ["Dani"], rating: 9.2)]);
+
+        foreach (var family in new[] { Genre, Actor, "director", "rating" })
+        {
+            Assert.Equal(
+                1.00,
+                profile.Where(record => record.Facet == family && record.PairedFacet is null).Max(record => record.Weight));
+        }
     }
 
     private static ProfileItem Item(

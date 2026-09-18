@@ -58,8 +58,40 @@ public static class TasteProfileBuilder
     /// Builds the profile of a user from the titles they consumed.
     /// </summary>
     /// <param name="items">Consumed titles with their content facets and their interaction weight.</param>
-    /// <returns>The affinities, strongest first, normalized so the strongest one is 1.</returns>
+    /// <returns>The affinities, strongest first, normalized so the strongest value of each family is 1.</returns>
     public static IReadOnlyList<AffinityRecord> Build(IReadOnlyList<ProfileItem> items)
+    {
+        var records = BuildRaw(items);
+
+        // Normalizacion POR FAMILIA: el valor mas fuerte de cada familia vale 1. Con una normalizacion
+        // global, el genero (peso base 0.22) aplastaba al resto y un actor favorito se quedaba en 0.03
+        // mientras el genero llegaba a 1.00, asi que la familia de reparto aportaba una treintava parte
+        // de lo que le toca. La importancia relativa entre familias la sigue poniendo FacetWeights, que es
+        // donde esta acordada; lo que se compara dentro de una familia es la evidencia acumulada.
+        foreach (var family in records.GroupBy(FamilyOf))
+        {
+            var strongest = family.Max(static record => Math.Abs(record.Weight));
+            if (strongest <= 0d)
+            {
+                continue;
+            }
+
+            foreach (var record in family)
+            {
+                record.Weight = Math.Round(record.Weight / strongest, 2);
+            }
+        }
+
+        return [.. records.OrderByDescending(static record => record.Weight)];
+    }
+
+    /// <summary>
+    /// Builds the profile without normalizing, so what each family accumulated can be observed before it
+    /// was scaled down. Used by the tests.
+    /// </summary>
+    /// <param name="items">Consumed titles with their content facets and their interaction weight.</param>
+    /// <returns>The affinities as accumulated, strongest first.</returns>
+    internal static IReadOnlyList<AffinityRecord> BuildRaw(IReadOnlyList<ProfileItem> items)
     {
         ArgumentNullException.ThrowIfNull(items);
 
@@ -139,17 +171,13 @@ public static class TasteProfileBuilder
             });
         }
 
-        var strongest = records.Count == 0 ? 0d : records.Max(static record => Math.Abs(record.Weight));
-        if (strongest > 0d)
-        {
-            foreach (var record in records)
-            {
-                record.Weight = Math.Round(record.Weight / strongest, 2);
-            }
-        }
-
-        return [.. records.OrderByDescending(static record => record.Weight)];
+        return records;
     }
+
+    // Una afinidad combinada se normaliza dentro de la familia de pares: comparar "terror + Fincher"
+    // contra "terror" no diria nada sobre el gusto.
+    private static string FamilyOf(AffinityRecord record)
+        => record.PairedFacet is null ? record.Facet : "pair";
 
     private static double WeightOf(string facet)
         => FacetWeights.TryGetValue(facet, out var weight) ? weight : UnknownFacetWeight;

@@ -70,10 +70,11 @@ public sealed class ChannelShadowMaterializer
             return 0;
         }
 
-        // El canal necesita un usuario para evaluar el acceso al contenido; cualquiera sirve, porque el
-        // item que se persiste es el que el canal ya devuelve.
-        var user = _userManager.GetUsers().FirstOrDefault();
-        if (user is null)
+        // El canal decide que sirve segun lo que cada usuario ya vio, y la sombra es una sola fila por
+        // canal e item: se recorre cada usuario para que la union de sus vistas quede persistida, en lugar
+        // de dejar fuera a quien no coincide con el primer usuario de la lista.
+        var users = _userManager.GetUsers().ToList();
+        if (users.Count == 0)
         {
             _logger.LogDebug("JellyTrend: sin usuarios no se materializan sombras.");
             return 0;
@@ -85,34 +86,49 @@ public sealed class ChannelShadowMaterializer
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            try
-            {
-                var result = await _channelManager
-                    .GetChannelItems(
-                        new InternalItemsQuery
-                        {
-                            ChannelIds = [channelId],
+            var served = 0;
 
-                            // El canal filtra por lo que cada uno ha visto, y resuelve el espectador a partir
-                            // de este usuario: sin el, la consulta llegaba sin espectador y devolvia cero.
-                            User = user,
-                            Limit = MaxItemsPerChannel
-                        },
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-                materialized += result.Items.Count;
-                _logger.LogInformation(
-                    "JellyTrend: canal {ChannelId} materializado con {Count} elementos.",
-                    channelId,
-                    result.Items.Count);
-            }
-            catch (Exception ex)
+            foreach (var user in users)
             {
-                // Materializar es una mejora: si el canal falla, la fila se sigue sirviendo en vivo como
-                // antes en lugar de romper la tarea.
-                _logger.LogWarning(ex, "JellyTrend: no se pudieron materializar las sombras del canal {ChannelId}.", channelId);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var result = await _channelManager
+                        .GetChannelItems(
+                            new InternalItemsQuery
+                            {
+                                ChannelIds = [channelId],
+
+                                // El canal filtra por lo que cada uno ha visto y resuelve el espectador a
+                                // partir de este usuario: sin el, la consulta llegaba sin espectador y
+                                // devolvia cero elementos.
+                                User = user,
+                                Limit = MaxItemsPerChannel
+                            },
+                            cancellationToken)
+                        .ConfigureAwait(false);
+
+                    served += result.Items.Count;
+                    materialized += result.Items.Count;
+                }
+                catch (Exception ex)
+                {
+                    // Materializar es una mejora: si el canal falla, la fila se sigue sirviendo en vivo como
+                    // antes en lugar de romper la tarea.
+                    _logger.LogWarning(
+                        ex,
+                        "JellyTrend: no se pudieron materializar las sombras del canal {ChannelId} para '{User}'.",
+                        channelId,
+                        user.Username);
+                }
             }
+
+            _logger.LogInformation(
+                "JellyTrend: canal {ChannelId} materializado para {Users} usuarios ({Count} elementos servidos).",
+                channelId,
+                users.Count,
+                served);
         }
 
         return materialized;

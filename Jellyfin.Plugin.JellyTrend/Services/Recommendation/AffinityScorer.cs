@@ -17,10 +17,12 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 /// </para>
 /// <para>
 /// Each family scores as "how much of what this title is made of does the user like", a ratio in 0-1, and
-/// the families are averaged with the agreed distribution (the same one layer 2 used to learn, so no
-/// family can gain influence just by having more values). The combined affinities then add a bounded
-/// bonus: taste usually lives in the pair ("terror + ciencia ficcion"), and a title that hits one of the
-/// user's pairs is not just a title that hits two of their values.
+/// the families are pooled with the agreed distribution, so a title that only touches a minor family (the
+/// rating, for instance) collects only the small share of that family: relevance grows with how much of the
+/// profile a title actually covers, which is what separates a title the user will like from one they simply
+/// might not dislike. The combined affinities then add a bounded bonus: taste usually lives in the pair
+/// ("terror + ciencia ficcion"), and a title that hits one of the user's pairs is not just a title that hits
+/// two of their values.
 /// </para>
 /// </remarks>
 internal static class AffinityScorer
@@ -95,8 +97,7 @@ internal static class AffinityScorer
 
         foreach (var family in Families)
         {
-            var values = ValuesOf(features, family);
-            if (values.Count == 0 || !profile.HasFacet(family))
+            if (!profile.HasFacet(family))
             {
                 continue;
             }
@@ -107,7 +108,16 @@ internal static class AffinityScorer
                 continue;
             }
 
+            // La familia entra en el denominador aunque el candidato no toque nada de ella: asi manda el peso
+            // acordado y un titulo que solo encaja en una familia menor (la nota, por ejemplo) no se lleva el
+            // 100% del parecido por el hecho de que nadie mas puede tocarla.
             available += weight;
+
+            var values = ValuesOf(features, family);
+            if (values.Count == 0)
+            {
+                continue;
+            }
 
             double likes = 0;
             foreach (var value in values)
