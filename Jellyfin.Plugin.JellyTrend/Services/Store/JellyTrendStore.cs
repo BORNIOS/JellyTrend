@@ -7,6 +7,7 @@ using System.Text.Json;
 
 using Jellyfin.Plugin.JellyTrend.Api;
 using Jellyfin.Plugin.JellyTrend.Logging;
+using Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 using Jellyfin.Plugin.JellyTrend.Tasks;
 
 namespace Jellyfin.Plugin.JellyTrend.Services.Store;
@@ -307,7 +308,8 @@ public static class JellyTrendStore
     /// </summary>
     /// <param name="userId">User the consumption belongs to.</param>
     /// <param name="items">Consumption documents keyed by item id.</param>
-    public static void WriteConsumption(Guid userId, IReadOnlyDictionary<Guid, string> items)
+    /// <returns>The number of rows written; 0 when the store is not in use.</returns>
+    public static int WriteConsumption(Guid userId, IReadOnlyDictionary<Guid, string> items)
     {
         ArgumentNullException.ThrowIfNull(items);
 
@@ -322,14 +324,66 @@ public static class JellyTrendStore
             index++;
         }
 
-        Guard(
-            provider =>
-            {
-                provider.ReplaceConsumption(userId, ids, documents);
-                return true;
-            },
-            false,
+        return Guard(
+            provider => provider.ReplaceConsumption(userId, ids, documents),
+            0,
             "guardar consumo");
+    }
+
+    /// <summary>
+    /// Writes the learned taste profile of a user, when the database store is in use.
+    /// </summary>
+    /// <param name="userId">User the profile belongs to.</param>
+    /// <param name="affinities">Affinities to store.</param>
+    /// <returns>The number of rows written; 0 when the store is not in use.</returns>
+    public static int WriteAffinities(Guid userId, IReadOnlyList<AffinityRecord> affinities)
+    {
+        ArgumentNullException.ThrowIfNull(affinities);
+
+        var facets = new string[affinities.Count];
+        var values = new string[affinities.Count];
+        var pairedFacets = new string[affinities.Count];
+        var pairedValues = new string[affinities.Count];
+        var weights = new double[affinities.Count];
+
+        for (var i = 0; i < affinities.Count; i++)
+        {
+            var affinity = affinities[i];
+            facets[i] = affinity.Facet;
+            values[i] = affinity.Value;
+            pairedFacets[i] = affinity.PairedFacet ?? string.Empty;
+            pairedValues[i] = affinity.PairedValue ?? string.Empty;
+            weights[i] = affinity.Weight;
+        }
+
+        return Guard(
+            provider => provider.ReplaceAffinities(userId, facets, values, pairedFacets, pairedValues, weights),
+            0,
+            "guardar el perfil");
+    }
+
+    /// <summary>
+    /// Reads the learned taste profile of a user from the database store.
+    /// </summary>
+    /// <param name="userId">User to read.</param>
+    /// <returns>The stored affinities; empty when the store is not in use or has none.</returns>
+    public static IReadOnlyList<AffinityRecord> ReadAffinities(Guid userId)
+    {
+        var json = Guard(provider => provider.GetAffinities(userId), null, "leer el perfil");
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<AffinityRecord>>(json) ?? [];
+        }
+        catch (JsonException ex)
+        {
+            JellyTrendLog.Warn($"[Almacen] Perfil ilegible en el almacen externo: {ex.Message}");
+            return [];
+        }
     }
 
     /// <summary>
