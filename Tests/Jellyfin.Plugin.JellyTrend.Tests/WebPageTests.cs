@@ -24,16 +24,30 @@ public sealed class WebPageTests
         "maxItems",
         "enableBannerMode",
         "enableTrendingSeries",
+        "trendingSeriesShare",
         "enableChannel",
         "channelName",
         "enableRecommendationRow",
+        "enableRecommendationChannel",
         "recommendationChannelName",
         "recommendationMaxItems",
+        "recommendationRotationHours",
+        "recommendationPoolFactor",
+        "coldStartMinWatched",
+        "jsonDataPath",
         "jellyTrendSaveBtn",
         "jtRunNow",
         "jtRunRecNow",
         "jtSaveStatus",
-        "jtStatusInfo"
+        "jtStatusBox",
+        "jtTasksBody",
+        "jtFolderInfo",
+        "jtPathNote",
+        "jtFilesBody",
+        "jtStoreNote",
+        "jtUserSelect",
+        "jtUserProfile",
+        "jtUserItemsBody"
     ];
 
     [Fact]

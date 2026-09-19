@@ -216,7 +216,7 @@
                     <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="trending" aria-selected="true" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#128200; <span data-jt="tabTrending"></span></button>
                     <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="recommendations" aria-selected="false" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#10024; <span data-jt="tabRecommendations"></span></button>
                     <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="storage" aria-selected="false" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#128190; <span data-jt="tabStorage"></span></button>
-                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="status" aria-selected="false" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#9881; <span data-jt="tabStatus"></span></button>
+                    <button type="button" class="jt-tab-btn raised emby-button" data-jt-tab="activity" aria-selected="false" style="border-radius:999px; padding:8px 16px; border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff; font-weight:600;">&#128203; <span data-jt="tabStatus"></span></button>
                 </nav>
 
                 <div class="jtPanel" data-jt-panel="trending">
@@ -493,12 +493,25 @@
                 </div>
                 <div id="jtSaveStatus" data-jt-savebar style="margin-top:.5em;min-height:1.2em;font-size:.9em;"></div>
 
-                <div class="jtPanel" data-jt-panel="status" hidden>
+                <div class="jtPanel" data-jt-panel="activity" hidden>
                     <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ffa726; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secState"></h2>
-                        <div id="jtChips" style="margin-bottom:12px;"></div>
-                        <div id="jtStatusBox" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; color:#a0c4ff; font-size:14px; margin-bottom:16px; white-space:pre-line; line-height:1.6;">...</div>
-                        <table class="jtKV"><tbody id="jtStatusInfo"></tbody></table>
+                        <div id="jtStatusBox" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; color:#a0c4ff; font-size:14px; white-space:pre-line; line-height:1.6;">...</div>
+                    </div>
+
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ffa726; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                        <h2 class="jtCardTitle" data-jt="secTasks"></h2>
+                        <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+                            <thead>
+                                <tr>
+                                    <th data-jt="thTask" style="text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                    <th data-jt="thLastRun" style="text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                    <th data-jt="thResult" style="text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                    <th data-jt="thDuration" style="text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="jtTasksBody"></tbody>
+                        </table>
                     </div>
 
                     <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ffa726; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
@@ -565,20 +578,21 @@
     var CELL_VALUE = 'padding:6px 10px; border-bottom:1px solid rgba(124,146,196,.14); vertical-align:top;';
 
     // Cada pestana tiene su acento, igual que las tarjetas: azul para tendencias, violeta para
-    // recomendaciones, verde azulado para el almacen y ambar para el estado.
+    // recomendaciones, verde azulado para el almacen y ambar para la actividad.
     var TAB_COLORS = {
         trending: { on: 'linear-gradient(135deg,#1565C0,#42a5f5)', edge: 'rgba(66,165,245,.75)' },
         recommendations: { on: 'linear-gradient(135deg,#6a1b9a,#ab47bc)', edge: 'rgba(171,71,188,.75)' },
         storage: { on: 'linear-gradient(135deg,#00695c,#26a69a)', edge: 'rgba(38,166,154,.75)' },
-        status: { on: 'linear-gradient(135deg,#e65100,#ffa726)', edge: 'rgba(255,167,38,.75)' }
+        activity: { on: 'linear-gradient(135deg,#e65100,#ffa726)', edge: 'rgba(255,167,38,.75)' }
     };
 
-    // Fichas de estado: el color ya dice si algo falta, sin obligar a leer la tabla.
-    var CHIP_COLORS = {
-        ok: 'background:rgba(27,94,32,.55); border:1px solid #66bb6a; color:#a5d6a7;',
-        warn: 'background:rgba(120,80,10,.45); border:1px solid #f3c969; color:#f3c969;',
-        bad: 'background:rgba(120,30,30,.5); border:1px solid #ef5350; color:#ef9a9a;',
-        info: 'background:rgba(21,101,192,.35); border:1px solid #42a5f5; color:#90caf9;'
+    // Resultado de la ultima corrida de una tarea, con su color.
+    var TASK_RESULT = {
+        Completed: { key: 'valCompleted', color: '#a5d6a7' },
+        Failed: { key: 'valFailed', color: '#ef9a9a' },
+        Aborted: { key: 'valFailed', color: '#ef9a9a' },
+        Cancelled: { key: 'valCancelled', color: '#f3c969' },
+        Running: { key: 'valRunning', color: '#90caf9' }
     };
 
     var I18N = {
@@ -622,7 +636,7 @@
             tabTrending: 'Trending',
             tabRecommendations: 'Recommendations',
             tabStorage: 'Storage',
-            tabStatus: 'Status and actions',
+            tabStatus: 'Activity',
             lblSeriesShare: 'Share of the list for TV series (%)',
             descSeriesShare_html: 'Share of the list reserved for series; movies take the rest. Empty slots are filled with the other type.',
             lblRecChannel: 'Show “Recomendados” under Channels',
@@ -650,7 +664,6 @@
             thYear: 'Year',
             thGenres: 'Genres',
             thRating: 'Rating',
-            kvStoreBackend: 'Backend',
             kvStoreActive: 'Store in use',
             kvDataFolder: 'Folder in use',
             kvPathOrigin: 'Origin',
@@ -669,7 +682,6 @@
             btnRunSync: 'Sync trending now',
             btnRunRecommendations: 'Build recommendations now',
             stLoading: 'Loading…',
-            stVersion: 'Version',
             stTmdbKey: 'TMDB key set',
             stCached: 'Cached items',
             stLastSync: 'Last sync',
@@ -677,6 +689,18 @@
             valNo: 'No',
             valNever: 'Never',
             valNone: 'None',
+            valCompleted: 'Completed',
+            valFailed: 'Failed',
+            valCancelled: 'Cancelled',
+            valRunning: 'Running',
+            secTasks: 'Scheduled tasks',
+            thTask: 'Task',
+            thLastRun: 'Last run',
+            thResult: 'Result',
+            thDuration: 'Duration',
+            lineRecs: 'Recommendations: {max} per user \u00b7 rotation {hours} h \u00b7 reserve x{factor} \u00b7 profile from {min} watched',
+            msgTasksError: 'Could not load the scheduled tasks: ',
+            msgTasksMissing: 'The plugin tasks were not found on this server.',
             errLoadCfg: 'Failed to load configuration: ',
             errSave: 'Failed to save: ',
             msgSaved: 'Settings saved.',
@@ -694,19 +718,12 @@
             thFileModified: 'Modified',
             filesCount: 'Files',
             msgNoFiles: 'The folder is empty. The first run of either task will fill it.',
-            chipStore: 'Store',
-            chipSchema: 'Schema',
-            chipTmdb: 'TMDB',
-            chipFolder: 'Folder',
-            chipCache: 'Cached items',
             msgKeyMissing: 'no key',
             valExists: 'exists',
             valMissing: 'not found',
             valDefault: 'default',
             valCustom: 'custom',
-            valUnusable: 'not a rooted path',
             kvChannels: 'Published channels',
-            kvSchema: 'Schema version',
             pathCustomOk: 'Custom folder in use.',
             pathProblem: 'The folder set here cannot be used (it is not an absolute path, or it does not exist). The plugin keeps using the default one:',
             storeProvider: 'Provider detected: JellyTrend is writing its tables in that database and the JSON files are only the courtesy copy.',
@@ -754,7 +771,7 @@
             tabTrending: 'Trendings',
             tabRecommendations: 'Recomendaciones',
             tabStorage: 'Almacenamiento',
-            tabStatus: 'Estado y acciones',
+            tabStatus: 'Actividad',
             lblSeriesShare: 'Porcentaje de la lista para series (%)',
             descSeriesShare_html: 'Porción de la lista reservada a series; las películas toman el resto. Los huecos los rellena el otro tipo.',
             lblRecChannel: 'Mostrar “Recomendados” en Canales',
@@ -782,7 +799,6 @@
             thYear: 'Año',
             thGenres: 'Géneros',
             thRating: 'Nota',
-            kvStoreBackend: 'Backend',
             kvStoreActive: 'Almacén en uso',
             kvDataFolder: 'Carpeta en uso',
             kvPathOrigin: 'Origen',
@@ -801,7 +817,6 @@
             btnRunSync: 'Sincronizar Trendings ahora',
             btnRunRecommendations: 'Generar Recomendaciones ahora',
             stLoading: 'Cargando…',
-            stVersion: 'Versión',
             stTmdbKey: 'Clave TMDB configurada',
             stCached: 'Ítems en caché',
             stLastSync: 'Última sincronización',
@@ -809,6 +824,18 @@
             valNo: 'No',
             valNever: 'Nunca',
             valNone: 'Ninguno',
+            valCompleted: 'Completada',
+            valFailed: 'Con error',
+            valCancelled: 'Cancelada',
+            valRunning: 'En curso',
+            secTasks: 'Tareas programadas',
+            thTask: 'Tarea',
+            thLastRun: 'Última corrida',
+            thResult: 'Resultado',
+            thDuration: 'Duración',
+            lineRecs: 'Recomendaciones: {max} por usuario \u00b7 rotación {hours} h \u00b7 reserva x{factor} \u00b7 perfil desde {min} vistos',
+            msgTasksError: 'No se pudieron cargar las tareas programadas: ',
+            msgTasksMissing: 'No se encontraron las tareas del plugin en este servidor.',
             errLoadCfg: 'No se pudo cargar la configuración: ',
             errSave: 'No se pudo guardar: ',
             msgSaved: 'Configuración guardada.',
@@ -826,19 +853,12 @@
             thFileModified: 'Modificado',
             filesCount: 'Archivos',
             msgNoFiles: 'La carpeta está vacía. La primera corrida de cualquiera de las dos tareas la llenará.',
-            chipStore: 'Almacén',
-            chipSchema: 'Esquema',
-            chipTmdb: 'TMDB',
-            chipFolder: 'Carpeta',
-            chipCache: 'En caché',
             msgKeyMissing: 'sin clave',
             valExists: 'existe',
             valMissing: 'no encontrada',
             valDefault: 'por defecto',
             valCustom: 'personalizada',
-            valUnusable: 'no es una ruta absoluta',
             kvChannels: 'Canales publicados',
-            kvSchema: 'Versión del esquema',
             pathCustomOk: 'Se está usando la carpeta personalizada.',
             pathProblem: 'La carpeta indicada no se puede usar (no es una ruta absoluta o no existe). El plugin sigue con la carpeta por defecto:',
             storeProvider: 'Proveedor detectado: JellyTrend está escribiendo sus tablas en esa base y los archivos JSON son solo la copia de cortesía.',
@@ -1116,12 +1136,15 @@
             btn.setAttribute('aria-selected', active ? 'true' : 'false');
         });
 
-        // La barra de guardar solo pinta donde hay ajustes: en Estado no se guarda nada.
+        // La barra de guardar solo pinta donde hay ajustes: en Actividad no se guarda nada.
         page.querySelectorAll('[data-jt-savebar]').forEach(function (bar) {
-            bar.hidden = name === 'status';
+            bar.hidden = name === 'activity';
         });
 
-        if (name === 'status') loadUsers();
+        if (name === 'activity') {
+            loadUsers();
+            loadTasks();
+        }
     }
 
     function showBanner(message, kind) {
@@ -1151,12 +1174,6 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
-    }
-
-    function chip(text, kind) {
-        return '<span style="display:inline-block; padding:4px 12px; border-radius:999px; font-size:12px;'
-            + ' font-weight:600; margin:0 6px 6px 0; ' + (CHIP_COLORS[kind] || CHIP_COLORS.info) + '">'
-            + escapeText(text) + '</span>';
     }
 
     function formatBytes(bytes) {
@@ -1334,8 +1351,8 @@
     }
 
     function loadStatus() {
-        var el0 = q('jtStatusInfo');
-        if (el0) el0.textContent = t('stLoading');
+        var box0 = q('jtStatusBox');
+        if (box0) box0.textContent = t('stLoading');
 
         var token = getAccessToken();
         fetch('/JellyTrend/Status', {
@@ -1346,19 +1363,8 @@
             .then(function (s) {
                 var st = s.Storage || {};
 
-                // Fichas de estado: el color ya dice si algo falta, sin obligar a leer la tabla de abajo.
-                var chips = q('jtChips');
-                if (chips) {
-                    chips.innerHTML =
-                        chip(t('chipStore') + ': ' + (st.Provider ? escapeText(st.Backend || '') : t('valNo')), st.Provider ? 'ok' : 'warn') +
-                        (st.Provider ? chip(t('chipSchema') + ' v' + (st.SchemaVersion || 0), 'ok') : '') +
-                        chip(t('chipTmdb') + ': ' + (s.TmdbKeyConfigured ? t('valYes') : t('msgKeyMissing')), s.TmdbKeyConfigured ? 'ok' : 'bad') +
-                        chip(t('chipFolder') + ': ' + (!st.ConfiguredPath ? t('valDefault') : (st.ConfiguredPathIsUsable ? t('valCustom') : t('valUnusable'))), st.ConfiguredPath && !st.ConfiguredPathIsUsable ? 'bad' : 'info') +
-                        chip(t('chipCache') + ': ' + (s.CachedItemCount || 0), 'info');
-                }
-
-                // Caja de resumen: lo que hay que leer de un vistazo. El color dice si el plugin esta listo
-                // (verde) o si le falta la clave de TMDB (ambar).
+                // Una sola caja de estado. Antes habia ademas fichas y una tabla que repetian lo mismo, y
+                // lo unico que hacian era obligar a leer tres veces los mismos datos.
                 var box = q('jtStatusBox');
                 if (box) {
                     var ready = !!st.Provider && !!s.TmdbKeyConfigured;
@@ -1371,17 +1377,13 @@
                         '\n' + t('kvDataFolder') + ': ' + escapeText(st.Folder || t('msgNoFolder')) + ' \u00b7 ' + (st.FolderExists ? t('valExists') : t('valMissing')) +
                         '\nTMDB: ' + escapeText(s.TmdbLanguage || '\u2014') + ' \u00b7 ' + escapeText(s.TmdbRegion || '\u2014') + ' \u00b7 ' + t('stTmdbKey') + ': ' + (s.TmdbKeyConfigured ? t('valYes') : t('msgKeyMissing')) +
                         '\n' + t('stCached') + ': ' + (s.CachedItemCount || 0) + ' \u00b7 ' + t('stLastSync') + ': ' + (s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever')) +
-                        '\n' + t('tabRecommendations') + ': ' + (s.RecommendationMaxItems || 0) + ' \u00b7 ' + t('lblRotation') + ': ' + (s.RecommendationRotationHours || 0) + ' h \u00b7 ' + t('lblPoolFactor') + ': x' + (s.RecommendationPoolFactor || 0) + ' \u00b7 ' + t('lblColdStart') + ': ' + (s.ColdStartMinWatched || 0);
-                }
-
-                var el = q('jtStatusInfo');
-                if (el) {
-                    el.innerHTML =
-                        row('stVersion', escapeText(s.Version || '—')) +
-                        row('stTmdbKey', s.TmdbKeyConfigured ? t('valYes') : t('valNo')) +
-                        row('stCached', s.CachedItemCount || 0) +
-                        row('stLastSync', s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever')) +
-                        row('kvChannels', publishedChannels(s));
+                        '\n' + t('kvChannels') + ': ' + publishedChannels(s) +
+                        '\n' + fill(t('lineRecs'), {
+                            max: s.RecommendationMaxItems || 0,
+                            hours: s.RecommendationRotationHours || 0,
+                            factor: s.RecommendationPoolFactor || 0,
+                            min: s.ColdStartMinWatched || 0
+                        });
                 }
 
                 var folder = q('jtFolderInfo');
@@ -1408,14 +1410,6 @@
                             ? t('pathCustomOk')
                             : t('pathProblem') + ' ' + st.ConfiguredPath;
                     }
-                }
-
-                var store = q('jtStoreInfo');
-                if (store) {
-                    store.innerHTML =
-                        row('kvStoreActive', st.Provider ? t('valYes') : t('valNo')) +
-                        row('kvStoreBackend', escapeText(st.Backend || t('msgNoFolder'))) +
-                        row('kvSchema', st.Provider ? 'v' + (st.SchemaVersion || 0) : t('msgNoFolder'));
                 }
 
                 var storeNote = q('jtStoreNote');
@@ -1456,13 +1450,81 @@
                 }
             })
             .catch(function () {
-                var el = q('jtStatusInfo');
+                var el = q('jtStatusBox');
                 if (el) el.textContent = t('errLoadStatus');
             });
     }
 
     function row(labelKey, value) {
         return '<tr><td style="' + CELL_LABEL + '">' + t(labelKey) + '</td><td style="' + CELL_VALUE + '">' + value + '</td></tr>';
+    }
+
+    // Sustituye {marcadores} por sus valores, para poder armar una linea corta desde el diccionario.
+    function fill(template, values) {
+        return String(template).replace(/\{(\w+)\}/g, function (whole, key) {
+            return values[key] === undefined ? whole : String(values[key]);
+        });
+    }
+
+    function appendCell(tr, value, style, asHtml, colspan) {
+        var td = document.createElement('td');
+        td.style.cssText = style;
+        if (colspan) td.colSpan = colspan;
+        if (asHtml) { td.innerHTML = value; } else { td.textContent = value; }
+        tr.appendChild(td);
+        return td;
+    }
+
+    function durationText(last) {
+        if (!last || !last.StartTimeUtc || !last.EndTimeUtc) return t('msgNoFolder');
+        var seconds = Math.round((new Date(last.EndTimeUtc) - new Date(last.StartTimeUtc)) / 1000);
+        if (isNaN(seconds) || seconds < 0) return t('msgNoFolder');
+        return seconds < 60 ? seconds + ' s' : Math.floor(seconds / 60) + ' min ' + (seconds % 60) + ' s';
+    }
+
+    // Tareas programadas del plugin: cuando corrieron por ultima vez y como terminaron. Sale de la API de
+    // Jellyfin, asi que el nombre de cada tarea lo traduce el propio servidor.
+    function loadTasks() {
+        var body = q('jtTasksBody');
+        if (!body) return;
+
+        var token = getAccessToken();
+        fetch('/ScheduledTasks', {
+            credentials: 'include',
+            headers: token ? { 'Authorization': 'MediaBrowser Token="' + token + '"' } : {}
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (tasks) {
+                var wanted = ['JellyTrendSync', 'JellyTrendRecommendations'];
+                var rows = (tasks || []).filter(function (task) { return wanted.indexOf(task.Key) !== -1; });
+
+                body.innerHTML = '';
+                if (!rows.length) {
+                    var empty = document.createElement('tr');
+                    appendCell(empty, t('msgTasksMissing'), CELL_VALUE, false, 4);
+                    body.appendChild(empty);
+                    return;
+                }
+
+                rows.forEach(function (task) {
+                    var last = task.LastExecutionResult || null;
+                    var running = task.State === 'Running';
+                    var status = running ? 'Running' : ((last && last.Status) || '');
+                    var info = TASK_RESULT[status];
+                    var label = info ? t(info.key) : (status || t('valNever'));
+                    if (running && task.CurrentProgressPercentage !== null && task.CurrentProgressPercentage !== undefined) {
+                        label += ' (' + Math.round(task.CurrentProgressPercentage) + ' %)';
+                    }
+
+                    var tr = document.createElement('tr');
+                    appendCell(tr, task.Name || task.Key, CELL_VALUE);
+                    appendCell(tr, last && last.StartTimeUtc ? new Date(last.StartTimeUtc).toLocaleString() : t('valNever'), CELL_VALUE);
+                    appendCell(tr, escapeText(label), CELL_VALUE + 'color:' + (info ? info.color : '#9ab0d4') + ';font-weight:600;');
+                    appendCell(tr, durationText(last), CELL_VALUE);
+                    body.appendChild(tr);
+                });
+            })
+            .catch(function (err) { showBanner(t('msgTasksError') + (err && err.message || err), 'error'); });
     }
 
     // Lista de usuarios del servidor para el selector de la pestana Estado.
