@@ -1,7 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using Jellyfin.Plugin.JellyTrend.Configuration;
+
+using Jellyfin.Plugin.JellyTrend.Logging;
+using Jellyfin.Plugin.JellyTrend.Services;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -27,6 +29,11 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         _ = loggerFactory;
         Instance = this;
         InitializeLog(applicationPaths);
+
+        // Los datos viven en {DataPath}/JellyTrend, no en la carpeta del plugin: Jellyfin reemplaza esa
+        // carpeta al actualizar. La migracion mueve lo que dejaron las versiones anteriores.
+        JellyTrendStorage.Initialize(applicationPaths.DataPath);
+        JellyTrendStorage.MigrateFromPluginFolder(PluginFolder);
         JellyTrendLog.Info($"=== JellyTrend v{Version} cargado. Log: {JellyTrendLog.CurrentLogPath} ===");
     }
 
@@ -66,8 +73,12 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             {
                 Name = "JellyTrend",
                 DisplayName = "JellyTrend",
-                EmbeddedResourcePath = $"{ns}.Configuration.configPage.html",
-                EnableInMainMenu = true
+                EmbeddedResourcePath = $"{ns}.Web.configurationPage.html",
+                EnableInMainMenu = true,
+
+                // Sin esto el panel pone la carpeta de serie, que no dice nada del plugin. El nombre es el
+                // de un icono de Material Icons, la misma familia que usa el propio panel de Jellyfin.
+                MenuIcon = "trending_up"
             }
         ];
     }

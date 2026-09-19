@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.JellyTrend</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -12,7 +12,7 @@
       Set this to your Jellyfin server version.
       Check https://www.nuget.org/packages/Jellyfin.Controller/ for available versions.
     -->
-    <JellyfinVersion>10.11.10</JellyfinVersion>
+    <JellyfinVersion>12.1.0</JellyfinVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,19 +32,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!--
-      Serilog is the logging library Jellyfin itself uses. The plugin builds its own
-      logger with a file sink so it writes to a dedicated per-month log file
-      (log/JellyTrend-YYYYMM.log) inside the server's official log directory.
-      Versions match the local server runtime (Serilog 4.2.0).
-    -->
-    <PackageReference Include="Serilog" Version="4.2.0" />
-    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Code analysis packages (build-time only, never shipped with the plugin) -->
-    <PackageReference Include="SerilogAnalyzer" Version="0.15.0" PrivateAssets="All" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="All" />
     <PackageReference Include="SmartAnalyzers.MultithreadingAnalyzer" Version="1.1.31" PrivateAssets="All" />
   </ItemGroup>
@@ -56,13 +43,13 @@
 
   <ItemGroup>
     <!--
-      All files under Web/ (config page assets, carousel script/styles, channel poster)
-      are embedded into the assembly as resources.
-      configPage.html lives in Configuration/ following the official plugin template.
+      Web/ holds what the clients download: the configuration page and the carousel script/styles that the
+      server injects into the web client. Resources/ holds the plugin's own assets (the channel artwork),
+      the same split the PostgreSQL provider uses.
     -->
-    <None Remove="Configuration\configPage.html" />
-    <EmbeddedResource Include="Configuration\configPage.html" />
     <EmbeddedResource Include="Web\**\*" Exclude="Web\**\*.cs" />
+    <!-- logo.png es un recurso del catalogo de Jellyfin (viaja en el ZIP, no lo lee el codigo): no se embebe. -->
+    <EmbeddedResource Include="Resources\**\*" Exclude="Resources\logo.png" />
   </ItemGroup>
 
 </Project>

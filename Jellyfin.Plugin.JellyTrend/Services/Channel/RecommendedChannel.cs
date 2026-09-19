@@ -1,0 +1,345 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
+
+using Jellyfin.Database.Implementations.Entities;
+using Jellyfin.Plugin.JellyTrend.Controllers;
+using Jellyfin.Plugin.JellyTrend.Services;
+using Jellyfin.Plugin.JellyTrend.Services.Models;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
+using Jellyfin.Plugin.JellyTrend.Tasks;
+using MediaBrowser.Controller;
+using MediaBrowser.Controller.Channels;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Channels;
+using MediaBrowser.Model.Drawing;
+using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.MediaInfo;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+
+namespace Jellyfin.Plugin.JellyTrend.Services.Channel;
+
+/// <summary>
+/// Exposes a per-user personalized "Recomendados" row as a Jellyfin channel, visible under
+/// "Channels" in ALL clients and on the home screen via ISupportsLatestMedia. Recommendations
+/// are generated weekly by RecommendationSyncTask and stored per user; each user only ever
+/// sees their own unwatched, in-progress-free recommendations (movies only).
+/// </summary>
+public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequiresMediaInfoCallback, IHasCacheKey
+{
+    private readonly ILibraryManager _libraryManager;
+    private readonly IMediaSourceManager _mediaSourceManager;
+    private readonly IServerApplicationHost _appHost;
+    private readonly IUserManager _userManager;
+    private readonly IUserDataManager _userDataManager;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RecommendedChannel"/> class.
+    /// </summary>
+    /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
+    /// <param name="mediaSourceManager">Instance of the <see cref="IMediaSourceManager"/> interface.</param>
+    /// <param name="appHost">Instance of the <see cref="IServerApplicationHost"/> interface.</param>
+    /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
+    /// <param name="userDataManager">Instance of the <see cref="IUserDataManager"/> interface.</param>
+    /// <param name="httpContextAccessor">Instance of the <see cref="IHttpContextAccessor"/> interface.</param>
+    /// <param name="loggerFactory">Instance of the <see cref="ILoggerFactory"/> interface.</param>
+    public RecommendedChannel(
+        ILibraryManager libraryManager,
+        IMediaSourceManager mediaSourceManager,
+        IServerApplicationHost appHost,
+        IUserManager userManager,
+        IUserDataManager userDataManager,
+        IHttpContextAccessor httpContextAccessor,
+        ILoggerFactory loggerFactory)
+    {
+        _libraryManager = libraryManager;
+        _mediaSourceManager = mediaSourceManager;
+        _appHost = appHost;
+        _userManager = userManager;
+        _userDataManager = userDataManager;
+        _httpContextAccessor = httpContextAccessor;
+        _logger = loggerFactory.CreateLogger<RecommendedChannel>();
+    }
+
+    /// <inheritdoc />
+    public string Name => Plugin.Instance?.Configuration.RecommendationChannelName ?? PluginConfiguration.DefaultRecommendationChannelName;
+
+    /// <inheritdoc />
+    public string Description => "Recomendaciones personalizadas según tu historial de visualización.";
+
+    /// <inheritdoc />
+    public string HomePageUrl => string.Empty;
+
+    /// <inheritdoc />
+    public ChannelParentalRating ParentalRating => ChannelParentalRating.GeneralAudience;
+
+    /// <summary>
+    /// Gets a version string that changes whenever any user's recommendations change, forcing
+    /// Jellyfin to re-fetch the channel items after each weekly sync. El prefijo se incrementa
+    /// cuando cambian las reglas de generación de los items (filtro por usuario, imágenes
+    /// locales, sync de sombras): al desplegar una versión nueva, Jellyfin descarta las caches
+    /// de items creadas por versiones anteriores.
+    /// </summary>
+    public string DataVersion
+    {
+        get
+        {
+            // Con el almacen en base de datos no hay archivos que mirar: manda el sello que deja cada
+            // escritura. El prefijo sube a JT4 para descartar la cache que dejo la version anterior, que
+            // servia una lista vacia con una version que ya no cambiaba.
+            if (JellyTrendStore.Active)
+            {
+                return "JT4-" + JellyTrendStore.RecommendationStamp;
+            }
+
+            var lastModified = RecommendationStorage.GetLastModifiedUtc();
+            var ticks = lastModified == DateTime.MinValue ? 0 : lastModified.Ticks;
+            return "JT4-" + ticks.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    /// <inheritdoc />
+    public InternalChannelFeatures GetChannelFeatures() => new()
+    {
+        ContentTypes = [ChannelMediaContentType.Movie, ChannelMediaContentType.Episode],
+        MediaTypes = [ChannelMediaType.Video]
+    };
+
+    /// <inheritdoc />
+    public bool IsEnabledFor(string userId)
+        => Plugin.Instance?.Configuration.EnableRecommendationChannel == true;
+
+    /// <summary>
+    /// Returns a per-user cache key so Jellyfin never mixes the recommendations of
+    /// different users in the channel's on-disk cache (the home-row refresh arrives
+    /// without a user id; the real viewer is resolved from the authenticated request).
+    /// </summary>
+    /// <param name="userId">The user id passed by Jellyfin (null/empty on the home-row refresh).</param>
+    /// <returns>A cache key scoped to the real viewer.</returns>
+    public string? GetCacheKey(string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            userId = ResolveUserId(Guid.Empty).ToString("N", CultureInfo.InvariantCulture);
+        }
+
+        // Con rotacion activa la clave cambia de ventana, para que Jellyfin pida la lista otra vez en
+        // lugar de servir el tramo anterior. Sin rotacion se mantiene la clave de siempre y no se
+        // descarta ninguna cache.
+        var rotation = RotationWindow();
+        return rotation == 0
+            ? "u" + userId
+            : "u" + userId + "-r" + rotation.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Gets the rotation window in force, or 0 when the row must keep its ranking fixed.
+    /// </summary>
+    /// <returns>An integer that only changes when the configured window elapses.</returns>
+    private static int RotationWindow()
+    {
+        var hours = Plugin.Instance?.Configuration.RecommendationRotationHours ?? 1;
+        return hours <= 0 ? 0 : (int)(DateTimeOffset.UtcNow.Ticks / TimeSpan.FromHours(hours).Ticks);
+    }
+
+    /// <summary>
+    /// Serves the embedded channel-recommendations.png as the channel's primary image.
+    /// </summary>
+    /// <param name="type">The requested image type.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The channel image response.</returns>
+    public Task<DynamicImageResponse> GetChannelImage(
+        ImageType type, CancellationToken cancellationToken)
+    {
+        var stream = GetType().Assembly
+            .GetManifestResourceStream("Jellyfin.Plugin.JellyTrend.Resources.channel-recommendations.png");
+
+        if (stream is null)
+        {
+            return Task.FromResult(new DynamicImageResponse { HasImage = false });
+        }
+
+        return Task.FromResult(new DynamicImageResponse
+        {
+            HasImage = true,
+            Format = ImageFormat.Png,
+            Stream = stream,
+        });
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<ImageType> GetSupportedChannelImages()
+        => [ImageType.Primary];
+
+    /// <inheritdoc />
+    public Task<ChannelItemResult> GetChannelItems(
+        InternalChannelItemQuery query, CancellationToken cancellationToken)
+    {
+        // Folder navigation mirrors the library hierarchy: a series folder returns
+        // its seasons, and a season folder returns its episodes.
+        if (Guid.TryParse(query.FolderId, out var folderGuid) && folderGuid != Guid.Empty)
+        {
+            var children = ChannelItemFactory.GetFolderChildren(_libraryManager, _appHost, folderGuid);
+            return Task.FromResult(new ChannelItemResult
+            {
+                Items = children,
+                TotalRecordCount = children.Count
+            });
+        }
+
+        var items = BuildChannelItems(query.UserId);
+        return Task.FromResult(new ChannelItemResult
+        {
+            Items = items,
+            TotalRecordCount = items.Count
+        });
+    }
+
+    /// <inheritdoc />
+    public Task<IEnumerable<ChannelItemInfo>> GetLatestMedia(
+        ChannelLatestMediaSearch request, CancellationToken cancellationToken)
+    {
+        // Both paths go through BuildChannelItems: an unparseable/empty user id falls back
+        // to any stored recommendations (same as the Trending channel), so the row never
+        // reports empty when data exists.
+        var items = Guid.TryParse(request.UserId, out var userId)
+            ? BuildChannelItems(userId)
+            : BuildChannelItems(Guid.Empty);
+        return Task.FromResult<IEnumerable<ChannelItemInfo>>(items);
+    }
+
+    /// <inheritdoc />
+    public Task<IEnumerable<MediaSourceInfo>> GetChannelItemMediaInfo(
+        string id, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(ChannelItemFactory.GetMediaInfo(_libraryManager, _mediaSourceManager, id));
+    }
+
+    /// <summary>
+    /// Resolves the authenticated user from the current HTTP request. Every Jellyfin client
+    /// sends its access token, so the authenticated user is the real viewer — unlike the
+    /// <c>query.UserId</c> that Jellyfin passes as <see cref="Guid.Empty"/> on the home-row
+    /// refresh. The channel therefore decides by itself what to send to the user.
+    /// </summary>
+    /// <param name="fallback">The user id passed by Jellyfin, used when no authenticated user is available.</param>
+    /// <returns>The authenticated user id when available, otherwise <paramref name="fallback"/>.</returns>
+    private Guid ResolveUserId(Guid fallback)
+    {
+        var http = _httpContextAccessor.HttpContext;
+        var idText = http?.User?.FindFirstValue("Jellyfin-UserId")
+            ?? http?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!string.IsNullOrEmpty(idText) && Guid.TryParse(idText, out var userId) && userId != Guid.Empty)
+        {
+            return userId;
+        }
+
+        return fallback;
+    }
+
+    private List<ChannelItemInfo> BuildChannelItems(Guid userId)
+    {
+        // Jellyfin calls the channel with an empty user id (Guid.Empty) on the home-row refresh.
+        // Resolve the authenticated user from the HTTP request instead, falling back to the stored
+        // recommendations only when there is no authenticated context.
+        var resolved = ResolveUserId(userId);
+        var viewer = resolved == Guid.Empty ? null : SafeGetUser(resolved);
+
+        // La fila muestra como mucho lo configurado; los ids guardados son un pool mayor a proposito,
+        // para que lo ya visto se descarte sin dejar la fila corta.
+        var max = Math.Max(1, Plugin.Instance?.Configuration.RecommendationMaxItems ?? 50);
+
+        // Solo la llamada sin usuario autenticado puede caer en "cualquier usuario": con identidad, sus
+        // recomendaciones son las suyas y, si no tiene, la fila va vacia en lugar de enseñar la lista de
+        // otro.
+        var data = RecommendationStorage.Read(resolved)
+            ?? (resolved == Guid.Empty ? RecommendationStorage.ReadAny() : null);
+        if (data is null || data.ItemIds.Count == 0)
+        {
+            _logger.LogDebug("Sin recomendaciones para el usuario {UserId}.", resolved);
+            return [];
+        }
+
+        // Shuffle the stored ids so the home row shows a different selection on each refresh.
+        // Seed by (userId XOR rotation window) so the order rotates every configured window but stays
+        // stable inside it — clients that paginate see a consistent list. Con la rotacion desactivada la
+        // semilla es solo el usuario: el mismo orden, el mejor puntuado primero.
+        var rotation = RotationWindow();
+        var seed = rotation == 0 ? resolved.GetHashCode() : resolved.GetHashCode() ^ rotation;
+        var shuffled = data.ItemIds.OrderBy(_ => unchecked((uint)(seed = (seed * 1664525) + 1013904223))).ToList();
+
+        var result = new List<ChannelItemInfo>(shuffled.Count);
+        foreach (var id in shuffled)
+        {
+            var item = _libraryManager.GetItemById(id);
+            if (item is null || string.IsNullOrEmpty(item.Path) || !File.Exists(item.Path))
+            {
+                continue;
+            }
+
+            // Exclude already-watched and in-progress content.
+            // When viewer is null (unauthenticated home-row call) we still attempt the check
+            // using the resolved userId directly, so the fallback ReadAny() path never leaks
+            // another user's watched titles into the row.
+            if (IsWatchedByUser(resolved, item))
+            {
+                continue;
+            }
+
+            // Se construye el ChannelItemInfo IGUAL que TrendingChannel (ExternalId = guid de
+            // librería plano, sin MediaSources embebidos): así Jellyfin materializa un item
+            // sombra VIRTUAL del canal (LocationType Remote, sin Path local), la reproducción
+            // se resuelve por el callback GetChannelItemMediaInfo y las imágenes/metadatos
+            // locales las copia TrendingShadowMetadataSync (mismo tratamiento que trending).
+            result.Add(ChannelItemFactory.BuildMovieItem(_libraryManager, _appHost, item, null, null));
+
+            if (result.Count >= max)
+            {
+                break;
+            }
+        }
+
+        _logger.LogDebug("Leídos {Total} ids, devueltos {Count} para el usuario {UserId}.", data.ItemIds.Count, result.Count, resolved);
+        return result;
+    }
+
+    private User? SafeGetUser(Guid userId)
+    {
+        try
+        {
+            return _userManager.GetUserById(userId);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private bool IsWatchedByUser(Guid userId, BaseItem item)
+    {
+        if (userId == Guid.Empty)
+        {
+            return false;
+        }
+
+        var viewer = SafeGetUser(userId);
+        if (viewer is null)
+        {
+            return false;
+        }
+
+        var userData = _userDataManager.GetUserData(viewer, item);
+        return userData is not null && (userData.Played || userData.PlaybackPositionTicks > 0);
+    }
+}

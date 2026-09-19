@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Jellyfin.Plugin.JellyTrend.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
+  </ItemGroup>
+
+  <!--
+    El plugin referencia los paquetes de Jellyfin con ExcludeAssets="runtime" para no
+    empaquetarlos en el ensamblado. El host de pruebas sí los necesita en tiempo de
+    ejecución, así que se referencian aquí sin esa exclusión (misma versión que el plugin).
+  -->
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="12.1.0" />
+    <PackageReference Include="Jellyfin.Model" Version="12.1.0" />
+    <PackageReference Include="Jellyfin.Data" Version="12.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Jellyfin.Plugin.JellyTrend\Jellyfin.Plugin.JellyTrend.csproj" />
+
+    <!--
+      El plugin de mentira replica el contrato con el mismo nombre completo, asi que se referencia con
+      alias: solo se puede nombrar con 'fakeprovider::', que es justo lo que le pasa a un plugin real.
+    -->
+    <ProjectReference Include="..\Jellyfin.Plugin.JellyTrend.FakeProvider\Jellyfin.Plugin.JellyTrend.FakeProvider.csproj">
+      <Aliases>fakeprovider</Aliases>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>

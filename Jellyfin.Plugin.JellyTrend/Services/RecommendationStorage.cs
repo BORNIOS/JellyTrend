@@ -1,0 +1,195 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+
+using Jellyfin.Plugin.JellyTrend.Services.Models;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
+
+namespace Jellyfin.Plugin.JellyTrend.Services;
+
+/// <summary>
+/// Reads and writes per-user recommendation files under {DataPath}/JellyTrend/recommendations/.
+/// Each user gets their own file (userId as the filename) so the channel can read exactly
+/// what to recommend for the requesting user without parsing unrelated data.
+/// </summary>
+public static class RecommendationStorage
+{
+    private static readonly JsonSerializerOptions CacheJsonOptions = new() { WriteIndented = true };
+
+    private static string Folder
+        => JellyTrendStorage.RecommendationsFolder;
+
+    private static string GetUserFilePath(Guid userId)
+        => Path.Combine(Folder, userId.ToString("D") + ".json");
+
+    /// <summary>
+    /// Reads the stored recommendations for a user.
+    /// </summary>
+    /// <param name="userId">The user id.</param>
+    /// <returns>The stored recommendations, or <c>null</c> when none exist for that user.</returns>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Security",
+        "CA3003:Review code for file path injection vulnerabilities",
+        Justification = "El identificador es un Guid formateado 'N' (solo hexadecimal, sin separadores) y la ruta se compone con Path.Combine, asi que no puede salirse de la carpeta de datos. El analizador no puede verlo porque el Guid llega de una peticion HTTP.")]
+    public static UserRecommendations? Read(Guid userId)
+    {
+        if (JellyTrendStore.Active)
+        {
+            var stored = JellyTrendStore.ReadRecommendations(userId);
+            return stored.Length == 0
+                ? null
+                : new UserRecommendations { ItemIds = [.. stored], UpdatedAt = DateTime.UtcNow };
+        }
+
+        var path = GetUserFilePath(userId);
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<UserRecommendations>(File.ReadAllText(path));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Reads the most recently written recommendation file regardless of user. Jellyfin often
+    /// queries channels with an empty user id (Guid.Empty), so a strict per-user lookup would
+    /// return nothing and leave the channel empty. Falling back to any stored file mirrors how
+    /// the Trending channel uses its shared cache: the channel always has content when
+    /// recommendations exist.
+    /// </summary>
+    /// <returns>The stored recommendations, or <c>null</c> when no recommendation file exists.</returns>
+    public static UserRecommendations? ReadAny()
+    {
+        if (JellyTrendStore.Active)
+        {
+            var users = JellyTrendStore.ReadUsersWithRecommendations();
+            return users.Length == 0 ? null : Read(users[0]);
+        }
+
+        var folder = Folder;
+        if (!Directory.Exists(folder))
+        {
+            return null;
+        }
+
+        var file = Directory.GetFiles(folder, "*.json")
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (file is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<UserRecommendations>(File.ReadAllText(file));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Writes the recommendations for a user.
+    /// </summary>
+    /// <param name="userId">The user id.</param>
+    /// <param name="data">The recommendations to persist.</param>
+    public static void Write(Guid userId, UserRecommendations data)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+
+        if (JellyTrendStore.Active)
+        {
+            JellyTrendStore.WriteRecommendations(userId, data.ItemIds);
+            return;
+        }
+
+        Directory.CreateDirectory(Folder);
+        File.WriteAllText(GetUserFilePath(userId), JsonSerializer.Serialize(data, CacheJsonOptions));
+    }
+
+    /// <summary>
+    /// Returns the newest modification time across all recommendation files, used to bump
+    /// the channel's DataVersion after each weekly sync.
+    /// </summary>
+    /// <returns>The newest file modification time (UTC), or <see cref="DateTime.MinValue"/> when empty.</returns>
+    public static DateTime GetLastModifiedUtc()
+    {
+        if (JellyTrendStore.Active)
+        {
+            // Con el almacen en base de datos no hay archivos que mirar: el sello de datos manda.
+            return DateTime.MinValue;
+        }
+
+        var folder = Folder;
+        if (!Directory.Exists(folder))
+        {
+            return DateTime.MinValue;
+        }
+
+        var files = Directory.GetFiles(folder, "*.json");
+        return files.Length == 0 ? DateTime.MinValue : files.Max(File.GetLastWriteTimeUtc);
+    }
+
+    /// <summary>
+    /// Returns every recommended library item id across all users (de-duplicated). Used to
+    /// sync the channel shadow items of the recommendations channel on server startup.
+    /// </summary>
+    /// <returns>The unique recommended item ids.</returns>
+    public static IReadOnlyList<Guid> ReadAllItemIds()
+    {
+        if (JellyTrendStore.Active)
+        {
+            var stored = new HashSet<Guid>();
+            foreach (var user in JellyTrendStore.ReadUsersWithRecommendations())
+            {
+                foreach (var id in JellyTrendStore.ReadRecommendations(user))
+                {
+                    stored.Add(id);
+                }
+            }
+
+            return [.. stored];
+        }
+
+        var folder = Folder;
+        if (!Directory.Exists(folder))
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var result = new HashSet<Guid>();
+        foreach (var file in Directory.GetFiles(folder, "*.json"))
+        {
+            try
+            {
+                var data = JsonSerializer.Deserialize<UserRecommendations>(File.ReadAllText(file));
+                if (data is null)
+                {
+                    continue;
+                }
+
+                foreach (var id in data.ItemIds)
+                {
+                    result.Add(id);
+                }
+            }
+            catch
+            {
+                // Un solo archivo corrupto no debe impedir leer el resto.
+            }
+        }
+
+        return result.ToList();
+    }
+}

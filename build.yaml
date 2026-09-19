@@ -4,9 +4,9 @@
 # See: https://jellyfin.org/docs/general/server/plugins/
 name: "JellyTrend"
 guid: "d3b07384-d9a1-4e2b-8c3f-1234567890ab"
-version: "2.0.4.0"
-targetAbi: "10.11.0.0"
-framework: "net9.0"
+version: "3.0.0.0"
+targetAbi: "12.1.0.0"
+framework: "net10.0"
 overview: "Syncs TMDB trending movies & shows with the local library and provides a Netflix-style banner carousel."
 description: >
   JellyTrend automatically matches TMDB trending content against your
@@ -17,7 +17,12 @@ owner: ".:BORNIOS:."
 artifacts:
   - "Jellyfin.Plugin.JellyTrend.dll"
 changelog: >
-  Correcciones:
-  - Canal Recomendados vacío en la fila de inicio (el canal ahora resuelve al usuario autenticado).
-  - Logs en nivel Debug y sin ids de usuario crudos.
-  - Banner móvil: altura del hero, sinopsis visible, botones compactos y paginación reposicionada.
+  Novedades en 3.0.0:
+  - El motor aprende el gusto de cada usuario (afinidades y pares de titulos) y puntua cada titulo de la biblioteca contra ese perfil.
+  - Arranque en frio por popularidad local hasta alcanzar el minimo de titulos vistos, configurable.
+  - Reserva y rotacion: la lista guardada es mas larga que la fila y va cambiando de punto de partida.
+  - Reparto de la lista de Trendings entre series y peliculas, con relleno para no quedarse corta.
+  - Items de canal materializados para todos los usuarios y cache por usuario en los dos canales.
+  - Panel nuevo de cuatro pestanas (Trendings, Recomendaciones, Almacenamiento y Actividad), bilingue.
+  - Almacen opcional en el esquema jellytrend del PostgreSQL Database Provider, con historial de corridas.
+  - Compatibilidad: Jellyfin 12.1.x con .NET 10. Para Jellyfin 10.11.x usa la version 2.0.4.

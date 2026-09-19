@@ -1,0 +1,385 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+
+using Jellyfin.Database.Implementations.Entities;
+using Jellyfin.Plugin.JellyTrend;
+using Jellyfin.Plugin.JellyTrend.Controllers;
+using Jellyfin.Plugin.JellyTrend.Services;
+using Jellyfin.Plugin.JellyTrend.Services.Channel;
+using Jellyfin.Plugin.JellyTrend.Services.Models;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
+using Jellyfin.Plugin.JellyTrend.Tasks;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Events;
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Entities;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+namespace Jellyfin.Plugin.JellyTrend.Services.Sync;
+
+/// <summary>
+/// Replica <see cref="UserItemData"/> entre la película de biblioteca y el ítem sombra del canal.
+/// La reanudación parcial se mantiene solo en biblioteca; el sombra recibe visto/favoritos/valoración
+/// alineados para evitar duplicados en «Continuar viendo».
+/// </summary>
+public sealed class TrendingLibraryLinkService
+    : IHostedService,
+        IEventConsumer<PlaybackStopEventArgs>,
+        IEventConsumer<PlaybackProgressEventArgs>
+{
+    private static readonly TimeSpan ProgressMirrorInterval = TimeSpan.FromSeconds(90);
+
+    private readonly ILibraryManager _libraryManager;
+    private readonly IUserDataManager _userDataManager;
+    private readonly IUserManager _userManager;
+    private readonly ILogger<TrendingLibraryLinkService> _logger;
+
+    private readonly ConcurrentDictionary<string, DateTime> _lastProgressMirrorUtc = new();
+    private int _mirrorSaveDepth;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TrendingLibraryLinkService"/> class.
+    /// </summary>
+    /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
+    /// <param name="userDataManager">Instance of the <see cref="IUserDataManager"/> interface.</param>
+    /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
+    /// <param name="logger">Instance of the <see cref="ILogger{TrendingLibraryLinkService}"/> interface.</param>
+    public TrendingLibraryLinkService(
+        ILibraryManager libraryManager,
+        IUserDataManager userDataManager,
+        IUserManager userManager,
+        ILogger<TrendingLibraryLinkService> logger)
+    {
+        _libraryManager = libraryManager;
+        _userDataManager = userDataManager;
+        _userManager = userManager;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Subscribes to user data changes and performs a deferred shadow metadata sync after startup.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _userDataManager.UserDataSaved += OnUserDataSaved;
+
+        _ = Task.Run(
+            async () =>
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(40), CancellationToken.None).ConfigureAwait(false);
+                    await RunStartupSyncAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "JellyTrend: sincronización diferida de metadatos sombra omitida.");
+                }
+            },
+            CancellationToken.None);
+
+        return Task.CompletedTask;
+    }
+
+    private async Task RunStartupSyncAsync()
+    {
+        // Sombra de TENDENCIAS: copiar metadatos/reparto/imágenes locales.
+        var cache = ReadTrendingCache();
+        if (cache is not null)
+        {
+            cache.Normalize();
+            if (cache.Items.Count > 0)
+            {
+                await TrendingShadowMetadataSync
+                    .SyncAllAsync(_libraryManager, cache.Items, _logger, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        // Sombra de RECOMENDACIONES: mismo tratamiento para que las tarjetas
+        // muestren el poster local y el estado visto quede sincronizado.
+        var recommendedIds = RecommendationStorage.ReadAllItemIds();
+        if (recommendedIds.Count > 0)
+        {
+            await TrendingShadowMetadataSync
+                .SyncAllAsync(_libraryManager, recommendedIds, _logger, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Unsubscribes from user data changes.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _userDataManager.UserDataSaved -= OnUserDataSaved;
+        return Task.CompletedTask;
+    }
+
+    private void OnUserDataSaved(object? sender, EventArgs e)
+    {
+        if (Volatile.Read(ref _mirrorSaveDepth) > 0)
+        {
+            return;
+        }
+
+        if (e is not UserDataSaveEventArgs args)
+        {
+            return;
+        }
+
+        try
+        {
+            HandleUserDataSaved(args);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "JellyTrend: error al replicar datos de usuario.");
+        }
+    }
+
+    /// <summary>
+    /// Mirrors playback stop events between library items and channel shadows.
+    /// </summary>
+    /// <param name="eventArgs">The playback stop event arguments.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    public Task OnEvent(PlaybackStopEventArgs eventArgs)
+    {
+        MirrorPlaybackEvent(eventArgs.Item, eventArgs.Users, eventArgs.PlaybackPositionTicks, eventArgs.PlayedToCompletion);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Mirrors playback progress events between library items and channel shadows.
+    /// </summary>
+    /// <param name="eventArgs">The playback progress event arguments.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    public Task OnEvent(PlaybackProgressEventArgs eventArgs)
+    {
+        MirrorPlaybackEvent(eventArgs.Item, eventArgs.Users, eventArgs.PlaybackPositionTicks, playedToCompletion: null);
+        return Task.CompletedTask;
+    }
+
+    private void MirrorPlaybackEvent(
+        BaseItem? playedItem,
+        List<User> users,
+        long? playbackPositionTicks,
+        bool? playedToCompletion)
+    {
+        if (playedItem is null || users.Count == 0)
+        {
+            return;
+        }
+
+        if (!IsJellyTrendChannelShadow(playedItem) && !IsTrendingLibraryMovie(playedItem))
+        {
+            return;
+        }
+
+        foreach (var user in users)
+        {
+            try
+            {
+                var sourceData = _userDataManager.GetUserData(user, playedItem);
+                if (sourceData is null)
+                {
+                    continue;
+                }
+
+                if (IsJellyTrendChannelShadow(playedItem)
+                    && Guid.TryParse(playedItem.ExternalId, out var libraryId))
+                {
+                    var libraryItem = _libraryManager.GetItemById(libraryId);
+                    if (libraryItem is null)
+                    {
+                        continue;
+                    }
+
+                    var copy = CloneForTarget(user, sourceData, libraryItem);
+                    ApplyPlaybackHints(copy, libraryItem, playbackPositionTicks, playedToCompletion);
+                    SaveMirrored(user, libraryItem, copy);
+                    ResyncShadowUserDataWithoutPartialResume(user, libraryItem, playedItem);
+                }
+                else if (IsTrendingLibraryMovie(playedItem))
+                {
+                    foreach (var shadow in FindShadows(playedItem.Id))
+                    {
+                        var copy = CloneForTarget(user, sourceData, shadow);
+                        ApplyPlaybackHints(copy, playedItem, playbackPositionTicks, playedToCompletion);
+                        copy.PlaybackPositionTicks = 0;
+                        SaveMirrored(user, shadow, copy);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "JellyTrend: error al replicar reproducción para el usuario {UserId}.", user.Id);
+            }
+        }
+    }
+
+    private void HandleUserDataSaved(UserDataSaveEventArgs args)
+    {
+        if (args.SaveReason == UserDataSaveReason.PlaybackProgress
+            && !ShouldAllowProgressMirror(args.UserId, args.Item.Id))
+        {
+            return;
+        }
+
+        var user = _userManager.GetUserById(args.UserId);
+        if (user is null)
+        {
+            return;
+        }
+
+        if (IsJellyTrendChannelShadow(args.Item)
+            && Guid.TryParse(args.Item.ExternalId, out var libraryId))
+        {
+            var libraryItem = _libraryManager.GetItemById(libraryId);
+            if (libraryItem is null)
+            {
+                return;
+            }
+
+            var data = CloneForTarget(user, args.UserData, libraryItem);
+            SaveMirrored(user, libraryItem, data);
+            ResyncShadowUserDataWithoutPartialResume(user, libraryItem, args.Item);
+        }
+        else if (IsTrendingLibraryMovie(args.Item))
+        {
+            foreach (var shadow in FindShadows(args.Item.Id))
+            {
+                var data = CloneForTarget(user, args.UserData, shadow);
+                data.PlaybackPositionTicks = 0;
+                SaveMirrored(user, shadow, data);
+            }
+        }
+    }
+
+    /// <summary>
+    /// La fila «Continuar viendo» usa ítems con posición de reanudación; si biblioteca y sombra la tienen,
+    /// aparecen duplicados. Tras volcar al sombra → biblioteca, el sombra queda sin ticks de reanudación.
+    /// </summary>
+    private void ResyncShadowUserDataWithoutPartialResume(User user, BaseItem libraryItem, BaseItem shadow)
+    {
+        var libData = _userDataManager.GetUserData(user, libraryItem);
+        if (libData is null)
+        {
+            return;
+        }
+
+        var copy = CloneForTarget(user, libData, shadow);
+        copy.PlaybackPositionTicks = 0;
+        SaveMirrored(user, shadow, copy);
+    }
+
+    private bool ShouldAllowProgressMirror(Guid userId, Guid itemId)
+    {
+        var key = $"{userId:N}:{itemId:N}";
+        var now = DateTime.UtcNow;
+        if (_lastProgressMirrorUtc.TryGetValue(key, out var last) && now - last < ProgressMirrorInterval)
+        {
+            return false;
+        }
+
+        _lastProgressMirrorUtc[key] = now;
+        return true;
+    }
+
+    private static void ApplyPlaybackHints(
+        UserItemData target,
+        BaseItem runtimeItem,
+        long? playbackPositionTicks,
+        bool? playedToCompletion)
+    {
+        if (playedToCompletion == true && runtimeItem.RunTimeTicks > 0)
+        {
+            target.PlaybackPositionTicks = 0;
+            target.Played = true;
+        }
+        else if (playbackPositionTicks.HasValue)
+        {
+            target.PlaybackPositionTicks = playbackPositionTicks.Value;
+        }
+    }
+
+    private void SaveMirrored(User user, BaseItem target, UserItemData data)
+    {
+        Interlocked.Increment(ref _mirrorSaveDepth);
+        try
+        {
+            _userDataManager.SaveUserData(user, target, data, UserDataSaveReason.UpdateUserData, CancellationToken.None);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _mirrorSaveDepth);
+        }
+    }
+
+    private UserItemData CloneForTarget(User user, UserItemData source, BaseItem target)
+    {
+        var targetExisting = _userDataManager.GetUserData(user, target);
+        var key = targetExisting?.Key ?? target.GetUserDataKeys()[0];
+
+        return new UserItemData
+        {
+            Key = key,
+            PlaybackPositionTicks = source.PlaybackPositionTicks,
+            Played = source.Played,
+            PlayCount = source.PlayCount,
+            LastPlayedDate = source.LastPlayedDate,
+            IsFavorite = source.IsFavorite,
+            Likes = source.Likes,
+            Rating = source.Rating,
+            AudioStreamIndex = source.AudioStreamIndex,
+            SubtitleStreamIndex = source.SubtitleStreamIndex
+        };
+    }
+
+    private bool IsJellyTrendChannelShadow(BaseItem item)
+    {
+        if (string.IsNullOrEmpty(item.ExternalId) || item.ChannelId == Guid.Empty)
+        {
+            return false;
+        }
+
+        return ChannelIdentity.IsJellyTrendChannelId(item.ChannelId, _libraryManager);
+    }
+
+    private IEnumerable<BaseItem> FindShadows(Guid libraryMovieId)
+    {
+        foreach (var channelFolderId in ChannelIdentity.GetAllChannelFolderIds(_libraryManager))
+        {
+            var shadow = TrendingShadowMetadataSync.FindShadowMovie(_libraryManager, channelFolderId, libraryMovieId);
+            if (shadow is not null)
+            {
+                yield return shadow;
+            }
+        }
+    }
+
+    private static bool IsTrendingLibraryMovie(BaseItem item)
+    {
+        if (item.ChannelId != Guid.Empty || string.IsNullOrEmpty(item.Path))
+        {
+            return false;
+        }
+
+        var cache = ReadTrendingCache();
+        cache?.Normalize();
+        return cache is not null && cache.Items.Any(cacheItem => cacheItem.ItemId == item.Id);
+    }
+
+    private static TrendingCache? ReadTrendingCache() => JellyTrendStore.ReadTrendingCache();
+}

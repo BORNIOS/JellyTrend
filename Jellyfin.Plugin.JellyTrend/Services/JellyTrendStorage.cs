@@ -1,0 +1,262 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+
+using Jellyfin.Plugin.JellyTrend.Logging;
+
+namespace Jellyfin.Plugin.JellyTrend.Services;
+
+/// <summary>
+/// Resolves the paths of the plugin's persistent data and migrates the files that older versions kept
+/// inside the installation folder.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Plugin data cannot live inside the plugin folder: Jellyfin replaces that folder when the plugin is
+/// updated or reinstalled, so the feature cache, the stored recommendations and the trending list would be
+/// lost on every update. They live under <c>{DataPath}/JellyTrend</c>, which is data and survives updates.
+/// </para>
+/// <para>
+/// The path is never written by hand: it is derived from <c>IApplicationPaths.DataPath</c>, so it follows
+/// whatever the server is configured with (including portable installs). The first call after the upgrade
+/// moves the legacy files out of the plugin folder once, and skips any file that already exists at the
+/// destination so a newer copy is never overwritten.
+/// </para>
+/// </remarks>
+public static class JellyTrendStorage
+{
+    private const string FolderName = "JellyTrend";
+    private const string FeaturesFileName = "features.json";
+    private const string TrendingFileName = "trending.json";
+    private const string RecommendationsFolderName = "recommendations";
+
+    private static string? _dataPath;
+
+    /// <summary>
+    /// Gets the folder that holds every JellyTrend data file.
+    /// </summary>
+    /// <value>Absolute path of the data folder, or an empty string while the storage is not initialized.</value>
+    public static string Folder
+    {
+        get
+        {
+            // La carpeta se puede reemplazar desde el panel de configuraciOn. Solo se acepta una ruta
+            // absoluta: una relativa acabaria escribiendo junto al proceso, que es justo lo que este
+            // almacen evita.
+            var configured = Plugin.Instance?.Configuration.JsonDataPath;
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                var trimmed = configured.Trim();
+                if (Path.IsPathRooted(trimmed))
+                {
+                    return trimmed;
+                }
+
+                JellyTrendLog.Warn($"[Almacen] La carpeta configurada '{trimmed}' no es una ruta absoluta; se usa la de datos del servidor.");
+            }
+
+            return string.IsNullOrEmpty(_dataPath) ? string.Empty : Path.Combine(_dataPath, FolderName);
+        }
+    }
+
+    /// <summary>
+    /// Gets the folder the plugin uses when nobody replaced it from the panel.
+    /// </summary>
+    /// <value>Absolute path under the server data directory, or an empty string while uninitialized.</value>
+    public static string DefaultFolder
+        => string.IsNullOrEmpty(_dataPath) ? string.Empty : Path.Combine(_dataPath, FolderName);
+
+    /// <summary>
+    /// Gets the folder configured from the panel, exactly as it was typed.
+    /// </summary>
+    /// <value>The configured value, or an empty string when the panel left it empty.</value>
+    public static string ConfiguredPath => Plugin.Instance?.Configuration.JsonDataPath?.Trim() ?? string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether the configured folder is the one in use.
+    /// </summary>
+    /// <value>
+    /// <see langword="true"/> when a rooted folder was configured (a relative one is refused and the
+    /// default folder is used instead).
+    /// </value>
+    public static bool ConfiguredPathIsUsable
+        => ConfiguredPath.Length > 0 && Path.IsPathRooted(ConfiguredPath);
+
+    /// <summary>
+    /// Gets a value indicating whether the configured folder can be seen on disk.
+    /// </summary>
+    /// <value><see langword="true"/> when it is usable and exists.</value>
+    public static bool ConfiguredPathExists => ConfiguredPathIsUsable && Directory.Exists(ConfiguredPath);
+
+    /// <summary>
+    /// Gets a value indicating whether the folder in use exists on disk.
+    /// </summary>
+    /// <value><see langword="true"/> when the folder exists; false while uninitialized or missing.</value>
+    public static bool FolderExists
+    {
+        get
+        {
+            var folder = Folder;
+            return folder.Length > 0 && Directory.Exists(folder);
+        }
+    }
+
+    /// <summary>
+    /// Gets the full path of the feature cache file.
+    /// </summary>
+    /// <value>Absolute path, or an empty string while the storage is not initialized.</value>
+    public static string FeaturesFile => Combine(FeaturesFileName);
+
+    /// <summary>
+    /// Gets the full path of the trending cache file.
+    /// </summary>
+    /// <value>Absolute path, or an empty string while the storage is not initialized.</value>
+    public static string TrendingFile => Combine(TrendingFileName);
+
+    /// <summary>
+    /// Gets the folder that holds one recommendation file per user.
+    /// </summary>
+    /// <value>Absolute path, or an empty string while the storage is not initialized.</value>
+    public static string RecommendationsFolder => Combine(RecommendationsFolderName);
+
+    /// <summary>
+    /// Points the storage at the server data directory and creates the folder when it is missing.
+    /// </summary>
+    /// <param name="dataPath">Server data directory (<c>IApplicationPaths.DataPath</c>).</param>
+    public static void Initialize(string dataPath)
+    {
+        if (string.IsNullOrWhiteSpace(dataPath))
+        {
+            return;
+        }
+
+        _dataPath = dataPath;
+        EnsureFolder();
+    }
+
+    /// <summary>
+    /// Creates the data folder when it is missing. Safe to call before any write.
+    /// </summary>
+    public static void EnsureFolder()
+    {
+        var folder = Folder;
+        if (folder.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(folder);
+        }
+        catch (Exception ex)
+        {
+            JellyTrendLog.Warn($"[Almacen] No se pudo crear la carpeta de datos '{folder}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Lists the files of the data folder with their size and last write, so the panel can show what is
+    /// really on disk instead of assuming what should be there.
+    /// </summary>
+    /// <returns>One entry per file, newest first; empty when the folder is missing or cannot be read.</returns>
+    public static IReadOnlyList<(string Name, long SizeBytes, DateTime Modified)> Files()
+    {
+        var folder = Folder;
+        if (folder.Length == 0 || !Directory.Exists(folder))
+        {
+            return [];
+        }
+
+        try
+        {
+            var files = new List<(string Name, long SizeBytes, DateTime Modified)>();
+            foreach (var path in Directory.EnumerateFiles(folder))
+            {
+                var info = new FileInfo(path);
+                files.Add((info.Name, info.Length, info.LastWriteTime));
+            }
+
+            files.Sort(static (left, right) => right.Modified.CompareTo(left.Modified));
+            return files;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            JellyTrendLog.Warn($"[Almacen] No se pudo leer el contenido de '{folder}': {ex.Message}");
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Moves the files written by older versions inside the plugin folder into the data folder.
+    /// </summary>
+    /// <param name="pluginFolder">Folder that holds the plugin assembly, or null when it is unknown.</param>
+    public static void MigrateFromPluginFolder(string? pluginFolder)
+    {
+        if (string.IsNullOrWhiteSpace(pluginFolder) || Folder.Length == 0 || !Directory.Exists(pluginFolder))
+        {
+            return;
+        }
+
+        EnsureFolder();
+        MoveLegacyFile(Path.Combine(pluginFolder, FeaturesFileName), FeaturesFile);
+        MoveLegacyFile(Path.Combine(pluginFolder, TrendingFileName), TrendingFile);
+        MoveLegacyRecommendations(Path.Combine(pluginFolder, RecommendationsFolderName));
+    }
+
+    private static string Combine(string name)
+        => Folder.Length == 0 ? string.Empty : Path.Combine(Folder, name);
+
+    private static void MoveLegacyFile(string source, string destination)
+    {
+        var fileName = Path.GetFileName(source);
+
+        try
+        {
+            // Nada que mover, o el destino ya manda: no se pisa una copia mas nueva.
+            if (!File.Exists(source) || File.Exists(destination))
+            {
+                return;
+            }
+
+            var folder = Path.GetDirectoryName(destination);
+            if (!string.IsNullOrEmpty(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+
+            File.Move(source, destination);
+            JellyTrendLog.Info($"[Almacen] Datos movidos fuera de la carpeta del plugin: {fileName}");
+        }
+        catch (Exception ex)
+        {
+            JellyTrendLog.Warn($"[Almacen] No se pudo migrar '{fileName}': {ex.Message}");
+        }
+    }
+
+    private static void MoveLegacyRecommendations(string legacyFolder)
+    {
+        try
+        {
+            if (!Directory.Exists(legacyFolder))
+            {
+                return;
+            }
+
+            foreach (var file in Directory.GetFiles(legacyFolder, "*.json"))
+            {
+                MoveLegacyFile(file, Path.Combine(RecommendationsFolder, Path.GetFileName(file)));
+            }
+
+            // Solo se retira la carpeta heredada si quedo vacia: sin residuos, y sin borrar nada pendiente.
+            if (Directory.GetFileSystemEntries(legacyFolder).Length == 0)
+            {
+                Directory.Delete(legacyFolder);
+            }
+        }
+        catch (Exception ex)
+        {
+            JellyTrendLog.Warn($"[Almacen] No se pudieron migrar las recomendaciones guardadas: {ex.Message}");
+        }
+    }
+}

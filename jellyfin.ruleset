@@ -104,5 +104,10 @@
     <Rule Id="CA2101" Action="None" />
     <!-- disable warning CA2234: Pass System.Uri objects instead of strings -->
     <Rule Id="CA2234" Action="None" />
+    <!-- CA1873 (.NET 10): avisa de argumentos "potencialmente caros" en llamadas de logging.
+         Todos los puntos del plugin usan logging estructurado con placeholders sobre lecturas
+         simples de propiedades, y CA1848 (LoggerMessage) esta deshabilitado a proposito, asi que
+         la regla se mantiene como sugerencia en el IDE en lugar de romper el build. -->
+    <Rule Id="CA1873" Action="Info" />
   </Rules>
 </RuleSet>
