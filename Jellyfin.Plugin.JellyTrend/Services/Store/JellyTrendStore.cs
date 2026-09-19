@@ -56,6 +56,13 @@ public static class JellyTrendStore
     public static string Description => _description;
 
     /// <summary>
+    /// Gets the version of the schema of the database store.
+    /// </summary>
+    /// <value>The version reported by the provider, or 0 when the store is not in use.</value>
+    public static int SchemaVersion
+        => Guard(static provider => provider.GetSchemaVersion(), 0, "leer la version del esquema");
+
+    /// <summary>
     /// Adopts the store offered by another plugin, replacing any previous one.
     /// </summary>
     /// <param name="provider">The store, or null to keep using JSON files.</param>

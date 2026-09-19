@@ -221,7 +221,7 @@
 
                 <div class="jtPanel" data-jt-panel="trending">
 
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #42a5f5; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secTmdb"></h2>
 
                     <div class="inputContainer">
@@ -259,7 +259,7 @@
 
                     </div>
 
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #42a5f5; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secTrending"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -271,6 +271,8 @@
                         </label>
                         <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descChannel_html"></div>
                     </div>
+
+                    <div data-jt-html="true" data-jt="noteChannel_html" style="padding:10px 14px; border-radius:6px; background:#1a2a3a; border-left:4px solid #42a5f5; color:#90caf9; font-size:13px; line-height:1.6;"></div>
 
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="channelName">
@@ -333,7 +335,7 @@
                 </div>
 
                 <div class="jtPanel" data-jt-panel="recommendations" hidden>
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ab47bc; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secRecommendations"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -347,7 +349,7 @@
                     </div>
                     </div>
 
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ab47bc; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secRecChannel"></h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -359,6 +361,8 @@
                         </label>
                         <div class="fieldDescription checkboxFieldDescription" data-jt-html="true" data-jt="descRecChannel_html"></div>
                     </div>
+
+                    <div data-jt-html="true" data-jt="noteRecChannel_html" style="padding:10px 14px; border-radius:6px; background:#2a2418; border-left:4px solid #f3c969; color:#f3c969; font-size:13px; line-height:1.6;"></div>
 
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="recommendationChannelName">
@@ -372,7 +376,7 @@
                     </div>
                     </div>
 
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ab47bc; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secEngine"></h2>
 
                     <div class="inputContainer">
@@ -431,10 +435,12 @@
                 </div>
 
                 <div class="jtPanel" data-jt-panel="storage" hidden>
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secDataFolder"></h2>
 
                         <table class="jtKV"><tbody id="jtFolderInfo"></tbody></table>
+
+                        <div id="jtPathNote" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; border-left:4px solid #26a69a; color:#80cbc4; font-size:13px; line-height:1.6; margin-bottom:14px;"></div>
 
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="jsonDataPath">
@@ -449,10 +455,28 @@
 
                     </div>
 
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                        <h2 class="jtCardTitle" data-jt="secFiles"></h2>
+                        <div id="jtFilesSummary" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; color:#a0c4ff; font-size:14px; margin-bottom:12px;"></div>
+                        <div id="jtFilesWrap" class="jtTableWrap" style="max-height:320px; overflow:auto; border:1px solid rgba(124,146,196,.28); border-radius:8px; background:rgba(9,14,28,.55)">
+                            <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+                                <thead>
+                                    <tr>
+                                        <th data-jt="thFileName" style="position:sticky;top:0;text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                        <th data-jt="thFileSize" style="position:sticky;top:0;text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                        <th data-jt="thFileModified" style="position:sticky;top:0;text-align:left;padding:8px 10px;background:rgba(13,20,38,.94);border-bottom:1px solid rgba(124,146,196,.28);color:#cfe0ff;font-weight:600;white-space:nowrap"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="jtFilesBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descFiles_html" style="margin-top:10px"></div>
+                    </div>
+
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secStore"></h2>
 
-                        <table class="jtKV"><tbody id="jtStoreInfo"></tbody></table>
+                        <div id="jtStoreNote" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; border-left:4px solid #26a69a; color:#80cbc4; font-size:13px; line-height:1.6; margin-bottom:14px;"></div>
 
                         <div class="fieldDescription" data-jt-html="true" data-jt="descStore_html"></div>
                     </div>
@@ -462,33 +486,35 @@
                     <button is="emby-button"
                             type="button"
                             id="jellyTrendSaveBtn"
-                            class="raised button-submit block emby-button">
+                            class="raised block emby-button"
+                            style="background:linear-gradient(135deg,#1b5e20,#388e3c); color:#fff; border:1px solid rgba(76,175,80,.55); border-radius:10px; padding:11px 20px; font-weight:600; cursor:pointer;">
                         <span data-jt="btnSave"></span>
                     </button>
                 </div>
                 <div id="jtSaveStatus" data-jt-savebar style="margin-top:.5em;min-height:1.2em;font-size:.9em;"></div>
 
                 <div class="jtPanel" data-jt-panel="status" hidden>
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ffa726; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secState"></h2>
+                        <div id="jtChips" style="margin-bottom:12px;"></div>
                         <div id="jtStatusBox" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; color:#a0c4ff; font-size:14px; margin-bottom:16px; white-space:pre-line; line-height:1.6;">...</div>
                         <table class="jtKV"><tbody id="jtStatusInfo"></tbody></table>
                     </div>
 
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ffa726; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secActions"></h2>
-                        <div style="display:flex;flex-wrap:wrap;gap:.6em;margin-bottom:12px">
-                            <button id="jtRunNow" is="emby-button" type="button" class="raised emby-button">
+                        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+                            <button id="jtRunNow" is="emby-button" type="button" class="raised emby-button" style="background:linear-gradient(135deg,#1565C0,#42a5f5); color:#fff; border:1px solid rgba(66,165,245,.55); border-radius:10px; padding:10px 20px; font-weight:600; cursor:pointer;">
                                 <span data-jt="btnRunSync"></span>
                             </button>
-                            <button id="jtRunRecNow" is="emby-button" type="button" class="raised emby-button">
+                            <button id="jtRunRecNow" is="emby-button" type="button" class="raised emby-button" style="background:linear-gradient(135deg,#6a1b9a,#ab47bc); color:#fff; border:1px solid rgba(171,71,188,.55); border-radius:10px; padding:10px 20px; font-weight:600; cursor:pointer;">
                                 <span data-jt="btnRunRecommendations"></span>
                             </button>
                         </div>
                         <div class="fieldDescription" data-jt-html="true" data-jt="descActions_html"></div>
                     </div>
 
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #ffa726; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secUserRecs"></h2>
 
                         <div class="inputContainer">
@@ -534,10 +560,26 @@
     // y el <style> declarado en el <head> se queda por el camino. Eso era exactamente lo que dejaba esta
     // pagina sin fondo, sin tarjetas y con las pestanas planas al lado del panel del proveedor PostgreSQL.
     var TAB_BASE = 'border-radius:999px; padding:8px 16px; font-weight:600; cursor:pointer; ';
-    var TAB_ACTIVE = 'border:1px solid rgba(140,190,255,.55); background:linear-gradient(135deg,#3a6dd8,#5a8ff0); color:#fff;';
     var TAB_IDLE = 'border:1px solid rgba(123,156,226,.25); background:rgba(22,32,58,.75); color:#d6e4ff;';
     var CELL_LABEL = 'padding:6px 10px; border-bottom:1px solid rgba(124,146,196,.14); vertical-align:top; color:#9ab0d4; white-space:nowrap;';
     var CELL_VALUE = 'padding:6px 10px; border-bottom:1px solid rgba(124,146,196,.14); vertical-align:top;';
+
+    // Cada pestana tiene su acento, igual que las tarjetas: azul para tendencias, violeta para
+    // recomendaciones, verde azulado para el almacen y ambar para el estado.
+    var TAB_COLORS = {
+        trending: { on: 'linear-gradient(135deg,#1565C0,#42a5f5)', edge: 'rgba(66,165,245,.75)' },
+        recommendations: { on: 'linear-gradient(135deg,#6a1b9a,#ab47bc)', edge: 'rgba(171,71,188,.75)' },
+        storage: { on: 'linear-gradient(135deg,#00695c,#26a69a)', edge: 'rgba(38,166,154,.75)' },
+        status: { on: 'linear-gradient(135deg,#e65100,#ffa726)', edge: 'rgba(255,167,38,.75)' }
+    };
+
+    // Fichas de estado: el color ya dice si algo falta, sin obligar a leer la tabla.
+    var CHIP_COLORS = {
+        ok: 'background:rgba(27,94,32,.55); border:1px solid #66bb6a; color:#a5d6a7;',
+        warn: 'background:rgba(120,80,10,.45); border:1px solid #f3c969; color:#f3c969;',
+        bad: 'background:rgba(120,30,30,.5); border:1px solid #ef5350; color:#ef9a9a;',
+        info: 'background:rgba(21,101,192,.35); border:1px solid #42a5f5; color:#90caf9;'
+    };
 
     var I18N = {
         en: {
@@ -552,7 +594,7 @@
             descActions_html: 'Both buttons run the matching scheduled task right now, without waiting for its schedule. They change no setting.',
             lblTmdbApiKey: 'TMDB API key',
             phTmdbApiKey: 'Paste your TMDB v3 API key',
-            descTmdbApiKey_html: 'Required. Get a free key at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>.',
+            descTmdbApiKey_html: 'Required: without a key the plugin cannot ask TMDB for the trending list. Create a free one at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> and paste the <strong>API Key (v3 auth)</strong> value, not the read access token.',
             lblTmdbLanguage: 'TMDB language (BCP-47)',
             phTmdbLanguage: 'en-US',
             descTmdbLanguage_html: 'Language for titles and overviews from TMDB (e.g. <code>es-MX</code>, <code>en-US</code>). Leave empty for TMDB default.',
@@ -594,8 +636,8 @@
             secStorage: 'Storage',
             lblDataPath: 'JSON folder (optional)',
             phDataPath: 'Leave empty to use the server data folder',
-            descDataPath_html: 'Absolute folder for the plugin JSON files when no database provider is in use. Empty keeps them under the server data folder, which is what survives a plugin update. A restart is required to apply it everywhere.',
-            descStore_html: 'With the <strong>PostgreSQL provider</strong> installed the data lives in the <code>jellytrend</code> schema of your database and the JSON files are kept only as a courtesy copy, so removing the provider never loses anything. Provider repository: <a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener">Jellyfin-Database-Providers-Postgres</a>.',
+            descDataPath_html: 'Absolute folder for the plugin JSON files: the feature cache, the trending list, the per-user taste profiles and recommendations, and the courtesy dump. Empty keeps them in the server data folder, which is the one that survives a plugin update. A relative path is refused, because it would end up writing next to the server process. Restart the server for every task to pick it up. With the database provider installed these files are still written, but they are no longer read.',
+            descStore_html: 'JellyTrend looks for a database provider that offers its store. When it finds one it creates the schema on first use and keeps everything there: feature cache, trending list, per-user profiles, recommendations, suppressions and the run history (<code>sync_run</code>). The JSON files stay as a courtesy copy, so removing the provider never loses anything. Repository: <a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener">Jellyfin-Database-Providers-Postgres</a>.',
             secRecChannel: 'Recommendations channel',
             secEngine: 'Home row and engine',
             secDataFolder: 'Data folder',
@@ -644,7 +686,36 @@
             msgRecErr: 'Could not start recommendations task: ',
             msgSyncNoTask: 'Scheduled task JellyTrendSync was not found.',
             msgRecNoTask: 'Scheduled task JellyTrendRecommendations was not found.',
-            errLoadStatus: 'Could not load status.'
+            errLoadStatus: 'Could not load status.',
+            secFiles: 'Files in the data folder',
+            descFiles_html: 'What the plugin has actually written to disk, newest first. Every one of these files is regenerated by the scheduled tasks, so with the database provider in use they can be deleted without losing anything: what you see here is the courtesy copy.',
+            thFileName: 'File',
+            thFileSize: 'Size',
+            thFileModified: 'Modified',
+            filesCount: 'Files',
+            msgNoFiles: 'The folder is empty. The first run of either task will fill it.',
+            chipStore: 'Store',
+            chipSchema: 'Schema',
+            chipTmdb: 'TMDB',
+            chipFolder: 'Folder',
+            chipCache: 'Cached items',
+            msgKeyMissing: 'no key',
+            valExists: 'exists',
+            valMissing: 'not found',
+            valDefault: 'default',
+            valCustom: 'custom',
+            valUnusable: 'not a rooted path',
+            kvChannels: 'Channels offered',
+            kvPathUsable: 'Configured path is usable',
+            kvPathExists: 'Configured path exists',
+            kvSchema: 'Schema version',
+            pathDefault: 'Nothing configured: the plugin is using its own folder inside the server data directory, which is the one that survives a plugin update.',
+            pathCustomOk: 'A folder was configured and it exists on disk. The plugin reads and writes there; a restart is needed before every task picks it up.',
+            pathProblem: 'The configured folder cannot be used: it is not an absolute path or it does not exist. The plugin keeps working on the default folder, so nothing is lost, but the setting is being ignored.',
+            storeProvider: 'Provider detected: JellyTrend is writing its tables in that database and the JSON files are only the courtesy copy.',
+            storeJson: 'No provider detected, so the data lives in the JSON files. Installing the PostgreSQL provider moves it into the database without touching what is already stored.',
+            noteChannel_html: 'The plugin <strong>offers</strong> the channel. Whether each user then sees it on their home screen is decided by that user in Jellyfin (<strong>Profile \u2192 Home</strong>), and the plugin cannot override it.',
+            noteRecChannel_html: 'Unchecking this only removes the channel from the list. If a user still sees \u201cRecomendados\u201d at home, those are that user\u2019s own Home settings, not this switch.'
         },
         es: {
             pageTitle: 'JellyTrend',
@@ -658,7 +729,7 @@
             descActions_html: 'Los dos botones lanzan ahora la tarea programada correspondiente, sin esperar a su calendario. No cambian ningún ajuste.',
             lblTmdbApiKey: 'Clave API de TMDB',
             phTmdbApiKey: 'Pega aquí tu clave API v3 de TMDB',
-            descTmdbApiKey_html: 'Obligatoria. Consigue una clave gratuita en <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>.',
+            descTmdbApiKey_html: 'Obligatoria: sin ella el plugin no puede pedir a TMDB la lista de tendencias. Consigue una gratis en <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> y pega el valor de <strong>API Key (v3 auth)</strong>, no el token de acceso de lectura.',
             lblTmdbLanguage: 'Idioma TMDB (BCP-47)',
             phTmdbLanguage: 'es-MX',
             descTmdbLanguage_html: 'Idioma de títulos y sinopsis devueltos por TMDB (p. ej. <code>es-MX</code>, <code>en-US</code>). Vacío = predeterminado de TMDB.',
@@ -700,8 +771,8 @@
             secStorage: 'Almacenamiento',
             lblDataPath: 'Carpeta de los JSON (opcional)',
             phDataPath: 'Vacío = carpeta de datos del servidor',
-            descDataPath_html: 'Carpeta absoluta de los archivos JSON del plugin cuando no hay proveedor de base de datos. Vacío los deja en la carpeta de datos del servidor, que es lo que sobrevive a una actualización del plugin. Requiere reiniciar para aplicarse en todo el plugin.',
-            descStore_html: 'Con el <strong>proveedor PostgreSQL</strong> instalado los datos viven en el esquema <code>jellytrend</code> de tu base y los JSON se guardan solo como copia de cortesía, así que quitar el proveedor nunca pierde nada. Repositorio del proveedor: <a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener">Jellyfin-Database-Providers-Postgres</a>.',
+            descDataPath_html: 'Carpeta absoluta de los archivos JSON del plugin: la caché de características, la lista de tendencias, los perfiles de gusto y las recomendaciones por usuario, y el volcado de cortesía. Vacío los deja en la carpeta de datos del servidor, que es la que sobrevive a una actualización del plugin. Una ruta relativa se rechaza, porque acabaría escribiendo junto al proceso del servidor. Reinicia el servidor para que todas las tareas la usen. Con el proveedor de base de datos instalado estos archivos se siguen escribiendo, pero ya no se leen.',
+            descStore_html: 'JellyTrend busca un proveedor de base de datos que ofrezca su almacén. Cuando lo encuentra crea el esquema en el primer uso y guarda todo ahí: caché de características, lista de tendencias, perfiles de usuario, recomendaciones, supresiones e historial de corridas (<code>sync_run</code>). Los archivos JSON quedan como copia de cortesía, así que quitar el proveedor nunca pierde nada. Repositorio: <a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener">Jellyfin-Database-Providers-Postgres</a>.',
             secRecChannel: 'Canal de Recomendados',
             secEngine: 'Fila de inicio y motor',
             secDataFolder: 'Carpeta de datos',
@@ -750,7 +821,36 @@
             msgRecErr: 'No se pudo iniciar la tarea de Recomendaciones: ',
             msgSyncNoTask: 'No se encontró la tarea programada JellyTrendSync.',
             msgRecNoTask: 'No se encontró la tarea programada JellyTrendRecommendations.',
-            errLoadStatus: 'No se pudo cargar el estado.'
+            errLoadStatus: 'No se pudo cargar el estado.',
+            secFiles: 'Archivos de la carpeta de datos',
+            descFiles_html: 'Lo que el plugin ha escrito de verdad en el disco, del más reciente al más antiguo. Todos estos archivos los regeneran las tareas programadas, así que con el proveedor de base de datos en uso se pueden borrar sin perder nada: lo que ves aquí es la copia de cortesía.',
+            thFileName: 'Archivo',
+            thFileSize: 'Tamaño',
+            thFileModified: 'Modificado',
+            filesCount: 'Archivos',
+            msgNoFiles: 'La carpeta está vacía. La primera corrida de cualquiera de las dos tareas la llenará.',
+            chipStore: 'Almacén',
+            chipSchema: 'Esquema',
+            chipTmdb: 'TMDB',
+            chipFolder: 'Carpeta',
+            chipCache: 'En caché',
+            msgKeyMissing: 'sin clave',
+            valExists: 'existe',
+            valMissing: 'no encontrada',
+            valDefault: 'por defecto',
+            valCustom: 'personalizada',
+            valUnusable: 'no es una ruta absoluta',
+            kvChannels: 'Canales ofrecidos',
+            kvPathUsable: 'La ruta configurada sirve',
+            kvPathExists: 'La ruta configurada existe',
+            kvSchema: 'Versión del esquema',
+            pathDefault: 'No hay nada configurado: el plugin usa su propia carpeta dentro de los datos del servidor, que es la que sobrevive a una actualización del plugin.',
+            pathCustomOk: 'Hay una carpeta configurada y existe en el disco. El plugin lee y escribe ahí; hace falta reiniciar para que todas las tareas la usen.',
+            pathProblem: 'La carpeta configurada no se puede usar: no es una ruta absoluta o no existe. El plugin sigue trabajando en la carpeta por defecto, así que no se pierde nada, pero el ajuste se está ignorando.',
+            storeProvider: 'Proveedor detectado: JellyTrend está escribiendo sus tablas en esa base y los archivos JSON son solo la copia de cortesía.',
+            storeJson: 'No hay proveedor detectado, así que los datos viven en los archivos JSON. Instalar el proveedor PostgreSQL los traslada a la base sin tocar lo que ya está guardado.',
+            noteChannel_html: 'El plugin <strong>ofrece</strong> el canal. Que cada usuario lo vea después en su inicio lo decide ese usuario en Jellyfin (<strong>Perfil \u2192 Inicio</strong>), y el plugin no puede pasar por encima.',
+            noteRecChannel_html: 'Desmarcar esto solo quita el canal de la lista. Si un usuario sigue viendo \u201cRecomendados\u201d en su inicio, son sus propios ajustes de Inicio, no este interruptor.'
         }
     };
 
@@ -1012,8 +1112,12 @@
                 btn.classList.add('button-default');
             }
 
-            // El color va tambien en linea para que la pestana activa se vea azul con o sin hoja de estilos.
-            btn.style.cssText = TAB_BASE + (active ? TAB_ACTIVE : TAB_IDLE);
+            // El color va tambien en linea para que la pestana activa se vea con su acento con o sin hoja
+            // de estilos.
+            var accent = TAB_COLORS[name] || TAB_COLORS.trending;
+            btn.style.cssText = TAB_BASE + (active
+                ? 'border:1px solid ' + accent.edge + '; background:' + accent.on + '; color:#fff;'
+                : TAB_IDLE);
 
             btn.setAttribute('aria-selected', active ? 'true' : 'false');
         });
@@ -1053,6 +1157,21 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function chip(text, kind) {
+        return '<span style="display:inline-block; padding:4px 12px; border-radius:999px; font-size:12px;'
+            + ' font-weight:600; margin:0 6px 6px 0; ' + (CHIP_COLORS[kind] || CHIP_COLORS.info) + '">'
+            + escapeText(text) + '</span>';
+    }
+
+    function formatBytes(bytes) {
+        var value = Number(bytes) || 0;
+        if (value <= 0) return '0 B';
+        var units = ['B', 'KB', 'MB', 'GB'];
+        var index = 0;
+        while (value >= 1024 && index < units.length - 1) { value = value / 1024; index++; }
+        return (index === 0 ? value : value.toFixed(1)) + ' ' + units[index];
     }
 
     // Convierte un valor de input en entero dentro de un rango. No vale `parseInt(x) || def` porque 0 es un
@@ -1222,15 +1341,32 @@
         })
             .then(function (r) { return r.json(); })
             .then(function (s) {
-                // Caja de resumen del panel, igual que la de "Estado actual" del proveedor PostgreSQL: lo que
-                // hay que leer de un vistazo, y el detalle queda en la tabla de abajo.
+                var st = s.Storage || {};
+
+                // Fichas de estado: el color ya dice si algo falta, sin obligar a leer la tabla de abajo.
+                var chips = q('jtChips');
+                if (chips) {
+                    chips.innerHTML =
+                        chip(t('chipStore') + ': ' + (st.Provider ? escapeText(st.Backend || '') : t('valNo')), st.Provider ? 'ok' : 'warn') +
+                        (st.Provider ? chip(t('chipSchema') + ' v' + (st.SchemaVersion || 0), 'ok') : '') +
+                        chip(t('chipTmdb') + ': ' + (s.TmdbKeyConfigured ? t('valYes') : t('msgKeyMissing')), s.TmdbKeyConfigured ? 'ok' : 'bad') +
+                        chip(t('chipFolder') + ': ' + (!st.ConfiguredPath ? t('valDefault') : (st.ConfiguredPathIsUsable ? t('valCustom') : t('valUnusable'))), st.ConfiguredPath && !st.ConfiguredPathIsUsable ? 'bad' : 'info') +
+                        chip(t('chipCache') + ': ' + (s.CachedItemCount || 0), 'info');
+                }
+
+                // Caja de resumen: lo que hay que leer de un vistazo. El color dice si el plugin esta listo
+                // (verde) o si le falta la clave de TMDB (ambar).
                 var box = q('jtStatusBox');
                 if (box) {
+                    var ready = !!st.Provider && !!s.TmdbKeyConfigured;
+                    box.style.background = ready ? '#1a2a1a' : '#2a2418';
+                    box.style.borderLeft = '4px solid ' + (ready ? '#66bb6a' : '#f3c969');
+                    box.style.color = ready ? '#a5d6a7' : '#f3c969';
                     box.textContent =
-                        '\u2713 ' + t('heading') + ' ' + (s.Version || '\u2014') +
-                        '\n' + t('kvStoreActive') + ': ' + (s.StoreActive ? escapeText(s.StoreBackend || '') : t('valNo')) +
-                        '\n' + t('kvDataFolder') + ': ' + escapeText(s.DataFolder || t('msgNoFolder')) +
-                        '\nTMDB: ' + escapeText(s.TmdbLanguage || '\u2014') + ' \u00b7 ' + escapeText(s.TmdbRegion || '\u2014') + ' \u00b7 ' + t('stTmdbKey') + ': ' + (s.TmdbKeyConfigured ? t('valYes') : t('valNo')) +
+                        (ready ? '\u2713 ' : '\u26a0 ') + t('heading') + ' ' + (s.Version || '\u2014') +
+                        '\n' + t('kvStoreActive') + ': ' + (st.Provider ? escapeText(st.Backend || '') + ' (v' + (st.SchemaVersion || 0) + ')' : t('valNo')) +
+                        '\n' + t('kvDataFolder') + ': ' + escapeText(st.Folder || t('msgNoFolder')) + ' \u00b7 ' + (st.FolderExists ? t('valExists') : t('valMissing')) +
+                        '\nTMDB: ' + escapeText(s.TmdbLanguage || '\u2014') + ' \u00b7 ' + escapeText(s.TmdbRegion || '\u2014') + ' \u00b7 ' + t('stTmdbKey') + ': ' + (s.TmdbKeyConfigured ? t('valYes') : t('msgKeyMissing')) +
                         '\n' + t('stCached') + ': ' + (s.CachedItemCount || 0) + ' \u00b7 ' + t('stLastSync') + ': ' + (s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever')) +
                         '\n' + t('tabRecommendations') + ': ' + (s.RecommendationMaxItems || 0) + ' \u00b7 ' + t('lblRotation') + ': ' + (s.RecommendationRotationHours || 0) + ' h \u00b7 ' + t('lblPoolFactor') + ': x' + (s.RecommendationPoolFactor || 0) + ' \u00b7 ' + t('lblColdStart') + ': ' + (s.ColdStartMinWatched || 0);
                 }
@@ -1241,22 +1377,76 @@
                         row('stVersion', escapeText(s.Version || '—')) +
                         row('stTmdbKey', s.TmdbKeyConfigured ? t('valYes') : t('valNo')) +
                         row('stCached', s.CachedItemCount || 0) +
-                        row('stLastSync', s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever'));
+                        row('stLastSync', s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever')) +
+                        row('kvChannels', (s.EnableChannel ? t('valYes') : t('valNo')) + ' \u00b7 ' + (s.EnableRecommendationChannel ? t('valYes') : t('valNo')));
                 }
 
                 var folder = q('jtFolderInfo');
                 if (folder) {
                     folder.innerHTML =
-                        row('kvDataFolder', escapeText(s.DataFolder || t('msgNoFolder'))) +
-                        row('kvDefaultFolder', escapeText(s.DefaultDataFolder || t('msgNoFolder'))) +
-                        row('kvJsonPath', s.JsonDataPathConfigured ? escapeText(s.JsonDataPathConfigured) : t('msgNoFolder'));
+                        row('kvDataFolder', escapeText(st.Folder || t('msgNoFolder')) + ' \u00b7 ' + (st.FolderExists ? t('valExists') : t('valMissing'))) +
+                        row('kvDefaultFolder', escapeText(st.DefaultFolder || t('msgNoFolder'))) +
+                        row('kvJsonPath', st.ConfiguredPath ? escapeText(st.ConfiguredPath) : t('valDefault')) +
+                        row('kvPathUsable', st.ConfiguredPathIsUsable ? t('valYes') : (st.ConfiguredPath ? t('valUnusable') : t('valDefault'))) +
+                        row('kvPathExists', st.ConfiguredPathExists ? t('valYes') : t('valNo'));
+                }
+
+                // Nota de rutas: dice si la carpeta configurada sirve y si el plugin sigue en la de por
+                // defecto, en rojo cuando hay algo configurado que no se puede usar.
+                var pathNote = q('jtPathNote');
+                if (pathNote) {
+                    var pathOk = !st.ConfiguredPath || st.ConfiguredPathExists;
+                    pathNote.style.background = pathOk ? '#1a2a1a' : '#2a1a1a';
+                    pathNote.style.borderLeft = '4px solid ' + (pathOk ? '#66bb6a' : '#ef5350');
+                    pathNote.style.color = pathOk ? '#a5d6a7' : '#ef9a9a';
+                    pathNote.textContent = !st.ConfiguredPath
+                        ? t('pathDefault')
+                        : (pathOk ? t('pathCustomOk') : t('pathProblem'));
                 }
 
                 var store = q('jtStoreInfo');
                 if (store) {
                     store.innerHTML =
-                        row('kvStoreBackend', escapeText(s.StoreBackend || t('msgNoFolder'))) +
-                        row('kvStoreActive', s.StoreActive ? t('valYes') : t('valNo'));
+                        row('kvStoreActive', st.Provider ? t('valYes') : t('valNo')) +
+                        row('kvStoreBackend', escapeText(st.Backend || t('msgNoFolder'))) +
+                        row('kvSchema', st.Provider ? 'v' + (st.SchemaVersion || 0) : t('msgNoFolder'));
+                }
+
+                var storeNote = q('jtStoreNote');
+                if (storeNote) {
+                    storeNote.style.background = st.Provider ? '#1a2a1a' : '#2a2418';
+                    storeNote.style.borderLeft = '4px solid ' + (st.Provider ? '#66bb6a' : '#f3c969');
+                    storeNote.style.color = st.Provider ? '#a5d6a7' : '#f3c969';
+                    storeNote.textContent = st.Provider ? t('storeProvider') : t('storeJson');
+                }
+
+                // Archivos que hay de verdad en la carpeta, en vez de suponer: nombre, tamano y fecha.
+                var list = st.Files || [];
+                var summary = q('jtFilesSummary');
+                if (summary) {
+                    var total = 0;
+                    for (var i = 0; i < list.length; i++) {
+                        total += list[i].SizeBytes || 0;
+                    }
+
+                    summary.textContent = list.length
+                        ? t('filesCount') + ': ' + list.length + ' \u00b7 ' + formatBytes(total)
+                        : t('msgNoFiles');
+                }
+
+                var files = q('jtFilesBody');
+                if (files) {
+                    files.innerHTML = '';
+                    list.forEach(function (file) {
+                        var tr = document.createElement('tr');
+                        [file.Name || '', formatBytes(file.SizeBytes || 0), file.Modified ? new Date(file.Modified).toLocaleString() : ''].forEach(function (value, index) {
+                            var td = document.createElement('td');
+                            td.style.cssText = CELL_VALUE + (index === 0 ? 'font-family:ui-monospace,Consolas,monospace;color:#cfe0ff;' : '');
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        files.appendChild(tr);
+                    });
                 }
             })
             .catch(function () {

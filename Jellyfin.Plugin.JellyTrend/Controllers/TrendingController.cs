@@ -202,13 +202,24 @@ public sealed class TrendingController : ControllerBase
             CachedItemCount = cache?.Items.Count ?? 0,
             LastUpdated = cache?.LastUpdated,
 
-            // Almacen: donde estan los datos AHORA y donde estarian sin tocar nada. Con proveedor de base de
-            // datos los JSON son copia de cortesia, y eso se dice con el nombre del backend.
-            DataFolder = JellyTrendStorage.Folder,
-            DefaultDataFolder = JellyTrendStorage.DefaultFolder,
-            JsonDataPathConfigured = cfg?.JsonDataPath,
-            StoreActive = JellyTrendStore.Active,
-            StoreBackend = JellyTrendStore.Description
+            // Almacen: no se supone nada, se informa de lo que hay. Carpeta en uso frente a la de por
+            // defecto, si la configurada es utilizable y existe, version del esquema del proveedor y los
+            // archivos que hay de verdad en disco.
+            Storage = new
+            {
+                Provider = JellyTrendStore.Active,
+                Backend = JellyTrendStore.Description,
+                SchemaVersion = JellyTrendStore.SchemaVersion,
+                Folder = JellyTrendStorage.Folder,
+                FolderExists = JellyTrendStorage.FolderExists,
+                DefaultFolder = JellyTrendStorage.DefaultFolder,
+                ConfiguredPath = JellyTrendStorage.ConfiguredPath,
+                ConfiguredPathIsUsable = JellyTrendStorage.ConfiguredPathIsUsable,
+                ConfiguredPathExists = JellyTrendStorage.ConfiguredPathExists,
+                Files = JellyTrendStorage.Files()
+                    .Select(static file => new { file.Name, file.SizeBytes, file.Modified })
+                    .ToList()
+            }
         });
     }
 

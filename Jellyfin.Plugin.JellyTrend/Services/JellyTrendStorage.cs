@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 using Jellyfin.Plugin.JellyTrend.Logging;
@@ -66,6 +67,41 @@ public static class JellyTrendStorage
         => string.IsNullOrEmpty(_dataPath) ? string.Empty : Path.Combine(_dataPath, FolderName);
 
     /// <summary>
+    /// Gets the folder configured from the panel, exactly as it was typed.
+    /// </summary>
+    /// <value>The configured value, or an empty string when the panel left it empty.</value>
+    public static string ConfiguredPath => Plugin.Instance?.Configuration.JsonDataPath?.Trim() ?? string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether the configured folder is the one in use.
+    /// </summary>
+    /// <value>
+    /// <see langword="true"/> when a rooted folder was configured (a relative one is refused and the
+    /// default folder is used instead).
+    /// </value>
+    public static bool ConfiguredPathIsUsable
+        => ConfiguredPath.Length > 0 && Path.IsPathRooted(ConfiguredPath);
+
+    /// <summary>
+    /// Gets a value indicating whether the configured folder can be seen on disk.
+    /// </summary>
+    /// <value><see langword="true"/> when it is usable and exists.</value>
+    public static bool ConfiguredPathExists => ConfiguredPathIsUsable && Directory.Exists(ConfiguredPath);
+
+    /// <summary>
+    /// Gets a value indicating whether the folder in use exists on disk.
+    /// </summary>
+    /// <value><see langword="true"/> when the folder exists; false while uninitialized or missing.</value>
+    public static bool FolderExists
+    {
+        get
+        {
+            var folder = Folder;
+            return folder.Length > 0 && Directory.Exists(folder);
+        }
+    }
+
+    /// <summary>
     /// Gets the full path of the feature cache file.
     /// </summary>
     /// <value>Absolute path, or an empty string while the storage is not initialized.</value>
@@ -116,6 +152,38 @@ public static class JellyTrendStorage
         catch (Exception ex)
         {
             JellyTrendLog.Warn($"[Almacen] No se pudo crear la carpeta de datos '{folder}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Lists the files of the data folder with their size and last write, so the panel can show what is
+    /// really on disk instead of assuming what should be there.
+    /// </summary>
+    /// <returns>One entry per file, newest first; empty when the folder is missing or cannot be read.</returns>
+    public static IReadOnlyList<(string Name, long SizeBytes, DateTime Modified)> Files()
+    {
+        var folder = Folder;
+        if (folder.Length == 0 || !Directory.Exists(folder))
+        {
+            return [];
+        }
+
+        try
+        {
+            var files = new List<(string Name, long SizeBytes, DateTime Modified)>();
+            foreach (var path in Directory.EnumerateFiles(folder))
+            {
+                var info = new FileInfo(path);
+                files.Add((info.Name, info.Length, info.LastWriteTime));
+            }
+
+            files.Sort(static (left, right) => right.Modified.CompareTo(left.Modified));
+            return files;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            JellyTrendLog.Warn($"[Almacen] No se pudo leer el contenido de '{folder}': {ex.Message}");
+            return [];
         }
     }
 
