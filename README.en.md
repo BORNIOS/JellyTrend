@@ -28,6 +28,12 @@ out of what that user actually watches.
 
 ---
 
+![JellyTrend carousel on the home page](Screenshots/Banner.png)
+
+<p align="center"><em>The carousel on the home page: synopsis, rating and the “Play” and “Details” buttons.</em></p>
+
+---
+
 ## 🆕 What 3.0.0 brings
 
 This release changes **how recommendations are made** and **where the data lives**. Installing is
@@ -206,6 +212,10 @@ database:
 ---
 
 ## 📡 The two channels
+
+![Both JellyTrend channels and their home rows](Screenshots/Channels.png)
+
+<p align="center"><em>Both channels under “My Media” and their home rows: “Latest - Recommended” and “Latest - Trending”.</em></p>
 
 ### Trending
 

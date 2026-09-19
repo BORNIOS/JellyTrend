@@ -28,6 +28,12 @@ una fila personal para cada usuario a partir de lo que ese usuario ve.
 
 ---
 
+![Carrusel de JellyTrend en la página de inicio](Screenshots/Banner.png)
+
+<p align="center"><em>El carrusel en la página de inicio: sinopsis, nota y los botones «Reproducir» y «Ver detalles».</em></p>
+
+---
+
 ## 🆕 Qué trae la versión 3.0.0
 
 Esta versión cambia **cómo se recomienda** y **dónde viven los datos**. La instalación es la de
@@ -204,6 +210,10 @@ y entonces guarda todo en un **esquema propio** (`jellytrend`) dentro de tu base
 ---
 
 ## 📡 Los dos canales
+
+![Los dos canales de JellyTrend y sus filas en el inicio](Screenshots/Channels.png)
+
+<p align="center"><em>Los dos canales en «Mis medios» y sus filas en el inicio: «Últimas - Recomendados» y «Últimas - Tendencias».</em></p>
 
 ### Trendings
 
