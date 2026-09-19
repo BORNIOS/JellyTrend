@@ -61,6 +61,7 @@ the same as always: the trending list is no longer the point, each **user's own 
 - 📚 **Season browsing** on the *Trending* channel (series → season → episode).
 - 🔄 **Library ↔ channel sync**: played state, progress, favourites and ratings in both directions.
 - 🔍 **Enriched metadata** on channel items (genres, cast, studios, tags, rating and local images), so they do not look like a copy.
+- 🗄️ **Optional PostgreSQL store** — with the [database provider](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres) the data lives in the `jellytrend` schema of your database, with run history, and recommendations are computed with optimized native SQL.
 
 ---
 
@@ -194,20 +195,23 @@ flowchart LR
 
 ## ⚡ Storage: JSON files or a database
 
-JellyTrend works on any database Jellyfin uses (SQLite by default). On top of that, it
-**detects by itself** whether you have the
-[**Jellyfin Database Providers: PostgreSQL**](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres)
-plugin installed and then keeps everything in a **schema of its own** (`jellytrend`) inside your
-database:
+JellyTrend works on any database Jellyfin uses (SQLite by default). On top of that, it **detects by
+itself** whether you have the [**PostgreSQL Database Provider**](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres)
+installed, and then it gets **two things** out of it:
+
+| Role | What it does |
+|---|---|
+| 🗄️ **Data store** | JellyTrend keeps everything in a **schema of its own** (`jellytrend`) inside your database: feature cache, trending list, per-user taste profiles and recommendations, hidden titles and run history. The schema lives **outside `public`**, so it never shows up in a SQLite export and never gets in the way of the provider's diagnostics |
+| 🔍 **Query accelerator** | The recommendation engine swaps `ILibraryManager` queries for native SQL with GIN indexes — **4-10× faster** on large libraries |
 
 | | |
 |---|---|
 | **Without the provider** | The data lives in the JSON files of the server data folder |
-| **With the provider** | The data lives in the `jellytrend` schema (feature cache, trending list, profiles, recommendations, suppressed items and run history) and the JSON files are still written **as a courtesy copy only** |
+| **With the provider** | The data lives in the `jellytrend` schema and the JSON files are still written **as a courtesy copy only** |
 
 > ✅ There is nothing to configure: if the provider is there it is used, and if not the plugin works
-> exactly the same. The schema is created by the plugin on first use and **never touches Jellyfin's
-> own tables**.
+> exactly the same. The schema is created by the plugin on first use, **never touches Jellyfin's own
+> tables**, and its version is shown on the **Activity** tab.
 
 ---
 
@@ -349,6 +353,15 @@ cannot be used.
 
 ---
 
+## 🤝 Community
+
+Questions, suggestions or found a bug? Open an [issue](https://github.com/BORNIOS/JellyTrend/issues) or join the official Jellyfin community:
+
+[![Discord](https://img.shields.io/badge/Discord-Join_the_community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.jellyfin.org)
+[![Reddit](https://img.shields.io/badge/Reddit-r%2Fjellyfin-FF4500?style=for-the-badge&logo=reddit&logoColor=white)](https://www.reddit.com/r/jellyfin)
+
+---
+
 ## 📄 License
 
 This project is distributed under the license included in [LICENSE](LICENSE).
@@ -357,8 +370,6 @@ This project is distributed under the license included in [LICENSE](LICENSE).
 
 <div align="center">
 
-Made with ☕ for the Jellyfin community.
-
-**[⬆ Back to top](#-jellytrend)**
+Made with ❤️ for the Jellyfin community &nbsp;·&nbsp; [⭐ Star on GitHub](https://github.com/BORNIOS/JellyTrend) &nbsp;·&nbsp; [⬆ Back to top](#-jellytrend)
 
 </div>

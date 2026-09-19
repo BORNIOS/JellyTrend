@@ -61,6 +61,7 @@ siempre: la lista de tendencias ya no es lo importante, el **perfil de cada usua
 - 📚 **Navegación por temporadas** en el canal de *Trendings* (serie → temporada → episodio).
 - 🔄 **Sincronía biblioteca ↔ canal**: visto, progreso, favoritos y valoración en ambos sentidos.
 - 🔍 **Metadatos enriquecidos** en los ítems del canal (géneros, reparto, estudios, tags, clasificación e imágenes locales), para que no parezcan una copia.
+- 🗄️ **Almacén opcional en PostgreSQL** — con el [proveedor de base de datos](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres) los datos viven en el esquema `jellytrend` de tu base, con historial de corridas, y las recomendaciones se calculan con SQL nativo optimizado.
 
 ---
 
@@ -195,17 +196,21 @@ flowchart LR
 ## ⚡ Almacenamiento: archivos JSON o base de datos
 
 JellyTrend funciona con cualquier base de datos que use Jellyfin (SQLite por defecto). Además,
-**detecta solo** si tienes instalado el proveedor
-[**Jellyfin Database Providers: PostgreSQL**](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres)
-y entonces guarda todo en un **esquema propio** (`jellytrend`) dentro de tu base:
+**detecta solo** si tienes instalado el proveedor [**PostgreSQL Database Provider**](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres)
+y le saca **dos cosas**:
+
+| Rol | Qué hace |
+|---|---|
+| 🗄️ **Almacén de datos** | JellyTrend guarda todo en un **esquema propio** (`jellytrend`) dentro de tu base: caché de características, lista de tendencias, perfiles de gusto, recomendaciones de cada usuario, títulos ocultos e historial de corridas. El esquema vive **fuera de `public`**, así que no aparece en ninguna exportación a SQLite ni entorpece el diagnóstico del proveedor |
+| 🔍 **Acelerador de consultas** | El motor de recomendaciones cambia las consultas de `ILibraryManager` por SQL nativo con índices GIN — **4-10× más rápido** en bibliotecas grandes |
 
 | | |
 |---|---|
 | **Sin proveedor** | Los datos viven en los archivos JSON de la carpeta de datos del servidor |
-| **Con proveedor** | Los datos viven en el esquema `jellytrend` (caché de características, tendencias, perfiles, recomendaciones, elementos ocultos e historial de corridas) y los JSON se siguen escribiendo **solo como copia de cortesía** |
+| **Con proveedor** | Los datos viven en el esquema `jellytrend` y los JSON se siguen escribiendo **solo como copia de cortesía** |
 
 > ✅ No hay que configurar nada: si el proveedor está, se usa; si no, el plugin funciona igual.
-> El esquema lo crea el plugin la primera vez y **nunca toca las tablas de Jellyfin**.
+> El esquema lo crea el plugin la primera vez, **nunca toca las tablas de Jellyfin** y su versión se ve en la pestaña **Actividad**.
 
 ---
 
@@ -349,6 +354,15 @@ carpeta indicada no se puede usar.
 
 ---
 
+## 🤝 Comunidad
+
+¿Dudas, sugerencias o encontraste un bug? Abre un [issue](https://github.com/BORNIOS/JellyTrend/issues) o únete a la comunidad oficial de Jellyfin:
+
+[![Discord](https://img.shields.io/badge/Discord-Únete_a_la_comunidad-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.jellyfin.org)
+[![Reddit](https://img.shields.io/badge/Reddit-r%2Fjellyfin-FF4500?style=for-the-badge&logo=reddit&logoColor=white)](https://www.reddit.com/r/jellyfin)
+
+---
+
 ## 📄 Licencia
 
 Este proyecto se distribuye bajo la licencia incluida en [LICENSE](LICENSE).
@@ -357,8 +371,6 @@ Este proyecto se distribuye bajo la licencia incluida en [LICENSE](LICENSE).
 
 <div align="center">
 
-Hecho con ☕ para la comunidad de Jellyfin.
-
-**[⬆ Volver arriba](#-jellytrend)**
+Hecho con ❤️ para la comunidad Jellyfin &nbsp;·&nbsp; [⭐ Star en GitHub](https://github.com/BORNIOS/JellyTrend) &nbsp;·&nbsp; [⬆ Volver arriba](#-jellytrend)
 
 </div>
