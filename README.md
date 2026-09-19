@@ -8,42 +8,53 @@
 
 # 🎬 JellyTrend
 
-**Plugin para Jellyfin** que sincroniza las tendencias de TMDB (películas **y series**) con tu
-biblioteca local, muestra un carrusel estilo Netflix en la pantalla de inicio y genera
-recomendaciones personalizadas por usuario.
+**Plugin para Jellyfin 12** que mantiene la lista de tendencias de TMDB emparejada con tu
+biblioteca, publica dos canales (*Trendings* y *Recomendados*) en todos los clientes y arma
+una fila personal para cada usuario a partir de lo que ese usuario ve.
 
 <br>
 
 [![Last Commit](https://img.shields.io/github/last-commit/BORNIOS/JellyTrend?style=flat-square&color=00A4DC&label=último%20commit)](https://github.com/BORNIOS/JellyTrend/commits/main)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/BORNIOS/JellyTrend?style=flat-square&color=00A4DC&label=commits%2Fmes)](https://github.com/BORNIOS/JellyTrend/graphs/commit-activity)
 [![CI Build](https://img.shields.io/github/actions/workflow/status/BORNIOS/JellyTrend/build.yaml?style=flat-square&color=00A4DC&label=CI)](https://github.com/BORNIOS/JellyTrend/actions/workflows/build.yaml)
-[![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11.x-00A4DC?style=flat-square&logo=jellyfin&logoColor=white)](https://jellyfin.org)
+[![Jellyfin](https://img.shields.io/badge/Jellyfin-12.1.x-00A4DC?style=flat-square&logo=jellyfin&logoColor=white)](https://jellyfin.org)
+[![Versión](https://img.shields.io/badge/versión-3.0.0-3fa650?style=flat-square)](https://github.com/BORNIOS/JellyTrend/releases)
 [![Downloads](https://img.shields.io/github/downloads/BORNIOS/JellyTrend/total?style=flat-square&color=00A4DC&label=descargas)](https://github.com/BORNIOS/JellyTrend/releases)
+[![License](https://img.shields.io/github/license/BORNIOS/JellyTrend?style=flat-square&color=555)](LICENSE)
 
 [![Discord](https://img.shields.io/badge/Discord-Comunidad_Jellyfin-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.jellyfin.org)
 [![Reddit](https://img.shields.io/badge/Reddit-r%2Fjellyfin-FF4500?style=flat-square&logo=reddit&logoColor=white)](https://www.reddit.com/r/jellyfin)
-[![License](https://img.shields.io/github/license/BORNIOS/JellyTrend?style=flat-square&color=555)](LICENSE)
 
 </div>
 
 ---
 
-<br>
+## 🆕 Qué trae la versión 3.0.0
 
-![Banner JellyTrend](Screenshots/Banner.png)
+Esta versión cambia **cómo se recomienda** y **dónde viven los datos**. La instalación es la de
+siempre: la lista de tendencias ya no es lo importante, el **perfil de cada usuario** sí.
 
-<br>
+| Novedad | Qué significa para ti |
+|---|---|
+| 🧠 **Aprende el gusto de cada usuario** | El motor resume lo que cada uno ha visto, aprende sus afinidades (géneros, décadas, personas, valoraciones, duración…) y puntúa cada título de tu biblioteca contra ese perfil. Ya no es solo «lo mejor valorado en TMDB». |
+| 🌱 **Arranque en frío** | Mientras un usuario no ha visto suficientes títulos, su fila se arma con lo que ve el resto del servidor. En cuanto alcanza el mínimo, pasa a perfil propio. El mínimo es configurable. |
+| 🔁 **Reserva y rotación** | La lista guardada es **más larga que la fila visible**, así que cada cierto tiempo la fila empieza en otro punto y lo ya visto se va salpicando sin que la fila se acorte. |
+| 🎚️ **Reparto series / películas** | El canal de *Trendings* reserva un porcentaje de la lista a series y el resto a películas; los huecos los rellena el otro tipo, así la lista nunca sale corta. |
+| 👥 **Un canal por usuario, sin fugas** | Los ítems de canal se materializan para **todos** los usuarios (ya no dependen de que alguien abra el canal) y cada canal guarda su propia caché por usuario: lo que ve uno no se cuela en la fila de otro. |
+| 🧩 **Panel nuevo, homologado con el proveedor PostgreSQL** | Cuatro pestañas, icono propio en la barra lateral, textos en inglés y español, y estado real del almacenamiento (backend, esquema, carpeta y archivos que hay de verdad en disco). |
+| 🗄️ **Almacén opcional en PostgreSQL** | Si tienes el proveedor de base de datos, los datos viven en un **esquema propio** (`jellytrend`) con historial. Los JSON quedan solo como copia de cortesía. |
+| 🕘 **Historial de corridas** | Cada ejecución de las tareas se registra (resultado, usuarios, duración) y se ve en la pestaña **Actividad** junto al resultado de la última corrida. |
+| ⚡ **Aprende al terminar de ver algo** | El perfil se refresca con los eventos de reproducción, sin esperar a la corrida programada. |
 
-## ✨ Características
+---
 
-- 🎥 **Carrusel estilo Netflix** en la pantalla de inicio de Jellyfin Web, personalizado por usuario (oculta lo que ya viste).
-- 📡 **Dos canales** en la sección *Canales*: **Trendings** (tendencias de TMDB que **ya tienes en tu biblioteca**) y **Recomendados** (sugerencias personalizadas por usuario).
-- ▶️ **Reproducción 100 % local** — TMDB solo alimenta las listas; la fuente siempre es tu servidor.
-- 📚 **Navegación por temporadas** en el canal de **Trendings** (serie → temporada → episodio) para empezar a ver desde la temporada que quieras.
-- 🎯 **Recomendaciones personalizadas** por usuario: priorizan las mejores calificaciones de TMDB, limitan sagas (máx. 2 por franquicia) y ocultan lo ya visto / en progreso.
-- 🔄 **Sincronización bidireccional** biblioteca ↔ canal: estado visto, progreso, favoritos y valoración.
-- 🔍 **Metadatos enriquecidos** — géneros, reparto, estudios, tags y clasificación tomados del ítem de biblioteca (los canales no parecen una «copia»).
-- ⚡ **Integración opcional con PostgreSQL** — si usas [Jellyfin Database Providers: PostgreSQL](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres), las consultas de recomendaciones se ejecutan con SQL nativo optimizado (4–10× más rápido en bibliotecas grandes).
+## ✨ Lo que hace
+
+- 🎥 **Carrusel estilo Netflix** en la pantalla de inicio del cliente web, personalizado por usuario (oculta lo que ya viste).
+- 📡 **Dos canales** en *Canales*, visibles en todos los clientes (web, móvil, Roku, Android TV, iOS…).
+- ▶️ **Reproducción 100 % local**: TMDB solo alimenta las listas; la fuente siempre es tu servidor.
+- 📚 **Navegación por temporadas** en el canal de *Trendings* (serie → temporada → episodio).
+- 🔄 **Sincronía biblioteca ↔ canal**: visto, progreso, favoritos y valoración en ambos sentidos.
+- 🔍 **Metadatos enriquecidos** en los ítems del canal (géneros, reparto, estudios, tags, clasificación e imágenes locales), para que no parezcan una copia.
 
 ---
 
@@ -51,11 +62,12 @@ recomendaciones personalizadas por usuario.
 
 | | |
 |---|---|
-| **Servidor** | Jellyfin compatible con `Jellyfin.Controller` **10.11.x** |
-| **TMDB** | Clave de API gratuita en [themoviedb.org](https://www.themoviedb.org/settings/api) |
+| **Servidor** | Jellyfin compatible con `Jellyfin.Controller` **12.1.x** |
+| **TMDB** | Clave de API gratuita en [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) |
+| **Opcional** | [Jellyfin Database Providers: PostgreSQL](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres) para el almacén con historial |
 
-> ℹ️ El plugin solo muestra contenido que **ya existe en tu biblioteca**. Si no hay coincidencias
-> (tendencias que no tengas), la fila del carrusel o el canal pueden verse vacíos. Es normal.
+> ℹ️ El plugin **solo muestra contenido que ya existe en tu biblioteca**. Si una tendencia de TMDB
+> no coincide con ningún ítem tuyo, no se muestra. Es el comportamiento esperado.
 
 ---
 
@@ -63,318 +75,280 @@ recomendaciones personalizadas por usuario.
 
 ### Opción A — Desde el repositorio (recomendada)
 
-1. En Jellyfin ve a **Panel → Avanzado → Repositorios de plugins**.
-2. Pulsa **Añadir repositorio** y usa la URL del **manifest**:
+1. En Jellyfin ve a **Panel → Complementos → Repositorios**.
+2. Pulsa **Añadir repositorio** y usa la URL del *manifest*:
 
    ```
    https://raw.githubusercontent.com/BORNIOS/JellyTrend/main/manifest.json
    ```
-3. Guarda y ve a **Catálogo**, busca **JellyTrend** e **Instala**.
-4. Configura tu clave de TMDB en **Panel → Plugins → JellyTrend**.
-5. Reinicia Jellyfin si lo solicita.
+3. Guarda, ve al **Catálogo**, busca **JellyTrend** e **Instala**.
+4. Reinicia Jellyfin cuando lo pida.
+5. Ve a **Panel → Complementos → JellyTrend** y configura tu clave de TMDB.
 
 ### Opción B — Manual
 
 1. Descarga la última versión desde [**Releases**](https://github.com/BORNIOS/JellyTrend/releases).
-2. Copia el archivo `.dll` en el directorio de plugins de tu instalación.
-3. Reinicia Jellyfin.
-4. Ve a **Panel → Plugins → JellyTrend** y configura tu clave de TMDB.
+2. Copia el `.dll` en la carpeta de complementos de tu instalación.
+3. Reinicia Jellyfin y configura la clave de TMDB.
 
-> 💡 Ubicaciones comunes del directorio de plugins:
+> 💡 Carpetas habituales de complementos:
 > - **Linux / Docker:** `/config/plugins/`
 > - **Windows:** `%LOCALAPPDATA%\jellyfin\plugins\`
 
 ---
 
-## 🛠️ Configuración
+## 🎛️ El panel, pestaña por pestaña
 
-Desde la página del plugin puedes ajustar:
+El panel es la única interfaz del plugin: cuatro pestañas con todo el ajuste y todo el estado.
+Las capturas están hechas con el cliente en español; el panel **sigue el idioma de cada usuario**
+(inglés y español incluidos).
 
-| Sección | Parámetro | Descripción |
-|---|---|---|
-| **TMDB** | Clave API | Tu API key de The Movie Database (obligatoria) |
-| **TMDB** | Idioma / Región | Títulos y sinopsis de TMDB; país para orientar el trending |
-| **Trendings** | Activar canal | Muestra el canal de tendencias en *Canales* |
-| **Trendings** | Nombre del canal | Cómo aparece en *Canales* (p. ej. «JellyTrend - Trending Now») |
-| **Trendings** | Máximo de ítems | Cuántos títulos en tendencia se guardan |
-| **Trendings** | Intervalo (horas) | Cada cuánto se actualiza la lista desde TMDB (1–168 h) |
-| **Trendings** | Carrusel | Muestra el banner en la página de inicio |
-| **Recomendaciones** | Activar fila | Muestra la fila «Recomendados» (canal por usuario) |
-| **Recomendaciones** | Nombre del canal | Cómo aparece en *Canales* (p. ej. «Recomendados») |
-| **Recomendaciones** | Máximo por usuario | Cuántas recomendaciones se generan por usuario |
-| **Recomendaciones** | Intervalo (horas) | Cada cuánto se regeneran (1–720 h; 168 = semanal) |
+### 📈 Trendings
 
-Además, la página tiene dos botones de acción: **«Sincronizar Trendings ahora»** y
-**«Generar Recomendaciones ahora»**, y una sección de **estado** (versión, clave TMDB,
-ítems en caché y última sincronización).
+![Pestaña Trendings](Screenshots/Tab-Trendings.png)
 
-<br>
-
-<p align="center">
-  <img alt="Configuración JellyTrend 1" src="Screenshots/Settings1.png" width="45%" />
-  &nbsp;
-  <img alt="Configuración JellyTrend 2" src="Screenshots/Settings2.png" width="45%" />
-</p>
-
----
-
-## 📺 Canales
-
-El plugin registra **dos canales** visibles en *Canales* de todos los clientes (web, móvil,
-Roku, Android TV, iOS, etc.):
-
-### 📡 Trendings
-- Muestra las películas y series en tendencia de TMDB que **ya tienes en tu biblioteca** (emparejadas por `TMDB id` durante la sincronización). **Nunca muestra contenido que no tengas.**
-- **Películas**: reproducibles directamente desde tu biblioteca.
-- **Series**: aparecen como carpetas y se navegan por **temporadas** (serie → temporada → episodio), para que elijas desde qué temporada empezar.
-
-### 🎯 Recomendados
-- Fila/fuente **por usuario** generada a partir del historial de cada usuario.
-- Contenido: **solo películas** (sin series).
-- Prioriza las **mejores calificaciones de TMDB**, limita sagas y **oculta lo ya visto y lo en progreso**.
-
-<br>
-
-![Canal JellyTrend](Screenshots/Channel.png)
-
----
-
-## ⚡ Rendimiento mejorado con PostgreSQL
-
-JellyTrend funciona sobre cualquier base de datos que use Jellyfin (SQLite por defecto).
-Si además tienes instalado el plugin
-[**Jellyfin Database Providers: PostgreSQL**](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres),
-las consultas del motor de recomendaciones se reemplazan automáticamente por SQL nativo optimizado:
-
-| Motor | Comportamiento |
+| Ajuste | Para qué sirve |
 |---|---|
-| **SQLite** (por defecto) | Usa `ILibraryManager` — compatible con cualquier instalación |
-| **PostgreSQL** (opcional) | SQL directo con operador `&&` de arrays + índices GIN — **4–10× más rápido** en bibliotecas grandes |
+| **Clave API de TMDB** | Obligatoria. Pega el valor de *API Key (v3 auth)*, no el token de lectura |
+| **Idioma TMDB (BCP-47)** | Idioma de los títulos y sinopsis que devuelve TMDB (p. ej. `es-MX`) |
+| **Región TMDB (ISO 3166-1 alpha-2)** | País con el que se orienta la lista de tendencias (p. ej. `MX`) |
+| **Activar canal de Trendings** | Publica el canal en *Canales* de todos los clientes |
+| **Nombre del canal** | Cómo aparece en *Canales* (por defecto `Tendencias`) |
+| **Máximo de ítems de Trendings** | Cuántos títulos en tendencia guarda el canal |
+| **Mostrar series de TV** | Incluye series junto a las películas; desmárcalo para dejar solo películas |
+| **Porcentaje de la lista para series** | Porción reservada a series; las películas toman el resto y los huecos se rellenan |
+| **Activar carrusel en la página de inicio** | Inyecta el carrusel en la página de inicio del cliente web |
 
-> ✅ No es necesario ningún ajuste manual: si el plugin de PostgreSQL está instalado, la integración
-> se activa sola. Si no está, JellyTrend sigue funcionando exactamente igual que antes.
+> El canal se **ofrece** a todos los clientes. Lo que cada usuario ve en su inicio lo decide él
+> mismo en **Perfil → Inicio**, y el plugin no pasa por encima de eso.
+
+### ✨ Recomendaciones
+
+![Pestaña Recomendaciones](Screenshots/Tab-Recomendations.png)
+
+| Ajuste | Para qué sirve |
+|---|---|
+| **Activar fila de Recomendaciones** | Publica el canal personal de cada usuario |
+| **Mostrar «Recomendados» en Canales** | Publícalo en la lista de *Canales* de los clientes |
+| **Nombre del canal** | Cómo aparece en *Canales* (por defecto `Recomendados`) |
+| **Máximo de recomendaciones por usuario** | Cuántos títulos se arman para cada usuario |
+| **Rotar la fila cada N horas** | Cada cuánto cambia la fila de punto de partida dentro de la lista guardada. `0` empieza siempre por lo mejor puntuado |
+| **Títulos generados por cada título visible** | La reserva: con `2` se guardan el doble de títulos, que son los que reemplazan lo que el usuario ya vio. Más reserva = corridas más largas |
+| **Títulos vistos necesarios para tener perfil** | Hasta llegar a esa cantidad de títulos vistos, la fila muestra lo que ve el resto del servidor |
+
+### 💾 Almacenamiento
+
+![Pestaña Almacenamiento](Screenshots/Tab-Storage.png)
+
+| Objeto | Qué dice |
+|---|---|
+| **Carpeta en uso / Origen** | Dónde se escriben los archivos del plugin y de dónde sale esa carpeta (por defecto o personalizada) |
+| **Carpeta de los JSON** | Carpeta absoluta opcional. Vacío usa la carpeta de datos del servidor, que es la que sobrevive a una actualización |
+| **Archivos de la carpeta de datos** | Lo que hay de verdad en disco, con tamaño y fecha. Las tareas los regeneran, así que se pueden borrar |
+| **Proveedor de base de datos** | Si hay proveedor instalado, los datos viven en su esquema y los JSON son solo copia de cortesía |
+
+### 📋 Actividad
+
+![Pestaña Actividad](Screenshots/Tab-Activity.png)
+
+| Objeto | Qué dice |
+|---|---|
+| **Estado actual** | Versión, almacén y versión del esquema, carpeta, TMDB, caché con la última sincronización, canales publicados y ajustes del motor en una línea |
+| **Tareas programadas** | Última corrida de cada tarea del plugin, resultado con color y duración |
+| **Acciones** | **Sincronizar Trendings ahora** y **Generar Recomendaciones ahora**, sin esperar al calendario |
+| **Recomendaciones por usuario** | Elige un usuario y verás el perfil que se aprendió de lo suyo y los títulos en cola para su fila |
 
 ---
 
-## 🔄 Sincronía biblioteca ↔ canal
+## 🧠 Cómo aprende el gusto de cada usuario
 
-Jellyfin crea un **ítem sombra** por cada entrada del canal con su propio `Id` interno. JellyTrend mantiene ambos alineados:
+Tres pasos, en cada corrida de recomendaciones:
 
-- Si marcas una película como **vista en tu biblioteca**, el canal lo reflejará automáticamente.
-- Si la reproduces **desde el canal**, la biblioteca queda igualmente actualizada.
-- **Continuar viendo** usa siempre el ítem de biblioteca como referencia canónica — el canal no guarda progreso parcial para evitar duplicados en esa sección.
+```mermaid
+flowchart LR
+  A["1. Consumo<br/>lo que cada usuario<br/>ha visto y terminado"] --> B["2. Perfil<br/>afinidades por género,<br/>década, personas,<br/>valoración y duración"]
+  B --> C["3. Puntuación<br/>cada título de tu biblioteca<br/>se mide contra el perfil"]
+  C --> D["Reserva<br/>lista más larga<br/>que la fila visible"]
+  D --> E["Fila + rotación<br/>se salta lo ya visto"]
+```
 
-<details>
-<summary>🔧 Detalles técnicos de sincronización</summary>
-
-<br>
-
-1. **Replica datos de usuario** (visto, posición, favoritos, valoración) entre el ítem de biblioteca y el ítem sombra del canal.
-2. **Enriquece `ChannelItemInfo`** con géneros, estudios, reparto, tags, fechas y clasificación del ítem de biblioteca.
-3. Tras cada sync TMDB (y tras el arranque), **`TrendingShadowMetadataSync`** vuelca reparto y metadatos al ítem sombra (`UpdatePeopleAsync` y campos de texto) y referencia directamente los archivos de imagen de la biblioteca — Jellyfin no reaplica el reparto a sombras existentes solo con el canal.
-
-**Nota sobre imágenes:** el carrusel web (`/JellyTrend/Trending`) usa `/Items/{id}/Images/...` con el `Id` de la biblioteca, por lo que backdrop, logo, etc. aparecen cuando existen en tu biblioteca.
-
-</details>
+- **Las afinidades se normalizan por familia**: una familia (por ejemplo *actores*) se reparte su
+  propio peso, así que una afinidad muy concreta no aplasta a un género entero.
+- **Afinidades combinadas**: además de lo anterior, el motor aprende pares cruzados (un actor *y*
+  una década, un género *y* una duración) y suma un extra cuando un título los cumple.
+- **La intensidad de la interacción cuenta**: no pesa igual terminar un título que dejarlo a medias,
+  ni marcarlo como favorito.
+- **Calidad como desempate**: las calificaciones de TMDB y de tu biblioteca deciden entre títulos
+  igual de afines, nunca por encima del gusto.
+- **Sin perfil todavía**: cuando el usuario no ha visto lo suficiente, la fila se arma con la
+  **popularidad local** (lo que ve, marca y termina el resto del servidor) y sube a perfil propio
+  automáticamente.
 
 ---
 
-## 📁 Datos y ubicación de archivos
+## ⚡ Almacenamiento: archivos JSON o base de datos
 
-El plugin guarda sus datos dentro del **directorio de datos de Jellyfin** (de aquí en adelante `{DataDir}`). En **Windows** suele ser `%LOCALAPPDATA%\jellyfin\`; en **Linux/Docker**, `/config/`.
+JellyTrend funciona con cualquier base de datos que use Jellyfin (SQLite por defecto). Además,
+**detecta solo** si tienes instalado el proveedor
+[**Jellyfin Database Providers: PostgreSQL**](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres)
+y entonces guarda todo en un **esquema propio** (`jellytrend`) dentro de tu base:
+
+| | |
+|---|---|
+| **Sin proveedor** | Los datos viven en los archivos JSON de la carpeta de datos del servidor |
+| **Con proveedor** | Los datos viven en el esquema `jellytrend` (caché de características, tendencias, perfiles, recomendaciones, elementos ocultos e historial de corridas) y los JSON se siguen escribiendo **solo como copia de cortesía** |
+
+> ✅ No hay que configurar nada: si el proveedor está, se usa; si no, el plugin funciona igual.
+> El esquema lo crea el plugin la primera vez y **nunca toca las tablas de Jellyfin**.
+
+---
+
+## 📡 Los dos canales
+
+### Trendings
+
+- Muestra las películas y series en tendencia de TMDB que **ya tienes en tu biblioteca**
+  (emparejadas por `TMDB id` durante la sincronización). **Nunca muestra contenido que no tengas.**
+- **Películas**: reproducibles directamente desde tu biblioteca.
+- **Series**: aparecen como carpetas y se navegan por temporadas para que elijas desde dónde empezar.
+
+### Recomendados
+
+- Canal **por usuario**, armado con lo que ese usuario ha visto.
+- **Oculta lo ya visto y lo en progreso.**
+- Rota el punto de partida cada N horas (configurable) usando la reserva de títulos guardada.
+
+---
+
+## ⏱️ Tareas programadas
+
+El plugin registra dos tareas en **Panel → Tareas programadas**, y ahí es donde se cambia su
+**horario** (el plugin no impone ninguno):
+
+| Tarea | Qué hace |
+|---|---|
+| **JellyTrend: Sync Trending Content** | Refresca la lista de TMDB, la empareja con tu biblioteca y materializa los ítems de canal de todos los usuarios |
+| **JellyTrend: Build Recommendations** | Reconstruye el perfil de cada usuario y genera su lista con la reserva configurada |
+
+Cada corrida queda registrada (resultado, usuarios procesados y duración) y se ve en la pestaña
+**Actividad**, donde también hay botones para lanzarlas a mano.
+
+---
+
+## 📁 Rutas de archivos
+
+Todo lo del plugin vive dentro del directorio de datos de Jellyfin (`{DataDir}`):
+`%LOCALAPPDATA%\jellyfin` en Windows, `/config` en Linux/Docker.
 
 | Qué | Ruta |
 |---|---|
-| Plugin (DLL) | `{DataDir}/plugins/Jellyfin.Plugin.JellyTrend/` |
-| Configuración del plugin | `{DataDir}/config/plugins/Jellyfin.Plugin.JellyTrend.xml` |
-| Caché de tendencias (trending.json) | `{DataDir}/plugins/Jellyfin.Plugin.JellyTrend/trending.json` |
-| **Recomendaciones por usuario** | `{DataDir}/plugins/Jellyfin.Plugin.JellyTrend/recommendations/{userId}.json` |
-| Arte/caché de los canales | `{DataDir}/metadata/channels/` |
+| Complemento (DLL) | `{DataDir}/plugins/JellyTrend_3.0.0.0/` |
+| Configuración del plugin | `{DataDir}/plugins/configurations/Jellyfin.Plugin.JellyTrend.xml` |
+| Datos del plugin | `{DataDir}/data/JellyTrend/` |
+| Perfil de cada usuario | `{DataDir}/data/JellyTrend/perfil-{userId}.json` |
+| Lista guardada por usuario | `{DataDir}/data/JellyTrend/recommendations/{userId}.json` |
+| Volcado de cortesía del almacén | `{DataDir}/data/JellyTrend/volcado-almacen.json` |
+| Arte de los canales | `{DataDir}/metadata/channels/` |
 
-> 🗑️ **Reiniciar recomendaciones:** borra el archivo `recommendations/{tu-userId}.json`
-> (o ejecuta de nuevo «Generar Recomendaciones ahora»).
+> 🗑️ **Reiniciar las recomendaciones de un usuario:** borra su archivo de `recommendations/`
+> (o vuelve a lanzar la tarea). Con proveedor de base de datos, ejecuta
+> «Generar Recomendaciones ahora» desde la pestaña **Actividad**.
 
 ---
 
 ## 🖼️ Personalizar las imágenes de los canales
 
-Por defecto las imágenes de los canales (**Trendings** y **Recomendados**) vienen embebidas en el
+Por defecto las imágenes de los canales (*Trendings* y *Recomendados*) vienen embebidas en el
 plugin. Jellyfin guarda el arte de los canales en `{DataDir}/metadata/channels/`:
 
 - **Windows:** `%LOCALAPPDATA%\jellyfin\metadata\channels\`
 - **Linux / Docker:** `/config/metadata/channels/`
 
-Para **personalizar** la imagen de un canal: localiza la carpeta del canal dentro de esa ruta,
-**sustituye el archivo de imagen** por el tuyo (mismo nombre) y **reinicia Jellyfin** (o
-re-sincroniza el canal desde *Panel → Canales*). También puedes reemplazar directamente los
-archivos `channel-trendings.png` y `channel-recommendations.png` del código fuente y recompilar
-si prefieres personalizar por defecto.
+Para personalizarlas, localiza la carpeta del canal, **sustituye el archivo de imagen** por el tuyo
+(mismo nombre) y reinicia Jellyfin. También puedes reemplazar `channel-trendings.png` y
+`channel-recommendations.png` en `Resources/` del código y recompilar.
 
 ---
 
-## ❓ Preguntas frecuentes (FAQ)
+## ❓ Preguntas frecuentes
 
 <details>
-<summary><b>¿Por qué el carrusel o el canal no muestran nada?</b></summary>
+<summary><b>¿Por qué la fila o el canal no muestran nada?</b></summary>
 
-1. Verifica que la **clave TMDB** esté configurada y que haya conexión.
-2. Confirma que la opción **Carrusel** (para el banner) o **Activar canal** estén activadas.
-3. El plugin **solo muestra contenido que ya tienes en tu biblioteca**. Si ninguna tendencia de TMDB coincide con tus ítems (emparejadas por `TMDB id`), la lista estará vacía. Ejecuta «Sincronizar Trendings ahora» y refresca.
+1. Comprueba que la **clave TMDB** esté puesta y que haya conexión.
+2. Mira la pestaña **Actividad**: si la tarea terminó **con error**, el resultado aparece en rojo,
+   y en **Acciones** puedes lanzarla otra vez a mano.
+3. Recuerda que el plugin **solo muestra contenido que ya tienes**. Si ninguna tendencia coincide
+   con tus ítems, la lista sale vacía y es lo esperado.
 </details>
 
 <details>
-<summary><b>¿Por qué faltan títulos del trending de TMDB?</b></summary>
+<summary><b>¿Por qué la lista guarda 50 títulos si en la fila veo 20?</b></summary>
 
-Por diseño, el plugin **no añade ni muestra contenido que no esté en tu biblioteca**. Solo se
-muestran las tendencias que coinciden (películas y series) con ítems locales, emparejadas por
-`TMDB id`. Si no tienes el título, no aparece.
+Es intencionado: la **reserva**. La fila visible es corta, pero se guardan más títulos detrás para
+que la rotación pueda reemplazar lo que el usuario ya vio sin que la fila se acorte. Se controla con
+**Títulos generados por cada título visible**.
 </details>
 
 <details>
-<summary><b>¿Mis datos salen de mi servidor? / ¿Es privado?</b></summary>
+<summary><b>¿Por qué un usuario nuevo ve recomendaciones si no ha visto nada?</b></summary>
 
-La **reproducción es 100 % local**. TMDB solo se consulta para obtener la **lista de tendencias**
-(títulos e ids) y metadatos. Las **recomendaciones se calculan localmente** a partir del historial
-de cada usuario y se guardan en tu servidor (`recommendations/{userId}.json`). No se envía tu
-historial a ningún servicio externo.
+Es el **arranque en frío**: hasta que no alcanza el mínimo de títulos vistos, su fila se arma con lo
+que ve el resto del servidor. En cuanto llega al mínimo, pasa a su perfil propio.
 </details>
 
 <details>
-<summary><b>¿Cómo funciona con varios usuarios?</b></summary>
+<summary><b>¿Puedo forzar que un usuario vea el canal en su inicio?</b></summary>
 
-El **carrusel y las recomendaciones son por usuario**: cada usuario ve su propio idioma, su
-propio estado «visto/en progreso» y sus propias recomendaciones. Las recomendaciones se generan
-para **todos** los usuarios en cada ciclo.
+No. El plugin **ofrece** el canal; lo que cada usuario ve en su inicio lo decide él mismo en
+Jellyfin (**Perfil → Inicio**). Desmarcar el canal en el panel solo quita el canal de la lista.
 </details>
 
 <details>
-<summary><b>¿Por qué veo la saga completa recomendada?</b></summary>
+<summary><b>¿Mis datos salen de mi servidor?</b></summary>
 
-El algoritmo limita las recomendaciones a **2 por franquicia** (p. ej. máx. 2 de «Actividad
-Paranormal») y prioriza las **mejores calificaciones de TMDB**. Si ves varias de la misma saga,
-revisa que tus ítems tengan calificación en la metadata (suele venir en el `.nfo`).
+No. La reproducción es 100 % local y las recomendaciones se calculan y se guardan en tu servidor.
+TMDB solo se consulta para obtener la **lista de tendencias** (títulos e identificadores) y sus
+metadatos.
 </details>
 
 <details>
-<summary><b>¿Cómo reinicio mis recomendaciones?</b></summary>
+<summary><b>¿Qué pasa si quito el plugin de PostgreSQL?</b></summary>
 
-Borra tu archivo en `{DataDir}/plugins/Jellyfin.Plugin.JellyTrend/recommendations/{userId}.json`
-o pulsa **«Generar Recomendaciones ahora»** en la configuración.
+Nada se pierde: los archivos JSON de la carpeta de datos siguen ahí como **copia de cortesía** y el
+plugin vuelve a leer de ellos. El esquema `jellytrend` no afecta a las tablas de Jellyfin.
 </details>
 
 <details>
-<summary><b>¿Puedo cambiar la imagen de un canal?</b></summary>
+<summary><b>¿Puedo mover los archivos de sitio?</b></summary>
 
-Sí. Sustituye el archivo de imagen en `{DataDir}/metadata/channels/` y reinicia Jellyfin.
-Consulta la sección **«Personalizar las imágenes de los canales»**.
-</details>
-
-<details>
-<summary><b>¿En qué canal está la navegación por temporadas?</b></summary>
-
-Solo en **Trendings** (serie → temporada → episodio). **Recomendados** incluye únicamente
-**películas**, por lo que no hay temporadas.
-</details>
-
-<details>
-<summary><b>¿Cómo actualizo el plugin?</b></summary>
-
-Si lo instalaste desde el **repositorio**, Jellyfin mostrará la actualización automáticamente
-(Actividades → actualizaciones o al reiniciar). También puedes descargar el `.dll` desde
-[Releases](https://github.com/BORNIOS/JellyTrend/releases) y sustituirlo manualmente.
-</details>
-
-<details>
-<summary><b>¿Por qué el banner sigue mostrando contenido que ya vi?</b></summary>
-
-El carrusel se actualiza automáticamente al volver a la pantalla de inicio y oculta lo ya visto.
-El filtro se aplica en el servidor usando el estado del usuario autenticado. Si el cambio no
-aparece inmediatamente, **recarga la página**.
-</details>
-
-<details>
-<summary><b>¿Por qué los Recomendados me muestran películas que ya vi?</b></summary>
-
-El algoritmo excluye el contenido ya visto **en el momento en que genera las recomendaciones**
-(sync semanal). Si ves una película después del último sync, seguirá en el JSON hasta el próximo
-ciclo — pero el canal la filtra en tiempo real al mostrar el row. Puedes forzar una regeneración
-pulsando **«Generar Recomendaciones ahora»** en la configuración.
+Sí: en la pestaña **Almacenamiento** puedes indicar una carpeta **absoluta** (una ruta relativa se
+ignora). Requiere reiniciar el servidor para que todas las tareas la usen, y el panel avisa si la
+carpeta indicada no se puede usar.
 </details>
 
 ---
 
-## 🌐 API interna
+## 🧩 Compatibilidad y alcance
 
-| Endpoint | Descripción |
+| | |
 |---|---|
-| `GET /JellyTrend/Trending` | Tendencias emparejadas con géneros, actores y estado de reproducción del usuario |
-| `GET /JellyTrend/Status` | Resumen de configuración y caché |
-| `GET /JellyTrend/jellyTrend.js` | Script del carrusel |
-| `GET /JellyTrend/jellyTrend.css` | Estilos del carrusel |
+| **Jellyfin** | 12.1.x (`net10.0`) |
+| **Base de datos** | Cualquiera que use Jellyfin; el almacén propio requiere el proveedor PostgreSQL |
+| **Contenido** | Solo películas y series **de tu biblioteca**; el canal de *Recomendados* arma solo películas |
 
 ---
 
-## 🧑‍💻 Desarrollo
+## 📄 Licencia
 
-El proyecto sigue la estructura del [template oficial de plugins de Jellyfin](https://github.com/jellyfin/jellyfin-plugin-template):
-el código fuente vive en `Jellyfin.Plugin.JellyTrend/` y la raíz contiene los manifiestos del
-repositorio, la configuración de analyzers y los workflows de CI.
-
-```bash
-# Compilar el plugin (Release)
-dotnet build Jellyfin.Plugin.JellyTrend.sln -c Release
-
-# Publicar una salida independiente del plugin
-dotnet publish Jellyfin.Plugin.JellyTrend/Jellyfin.Plugin.JellyTrend.csproj -c Release -o publish
-```
-
-Copia el `Jellyfin.Plugin.JellyTrend.dll` generado al directorio de plugins de Jellyfin
-(p. ej. `%LOCALAPPDATA%\jellyfin\plugins\Jellyfin.Plugin.JellyTrend\`) y reinicia el servidor.
-
-### Debugging con VS Code
-
-El repo incluye un setup `.vscode/` con tareas que compilan el plugin, lo copian a tu carpeta de
-plugins y permiten depurar con el servidor corriendo. **Las rutas locales se configuran una sola
-vez en un archivo `.env`** (copia `.env.example` a `.env` y ajusta):
-
-```dotenv
-JELLYFIN_SERVER_DIR=D:\jellyfin-portable          # donde vive jellyfin.exe / jellyfin.dll
-JELLYFIN_WEB_DIR=D:\jellyfin-portable\jellyfin-web
-JELLYFIN_DATA_DIR=C:\Users\<tu-usuario>\AppData\Local\jellyfin
-```
-
-Flujo de trabajo:
-
-1. **Detén Jellyfin** (en Windows el DLL queda bloqueado mientras corre).
-2. Ejecuta la tarea de VS Code **`build-and-copy`**: compila en Debug y copia el `DLL + PDB` a `$JELLYFIN_DATA_DIR/plugins/$PLUGIN_NAME/`.
-3. Ejecuta la tarea **`start-server`**: arranca tu Jellyfin portable.
-4. Pulsa **F5** → **Attach to Jellyfin** y elige el proceso `jellyfin`.
-
-Las tareas de VS Code (`build`, `build-and-copy`, `start-server`, `dev-info`) cargan el `.env`
-automáticamente; usa **`dev-info`** para verificar que las rutas existen.
-
-### Calidad de código
-
-El proyecto activa los analyzers de Jellyfin (StyleCop, Multithreading) con
-warnings-as-errors. Mantén el build limpio:
-
-```bash
-dotnet build Jellyfin.Plugin.JellyTrend.sln -c Release   # debe reportar 0 warnings / 0 errores
-```
-
----
-
-## 🤝 Comunidad
-
-¿Dudas, sugerencias o has encontrado un bug? Abre un [issue](https://github.com/BORNIOS/JellyTrend/issues) o únete a la comunidad oficial de Jellyfin:
-
-[![Discord](https://img.shields.io/badge/Discord-Únete_a_la_comunidad-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.jellyfin.org)
-[![Reddit](https://img.shields.io/badge/Reddit-r%2Fjellyfin-FF4500?style=for-the-badge&logo=reddit&logoColor=white)](https://www.reddit.com/r/jellyfin)
+Este proyecto se distribuye bajo la licencia incluida en [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
 
-Hecho con ❤️ para la comunidad Jellyfin &nbsp;·&nbsp; [⭐ Star en GitHub](https://github.com/BORNIOS/JellyTrend)
+Hecho con ☕ para la comunidad de Jellyfin.
+
+**[⬆ Volver arriba](#-jellytrend)**
 
 </div>
