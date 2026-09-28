@@ -48,37 +48,31 @@ public static class TasteProfileBuilder
     /// <summary>Cast positions that count: a big cast must not dominate the profile.</summary>
     private const int MainCast = 4;
 
+    /// <summary>Weight used for a facet outside the explicit ranking policy.</summary>
+    private const double UnknownFacetWeight = 0.01;
+
     /// <summary>Genres per title used to build combined affinities.</summary>
     private const int PairGenres = 2;
-
-    /// <summary>Weight used for a facet that is not in the distribution.</summary>
-    private const double UnknownFacetWeight = 0.01;
 
     /// <summary>
     /// Builds the profile of a user from the titles they consumed.
     /// </summary>
     /// <param name="items">Consumed titles with their content facets and their interaction weight.</param>
-    /// <returns>The affinities, strongest first, normalized so the strongest value of each family is 1.</returns>
+    /// <returns>The affinities, strongest first, normalized globally so their weights remain comparable.</returns>
     public static IReadOnlyList<AffinityRecord> Build(IReadOnlyList<ProfileItem> items)
     {
         var records = BuildRaw(items);
 
-        // Normalizacion POR FAMILIA: el valor mas fuerte de cada familia vale 1. Con una normalizacion
-        // global, el genero (peso base 0.22) aplastaba al resto y un actor favorito se quedaba en 0.03
-        // mientras el genero llegaba a 1.00, asi que la familia de reparto aportaba una treintava parte
-        // de lo que le toca. La importancia relativa entre familias la sigue poniendo FacetWeights, que es
-        // donde esta acordada; lo que se compara dentro de una familia es la evidencia acumulada.
-        foreach (var family in records.GroupBy(FamilyOf))
+        // Una sola escala conserva la evidencia real entre familias. Normalizar cada familia por separado
+        // hacia que un actor visto una vez y un genero presente en decenas de titulos quedaran ambos en 1.
+        // FacetWeights ya protege a las familias menores; esta normalizacion solo mantiene los pesos en el
+        // rango 0..1 sin borrar frecuencia, repeticiones, favoritos ni recencia.
+        var strongest = records.Count == 0 ? 0d : records.Max(static record => Math.Abs(record.Weight));
+        if (strongest > 0d)
         {
-            var strongest = family.Max(static record => Math.Abs(record.Weight));
-            if (strongest <= 0d)
+            foreach (var record in records)
             {
-                continue;
-            }
-
-            foreach (var record in family)
-            {
-                record.Weight = Math.Round(record.Weight / strongest, 2);
+                record.Weight = Math.Round(record.Weight / strongest, 4);
             }
         }
 
@@ -107,11 +101,12 @@ public static class TasteProfileBuilder
 
         foreach (var item in items)
         {
-            var magnitude = Math.Abs(item.Weight);
-            if (magnitude == 0d)
+            if (item.Weight <= 0d)
             {
                 continue;
             }
+
+            var magnitude = item.Weight;
 
             Add(singles, "genre", item.Genres, magnitude);
             Add(singles, "tag", item.Tags, magnitude);
@@ -125,12 +120,15 @@ public static class TasteProfileBuilder
             Add(singles, "runtime", RuntimeBucket(item.Runtime), magnitude);
 
             // La saturacion se aplica al final: aqui solo se acumula cuanto reparto conocido hay.
-            foreach (var actor in item.Actors.Take(MainCast))
+            var mainCast = item.Actors
+                .Where(static actor => !string.IsNullOrWhiteSpace(actor))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MainCast)
+                .ToList();
+            var actorShare = mainCast.Count == 0 ? 0d : magnitude / mainCast.Count;
+            foreach (var actor in mainCast)
             {
-                if (!string.IsNullOrWhiteSpace(actor))
-                {
-                    actorTotals[actor] = actorTotals.GetValueOrDefault(actor) + magnitude;
-                }
+                actorTotals[actor] = actorTotals.GetValueOrDefault(actor) + actorShare;
             }
 
             AddPairs(pairs, pairLabels, item, magnitude);
@@ -160,7 +158,7 @@ public static class TasteProfileBuilder
         foreach (var pair in pairs)
         {
             var label = pairLabels[pair.Key];
-            var facetWeight = (WeightOf(label.Facet) + WeightOf(label.PairedFacet)) / 2;
+            var facetWeight = (WeightOf(label.Facet) + WeightOf(label.PairedFacet)) / 2d;
             records.Add(new AffinityRecord
             {
                 Facet = label.Facet,
@@ -173,11 +171,6 @@ public static class TasteProfileBuilder
 
         return records;
     }
-
-    // Una afinidad combinada se normaliza dentro de la familia de pares: comparar "terror + Fincher"
-    // contra "terror" no diria nada sobre el gusto.
-    private static string FamilyOf(AffinityRecord record)
-        => record.PairedFacet is null ? record.Facet : "pair";
 
     private static double WeightOf(string facet)
         => FacetWeights.TryGetValue(facet, out var weight) ? weight : UnknownFacetWeight;
@@ -192,12 +185,19 @@ public static class TasteProfileBuilder
         IReadOnlyList<string> values,
         double weight)
     {
-        foreach (var value in values)
+        var distinct = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (distinct.Count == 0)
         {
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                Accumulate(target, facet, value, weight);
-            }
+            return;
+        }
+
+        var share = weight / distinct.Count;
+        foreach (var value in distinct)
+        {
+            Accumulate(target, facet, value, share);
         }
     }
 
@@ -223,12 +223,13 @@ public static class TasteProfileBuilder
         double magnitude)
     {
         var genres = item.Genres.Where(static genre => !string.IsNullOrWhiteSpace(genre)).Take(PairGenres).ToList();
+        var candidates = new List<(string Facet, string Value, string PairedFacet, string PairedValue)>();
 
         for (var i = 0; i < genres.Count; i++)
         {
             for (var j = i + 1; j < genres.Count; j++)
             {
-                AddPair(pairs, labels, "genre", genres[i], "genre", genres[j], magnitude);
+                candidates.Add(("genre", genres[i], "genre", genres[j]));
             }
         }
 
@@ -239,13 +240,24 @@ public static class TasteProfileBuilder
         {
             if (leadDirector is not null)
             {
-                AddPair(pairs, labels, "genre", genre, "director", leadDirector, magnitude);
+                candidates.Add(("genre", genre, "director", leadDirector));
             }
 
             if (leadActor is not null)
             {
-                AddPair(pairs, labels, "genre", genre, "actor", leadActor, magnitude);
+                candidates.Add(("genre", genre, "actor", leadActor));
             }
+        }
+
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var share = magnitude / candidates.Count;
+        foreach (var candidate in candidates)
+        {
+            AddPair(pairs, labels, candidate.Facet, candidate.Value, candidate.PairedFacet, candidate.PairedValue, share);
         }
     }
 

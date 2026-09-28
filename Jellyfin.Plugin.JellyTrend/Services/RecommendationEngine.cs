@@ -36,6 +36,7 @@ internal static class RecommendationEngine
     private const int TopGenresForCandidates = 8;
     private const int TopTagsForCandidates = 12;
     private const int TopPeopleForCandidates = 12;
+    private const int MinPersonTitlesForCandidates = 2;
     private const int MaxDiagnosticFacets = 5;
 
     /// <summary>Peso de la popularidad local en el arranque en frio.</summary>
@@ -242,7 +243,7 @@ internal static class RecommendationEngine
         DateTime nowUtc)
     {
         var people = storeProfile.HasFacet("actor") || storeProfile.HasFacet("director")
-            ? watched.SelectMany(static item => item.People).Distinct().Take(TopPeopleForCandidates).ToList()
+            ? RecurrentPeople(watched)
             : [];
 
         var candidates = source.GetCandidates(
@@ -284,6 +285,30 @@ internal static class RecommendationEngine
         var scores = scored.ToDictionary(static candidate => candidate.Movie.Id, static candidate => candidate.Score);
         return [.. selectedIds.Select(id => scores.GetValueOrDefault(id))];
     }
+
+    // Una persona que aparece una vez solo describe el reparto de una película. Para ampliar el pool por
+    // personas exige repetición en títulos distintos y ordena por el compromiso acumulado del usuario.
+    private static List<Guid> RecurrentPeople(IReadOnlyList<TasteItem> watched)
+        =>
+        [
+            .. watched
+                .SelectMany(item => item.People
+                    .Where(static person => person != Guid.Empty)
+                    .Distinct()
+                    .Select(person => new { Person = person, Weight = Math.Max(item.Weight, 0d) }))
+                .GroupBy(static entry => entry.Person)
+                .Select(group => new
+                {
+                    Person = group.Key,
+                    Titles = group.Count(),
+                    Weight = group.Sum(static entry => entry.Weight)
+                })
+                .Where(entry => entry.Titles >= MinPersonTitlesForCandidates && entry.Weight > 0d)
+                .OrderByDescending(static entry => entry.Weight)
+                .ThenBy(static entry => entry.Person)
+                .Take(TopPeopleForCandidates)
+                .Select(static entry => entry.Person)
+        ];
 
     // La fuente materializa cada candidato y guarda sus facetas, asi que la cache deberia tenerlas todas;
     // si falta alguna se reconstruye con lo que el propio candidato trae, para no descartar el titulo.
