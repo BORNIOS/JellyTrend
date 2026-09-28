@@ -10,4 +10,5 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Recommendation;
 /// </summary>
 /// <param name="ItemIds">Selected movie ids, best first.</param>
 /// <param name="Diagnostics">Human-readable summary of the run.</param>
-internal sealed record RecommendationResult(IReadOnlyList<Guid> ItemIds, string Diagnostics);
+/// <param name="Scores">Ranking score aligned with <paramref name="ItemIds"/>.</param>
+internal sealed record RecommendationResult(IReadOnlyList<Guid> ItemIds, string Diagnostics, IReadOnlyList<double>? Scores = null);

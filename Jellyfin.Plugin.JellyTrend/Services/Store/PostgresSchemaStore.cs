@@ -97,7 +97,7 @@ internal sealed class PostgresSchemaStore : IJellyTrendStoreProvider
     public void ReplaceTrending(Guid[] itemIds, string[] entriesJson, DateTime syncedAt)
     {
         Execute(
-            "WITH input AS (SELECT item_id, entry, media_type FROM jsonb_to_recordset(CAST(@rows AS jsonb)) AS x(item_id uuid, entry jsonb, media_type text)), upsert AS (INSERT INTO trending_item (item_id, entry, media_type, synced_at) SELECT item_id, entry, media_type, @synced FROM input ON CONFLICT (item_id) DO UPDATE SET entry = EXCLUDED.entry, media_type = EXCLUDED.media_type, synced_at = EXCLUDED.synced_at RETURNING item_id) DELETE FROM trending_item WHERE item_id NOT IN (SELECT item_id FROM input)",
+            "WITH raw_input AS (SELECT item_id, entry, media_type FROM jsonb_to_recordset(CAST(@rows AS jsonb)) AS x(item_id uuid, entry jsonb, media_type text)), input AS (SELECT DISTINCT ON (item_id) item_id, entry, media_type FROM raw_input ORDER BY item_id), upsert AS (INSERT INTO trending_item (item_id, entry, media_type, synced_at) SELECT item_id, entry, media_type, @synced FROM input ON CONFLICT (item_id) DO UPDATE SET entry = EXCLUDED.entry, media_type = EXCLUDED.media_type, synced_at = EXCLUDED.synced_at RETURNING item_id) DELETE FROM trending_item WHERE item_id NOT IN (SELECT item_id FROM input)",
             Param("synced", DateTime.SpecifyKind(syncedAt, DateTimeKind.Utc)),
             Param("rows", JsonSerializer.Serialize(Enumerable.Range(0, itemIds.Length).Where(index => itemIds[index] != Guid.Empty).Select(index => new { item_id = itemIds[index], entry = ReadJson(entriesJson, index), media_type = ReadMediaType(entriesJson, index) }))));
     }
@@ -208,6 +208,7 @@ internal sealed class PostgresSchemaStore : IJellyTrendStoreProvider
         }
 
         InvokeTask("ApplyMigrationsAsync", _schema!, array, CancellationToken.None);
+        Execute("UPDATE sync_run SET finished_at = now(), status = 'interrupted', message = coalesce(message, 'Interrupted before the previous Jellyfin process stopped') WHERE status = 'running' AND finished_at IS NULL");
     }
 
     private int Execute(string sql, params (string Name, object? Value)[] parameters)

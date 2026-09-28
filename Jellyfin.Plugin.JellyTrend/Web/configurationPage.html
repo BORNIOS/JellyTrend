@@ -453,6 +453,14 @@
                         <div class="fieldDescription" data-jt-html="true" data-jt="descDataPath_html"></div>
                     </div>
 
+                    <div class="checkboxContainer" style="margin-top:14px;">
+                        <label>
+                            <input id="enableJsonCourtesyBackup" type="checkbox" is="emby-checkbox" />
+                            <span data-jt="lblJsonCourtesyBackup"></span>
+                        </label>
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descJsonCourtesyBackup_html"></div>
+                    </div>
+
                     </div>
 
                     <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
@@ -713,6 +721,8 @@
             errLoadStatus: 'Could not load status.',
             secFiles: 'Files in the data folder',
             descFiles_html: 'The plugin data files, newest first. The scheduled tasks rebuild them, so they can be deleted at any time.',
+            lblJsonCourtesyBackup: 'Write a JSON courtesy backup while PostgreSQL is active',
+            descJsonCourtesyBackup_html: 'Disabled by default. PostgreSQL remains the operational source; enabling this writes an additional diagnostic snapshot to disk.',
             thFileName: 'File',
             thFileSize: 'Size',
             thFileModified: 'Modified',
@@ -848,6 +858,8 @@
             errLoadStatus: 'No se pudo cargar el estado.',
             secFiles: 'Archivos de la carpeta de datos',
             descFiles_html: 'Los archivos de datos del plugin, del más reciente al más antiguo. Las tareas programadas los regeneran, así que se pueden borrar en cualquier momento.',
+            lblJsonCourtesyBackup: 'Guardar una copia JSON de cortesía mientras PostgreSQL está activo',
+            descJsonCourtesyBackup_html: 'Desactivado por defecto. PostgreSQL sigue siendo la fuente operativa; al activarlo se escribe un snapshot adicional de diagnóstico en disco.',
             thFileName: 'Archivo',
             thFileSize: 'Tamaño',
             thFileModified: 'Modificado',
@@ -1225,6 +1237,7 @@
                 var poolFactor = q('recommendationPoolFactor');
                 var coldStart = q('coldStartMinWatched');
                 var dataPath = q('jsonDataPath');
+                var courtesyBackup = q('enableJsonCourtesyBackup');
 
                 if (apiKey) apiKey.value = cfg.TmdbApiKey || '';
                 if (max) max.value = cfg.MaxItems || 20;
@@ -1243,6 +1256,7 @@
                 if (poolFactor) poolFactor.value = cfg.RecommendationPoolFactor || 2;
                 if (coldStart) coldStart.value = cfg.ColdStartMinWatched || 10;
                 if (dataPath) dataPath.value = cfg.JsonDataPath || '';
+                if (courtesyBackup) courtesyBackup.checked = cfg.EnableJsonCourtesyBackup === true;
             })
             .catch(function (err) {
                 setStatus(t('errLoadCfg') + (err && err.message || err), true);
@@ -1275,6 +1289,7 @@
                 var poolFactor = q('recommendationPoolFactor');
                 var coldStart = q('coldStartMinWatched');
                 var dataPath = q('jsonDataPath');
+                var courtesyBackup = q('enableJsonCourtesyBackup');
 
                 cfg.TmdbApiKey = apiKey ? apiKey.value : cfg.TmdbApiKey;
                 cfg.MaxItems = max ? (Number.parseInt(max.value, 10) || 20) : cfg.MaxItems;
@@ -1293,6 +1308,7 @@
                 cfg.RecommendationPoolFactor = poolFactor ? intInRange(poolFactor.value, 1, 10, 2) : cfg.RecommendationPoolFactor;
                 cfg.ColdStartMinWatched = coldStart ? intInRange(coldStart.value, 1, 200, 10) : cfg.ColdStartMinWatched;
                 cfg.JsonDataPath = dataPath ? dataPath.value.trim() : cfg.JsonDataPath;
+                cfg.EnableJsonCourtesyBackup = courtesyBackup ? courtesyBackup.checked : cfg.EnableJsonCourtesyBackup;
 
                 return saveConfig(cfg);
             })

@@ -150,11 +150,15 @@ public sealed class RecommendationSyncTask : IScheduledTask
 
                     _logger.LogInformation("[Recomendaciones] '{User}': {Diagnostics}", user.Username, result.Diagnostics);
 
-                    RecommendationStorage.Write(user.Id, new UserRecommendations
-                    {
-                        ItemIds = [.. result.ItemIds],
-                        UpdatedAt = DateTime.UtcNow
-                    });
+                    RecommendationStorage.Write(
+                        user.Id,
+                        new UserRecommendations
+                        {
+                            ItemIds = [.. result.ItemIds],
+                            Scores = [.. result.Scores ?? []],
+                            UpdatedAt = DateTime.UtcNow
+                        },
+                        runId);
 
                     allRecommendedIds.AddRange(result.ItemIds);
                     generated++;

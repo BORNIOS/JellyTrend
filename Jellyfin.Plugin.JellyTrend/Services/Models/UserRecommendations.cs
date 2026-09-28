@@ -19,6 +19,13 @@ public sealed class UserRecommendations
     public List<Guid> ItemIds { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets the ranking score aligned with <see cref="ItemIds"/>.
+    /// </summary>
+    [SuppressMessage("Microsoft.Design", "CA1002", Justification = "Settable List required for System.Text.Json round-tripping of the cache file.")]
+    [SuppressMessage("Microsoft.Usage", "CA2227", Justification = "Settable List required for System.Text.Json round-tripping of the cache file.")]
+    public List<double> Scores { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets the timestamp of the last recommendation generation.
     /// </summary>
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

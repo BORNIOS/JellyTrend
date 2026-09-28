@@ -104,13 +104,14 @@ public static class RecommendationStorage
     /// </summary>
     /// <param name="userId">The user id.</param>
     /// <param name="data">The recommendations to persist.</param>
-    public static void Write(Guid userId, UserRecommendations data)
+    /// <param name="runId">Database run that produced the recommendations, when available.</param>
+    public static void Write(Guid userId, UserRecommendations data, Guid runId = default)
     {
         ArgumentNullException.ThrowIfNull(data);
 
         if (JellyTrendStore.Active)
         {
-            JellyTrendStore.WriteRecommendations(userId, data.ItemIds);
+            JellyTrendStore.WriteRecommendations(userId, data.ItemIds, data.Scores, runId);
             return;
         }
 
