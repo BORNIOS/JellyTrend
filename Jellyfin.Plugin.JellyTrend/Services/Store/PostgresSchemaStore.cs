@@ -103,7 +103,7 @@ internal sealed class PostgresSchemaStore : IJellyTrendStoreProvider
     }
 
     /// <inheritdoc />
-    public string? GetTrendingJson() => Query("SELECT jsonb_build_object('Items', coalesce(jsonb_agg(entry ORDER BY item_id), '[]'::jsonb), 'LastUpdated', max(synced_at))::text FROM trending_item HAVING count(*) > 0", static reader => ReadNullableString(reader));
+    public string? GetTrendingJson() => Query("SELECT jsonb_build_object('Items', coalesce(jsonb_agg(CASE jsonb_typeof(entry) WHEN 'string' THEN CAST(entry #>> '{}' AS jsonb) ELSE entry END ORDER BY item_id), '[]'::jsonb), 'LastUpdated', max(synced_at))::text FROM trending_item HAVING count(*) > 0", static reader => ReadNullableString(reader));
 
     /// <inheritdoc />
     public void ReplaceUserRecommendations(Guid userId, Guid[] itemIds, double[] scores, DateTime generatedAt, Guid runId)
@@ -208,6 +208,9 @@ internal sealed class PostgresSchemaStore : IJellyTrendStoreProvider
         }
 
         InvokeTask("ApplyMigrationsAsync", _schema!, array, CancellationToken.None);
+        Execute("UPDATE trending_item SET entry = CAST(entry #>> '{}' AS jsonb) WHERE jsonb_typeof(entry) = 'string'");
+        Execute("UPDATE item_features SET facets = CAST(facets #>> '{}' AS jsonb) WHERE jsonb_typeof(facets) = 'string'");
+        Execute("UPDATE user_item_consumption SET data = CAST(data #>> '{}' AS jsonb) WHERE jsonb_typeof(data) = 'string'");
         Execute("UPDATE sync_run SET finished_at = now(), status = 'interrupted', message = coalesce(message, 'Interrupted before the previous Jellyfin process stopped') WHERE status = 'running' AND finished_at IS NULL");
     }
 
@@ -282,7 +285,20 @@ internal sealed class PostgresSchemaStore : IJellyTrendStoreProvider
 
     private static string? ReadNullableString(DbDataReader reader) => reader.Read() && !reader.IsDBNull(0) ? reader.GetString(0) : null;
 
-    private static string ReadJson(string[] values, int index) => ReadText(values, index, "{}");
+    private static JsonElement ReadJson(string[] values, int index)
+    {
+        var json = ReadText(values, index, "{}");
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            using var emptyDocument = JsonDocument.Parse("{}");
+            return emptyDocument.RootElement.Clone();
+        }
+    }
 
     private static string ReadText(string[] values, int index, string fallback = "") => index < values.Length ? values[index] ?? fallback : fallback;
 

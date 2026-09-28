@@ -201,22 +201,19 @@ public sealed class TrendingController : ControllerBase
             ColdStartMinWatched = cfg?.ColdStartMinWatched,
             CachedItemCount = cache?.Items.Count ?? 0,
             LastUpdated = cache?.LastUpdated,
-
-            // Almacen: no se supone nada, se informa de lo que hay. Carpeta en uso frente a la de por
-            // defecto, si la configurada es utilizable y existe, version del esquema del proveedor y los
-            // archivos que hay de verdad en disco.
             Storage = new
             {
                 Provider = JellyTrendStore.Active,
                 Backend = JellyTrendStore.Description,
                 SchemaVersion = JellyTrendStore.SchemaVersion,
-                Folder = JellyTrendStorage.Folder,
-                FolderExists = JellyTrendStorage.FolderExists,
-                DefaultFolder = JellyTrendStorage.DefaultFolder,
+                JsonFilesActive = !JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true,
+                JsonCourtesyBackup = cfg?.EnableJsonCourtesyBackup == true,
+                Folder = (!JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true) ? JellyTrendStorage.Folder : null,
+                FolderExists = (!JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true) && JellyTrendStorage.FolderExists,
                 ConfiguredPath = JellyTrendStorage.ConfiguredPath,
                 ConfiguredPathIsUsable = JellyTrendStorage.ConfiguredPathIsUsable,
                 ConfiguredPathExists = JellyTrendStorage.ConfiguredPathExists,
-                Files = JellyTrendStorage.Files()
+                Files = (!JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true ? JellyTrendStorage.Files() : [])
                     .Select(static file => new { file.Name, file.SizeBytes, file.Modified })
                     .ToList()
             }

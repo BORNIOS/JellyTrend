@@ -75,9 +75,6 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 DisplayName = "JellyTrend",
                 EmbeddedResourcePath = $"{ns}.Web.configurationPage.html",
                 EnableInMainMenu = true,
-
-                // Sin esto el panel pone la carpeta de serie, que no dice nada del plugin. El nombre es el
-                // de un icono de Material Icons, la misma familia que usa el propio panel de Jellyfin.
                 MenuIcon = "trending_up"
             }
         ];
