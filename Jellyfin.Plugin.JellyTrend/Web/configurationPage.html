@@ -650,8 +650,8 @@
             descColdStart_html: 'Until the user has watched this many titles there is no personal profile yet, so the row shows what the rest of the server watches.',
             secStorage: 'Storage',
             lblDataPath: 'JSON folder (optional)',
-            phDataPath: 'Optional absolute path for JSON fallback or backup files',
-            descDataPath_html: 'Used only when PostgreSQL is unavailable, or when the JSON backup option above is enabled. Leave empty to use Jellyfin’s data folder; relative paths are ignored. Restart to apply a new path.',
+            phDataPath: 'Jellyfin data directory / JellyTrend',
+            descDataPath_html: 'This starts at Jellyfin’s default <code>{DataPath}/JellyTrend</code> location. Change it only when JSON fallback or optional JSON backups should live elsewhere; relative paths are ignored. Restart to apply a new path.',
             descStore_html: 'When PostgreSQL Database Provider is available, JellyTrend uses its registered private schema as the only operational store. Without the provider, JellyTrend automatically uses JSON files. JSON copies while PostgreSQL is active are strictly optional.<br><br><a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener" style="font-weight:700;font-size:.95rem;text-decoration:underline;">Provider repository: Jellyfin-Database-Providers-Postgres</a>',
             secRecChannel: 'Recommendations channel',
             secEngine: 'Home row and engine',
@@ -789,8 +789,8 @@
             descColdStart_html: 'Hasta que el usuario no ha visto esta cantidad de títulos no hay perfil propio, así que la fila muestra lo que ve el resto del servidor.',
             secStorage: 'Almacenamiento',
             lblDataPath: 'Carpeta de los JSON (opcional)',
-            phDataPath: 'Ruta absoluta opcional para JSON de respaldo o contingencia',
-            descDataPath_html: 'Se usa solo cuando PostgreSQL no está disponible o al activar la copia JSON de arriba. Vacío usa la carpeta de datos de Jellyfin; las rutas relativas se ignoran. Reinicia para aplicar una nueva ruta.',
+            phDataPath: 'Carpeta de datos de Jellyfin / JellyTrend',
+            descDataPath_html: 'La ruta inicial es <code>{DataPath}/JellyTrend</code> de Jellyfin. Cámbiala solo si el fallback JSON o las copias JSON opcionales deben vivir en otra ubicación; las rutas relativas se ignoran. Reinicia para aplicar una nueva ruta.',
             descStore_html: 'Con PostgreSQL Database Provider disponible, JellyTrend usa su esquema privado registrado como único almacén operativo. Sin el proveedor, JellyTrend usa automáticamente archivos JSON. Las copias JSON mientras PostgreSQL está activo son totalmente opcionales.<br><br><a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener" style="font-weight:700;font-size:.95rem;text-decoration:underline;">Repositorio del proveedor: Jellyfin-Database-Providers-Postgres</a>',
             secRecChannel: 'Canal de Recomendados',
             secEngine: 'Fila de inicio y motor',
@@ -1252,7 +1252,7 @@
                 if (rotation) rotation.value = cfg.RecommendationRotationHours === undefined || cfg.RecommendationRotationHours === null ? 1 : cfg.RecommendationRotationHours;
                 if (poolFactor) poolFactor.value = cfg.RecommendationPoolFactor || 2;
                 if (coldStart) coldStart.value = cfg.ColdStartMinWatched || 10;
-                if (dataPath) dataPath.value = cfg.JsonDataPath || '';
+                if (dataPath) dataPath.value = cfg.JsonDataPath || dataPath.dataset.defaultPath || '';
                 if (courtesyBackup) courtesyBackup.checked = cfg.EnableJsonCourtesyBackup === true;
             })
             .catch(function (err) {
@@ -1400,6 +1400,11 @@
 
                 var jsonFilesActive = st.JsonFilesActive === true;
                 state.storageProvider = st.Provider === true;
+                var dataPathInput = q('jsonDataPath');
+                if (dataPathInput && !dataPathInput.value && st.DefaultFolder) {
+                    dataPathInput.value = st.DefaultFolder;
+                    dataPathInput.dataset.defaultPath = st.DefaultFolder;
+                }
                 var dataFolderCard = q('jtDataFolderCard');
                 var filesCard = q('jtFilesCard');
                 if (dataFolderCard) dataFolderCard.hidden = !jsonFilesActive;

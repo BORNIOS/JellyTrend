@@ -210,6 +210,7 @@ public sealed class TrendingController : ControllerBase
                 JsonCourtesyBackup = cfg?.EnableJsonCourtesyBackup == true,
                 Folder = (!JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true) ? JellyTrendStorage.Folder : null,
                 FolderExists = (!JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true) && JellyTrendStorage.FolderExists,
+                DefaultFolder = JellyTrendStorage.DefaultFolder,
                 ConfiguredPath = JellyTrendStorage.ConfiguredPath,
                 ConfiguredPathIsUsable = JellyTrendStorage.ConfiguredPathIsUsable,
                 ConfiguredPathExists = JellyTrendStorage.ConfiguredPathExists,
