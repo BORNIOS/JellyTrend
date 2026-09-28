@@ -31,6 +31,60 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Backend;
 internal static class ForeignProviderDiscovery
 {
     /// <summary>
+    /// Finds a foreign contract without duplicating its public types in this plugin.
+    /// </summary>
+    /// <param name="contractName">Full name of the foreign interface.</param>
+    /// <param name="services">The server service provider.</param>
+    /// <param name="loggerFactory">Logger factory handed to a provider created outside the container.</param>
+    /// <param name="detail">Describes the selected provider or why it could not be created.</param>
+    /// <returns>The provider instance and its foreign interface type, or null when unavailable.</returns>
+    public static (object Instance, Type Contract)? FindForeignContract(
+        string contractName,
+        IServiceProvider services,
+        ILoggerFactory loggerFactory,
+        out string detail)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contractName);
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+
+        string? lastProblem = null;
+        foreach (var (assembly, label) in CandidateAssemblies(services))
+        {
+            var contract = SafeGetType(assembly, contractName);
+            if (contract is null || !contract.IsInterface)
+            {
+                continue;
+            }
+
+            var resolved = services.GetService(contract);
+            if (resolved is not null)
+            {
+                detail = label;
+                return (resolved, contract);
+            }
+
+            var implementation = FirstImplementation(assembly, contract);
+            if (implementation is not null)
+            {
+                if (TryCreate(implementation, services, loggerFactory, out var instance, out var creationError))
+                {
+                    detail = label;
+                    return (instance, contract);
+                }
+
+                lastProblem = $"{label}: {creationError}";
+                continue;
+            }
+
+            lastProblem = $"{label}: sin implementacion";
+        }
+
+        detail = lastProblem ?? "ningun plugin ofrece este contrato";
+        return null;
+    }
+
+    /// <summary>
     /// Finds an implementation of <typeparamref name="TContract"/> offered by another plugin.
     /// </summary>
     /// <typeparam name="TContract">Our contract to look for.</typeparam>

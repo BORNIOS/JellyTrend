@@ -66,8 +66,8 @@ internal sealed class DatabaseBackendStartupService : IHostedService
         // El almacen externo es opcional: se adopta aqui y el esquema se crea a demanda en la comprobacion.
         JellyTrendStore.Use(_backend.Store);
 
-        // Una sola linea en INFO: quien es el backend y como esta. El detalle, en Debug.
-        _logger.LogDebug("[JellyTrend] Backend detectado: {Recommendation} | {Index}", _backend.Recommendation, _backend.Summary);
+        // La biblioteca se obtiene siempre mediante Jellyfin; PostgreSQL es solo el almacen privado del plugin.
+        _logger.LogDebug("[JellyTrend] Fuente: {Recommendation} | Indice: {Index} | Almacen: {Storage}", _backend.Recommendation, _backend.Summary, _backend.Storage);
 
         if (_backend.RecommendationProvider is not null || _backend.LibraryIndex is not null || _backend.Store is not null)
         {
@@ -110,7 +110,7 @@ internal sealed class DatabaseBackendStartupService : IHostedService
         catch (Exception ex)
         {
             _backend.RejectRecommendations($"error en la comprobacion ({ex.GetType().Name})");
-            _logger.LogWarning("[JellyTrend] No se pudo comprobar el proveedor de base de datos ({Type}); se usa ILibraryManager.", ex.GetType().Name);
+            _logger.LogWarning("[JellyTrend] No se pudo preparar el almacen privado ({Type}); se conservan los archivos JSON.", ex.GetType().Name);
             _logger.LogDebug(ex, "[JellyTrend] Detalle de la comprobacion fallida del proveedor.");
         }
         finally
@@ -191,7 +191,7 @@ internal sealed class DatabaseBackendStartupService : IHostedService
 
     private void Announce()
     {
-        _logger.LogInformation("[JellyTrend] Backend: {Backend}.", _backend.Recommendation);
-        JellyTrendLog.Info($"[JellyTrend] Backend: {_backend.Recommendation}.");
+        _logger.LogInformation("[JellyTrend] Fuente de biblioteca: {Source}. Almacen: {Storage}.", _backend.Recommendation, JellyTrendStore.Description);
+        JellyTrendLog.Info($"[JellyTrend] Fuente de biblioteca: {_backend.Recommendation}. Almacen: {JellyTrendStore.Description}.");
     }
 }
