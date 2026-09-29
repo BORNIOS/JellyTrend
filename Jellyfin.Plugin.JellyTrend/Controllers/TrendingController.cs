@@ -118,8 +118,8 @@ public sealed class TrendingController : ControllerBase
     {
         var logoUrl = item.HasImage(ImageType.Logo, 0) ? $"/Items/{item.Id}/Images/Logo/0" : null;
         var discUrl = item.HasImage(ImageType.Disc, 0) ? $"/Items/{item.Id}/Images/Disc/0" : null;
-        var backdropUrl = ResolveImageUrl(item, ImageType.Backdrop, entry.TmdbBackdropPath, TmdbBackdropBaseUrl, 1920, 90);
-        var primaryUrl = ResolveImageUrl(item, ImageType.Primary, entry.TmdbPosterPath, TmdbPosterBaseUrl, 400, 85);
+        var backdropUrl = ResolveImageUrl(item, ImageType.Backdrop, entry.TmdbBackdropPath, TmdbBackdropBaseUrl, 1920);
+        var primaryUrl = ResolveImageUrl(item, ImageType.Primary, entry.TmdbPosterPath, TmdbPosterBaseUrl, 400);
 
         bool? played = null;
         long? positionTicks = null;
@@ -377,12 +377,11 @@ public sealed class TrendingController : ControllerBase
         ImageType imageType,
         string? tmdbPath,
         Uri tmdbBaseUrl,
-        int fillWidth,
-        int quality)
+        int maxWidth)
     {
         if (item.HasImage(imageType, 0))
         {
-            return $"/Items/{item.Id}/Images/{imageType}/0?fillWidth={fillWidth}&quality={quality}";
+            return $"/Items/{item.Id}/Images/{imageType}/0?maxWidth={maxWidth}";
         }
 
         return string.IsNullOrWhiteSpace(tmdbPath)

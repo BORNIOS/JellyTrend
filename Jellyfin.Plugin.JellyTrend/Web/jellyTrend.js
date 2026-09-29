@@ -44,6 +44,22 @@
         } catch (_) { return null; }
     }
 
+    // Keep local artwork on the same URL path and option contract used by
+    // Jellyfin Web. This lets the active web client choose its normal scaled
+    // image URL instead of the plugin inventing encoder settings.
+    function getScaledImageUrl(item, imageUrl, type, options) {
+        if (!imageUrl || !imageUrl.startsWith('/Items/')) return imageUrl;
+
+        try {
+            const api = window.ApiClient ?? window.top?.ApiClient ?? window.parent?.ApiClient;
+            if (api && typeof api.getScaledImageUrl === 'function') {
+                return api.getScaledImageUrl(item.Id, { type, ...options });
+            }
+        } catch (_) { /* use the API URL supplied by the server */ }
+
+        return imageUrl;
+    }
+
     // ── Auth-ready trigger via XHR intercept ─────────────────────────────────
     // Jellyfin uses XMLHttpRequest internally (not fetch) for its own API calls.
     // We intercept responses from the endpoints Jellyfin always calls right after
@@ -405,15 +421,22 @@
     }
 
     function buildSlide(item) {
-        const backdrop = item.BackdropImageUrl ? `url('${escUrl(item.BackdropImageUrl)}')` : 'none';
+        const backdropUrl = getScaledImageUrl(item, item.BackdropImageUrl, 'Backdrop', {
+            maxWidth: Math.max(1, Math.round(window.innerWidth))
+        });
+        const logoUrl = getScaledImageUrl(item, item.LogoImageUrl, 'Logo', {
+            maxWidth: 352,
+            maxHeight: 88
+        });
+        const backdrop = backdropUrl ? `url('${escUrl(backdropUrl)}')` : 'none';
         const isSeries = item.Type === 'Series';
         const badge    = isSeries ? t('badgeTv') : t('badgeMovie');
         const badgeIcon = isSeries ? 'live_tv' : 'movie';
         const overview = item.Overview
             ? `<p class="jt-overview">${escHtml(item.Overview)}</p>` : '';
         // Netflix-style: use the item's logo when available, otherwise fall back to the title.
-        const title    = item.LogoImageUrl
-            ? `<img class="jt-logo" src="${escUrl(item.LogoImageUrl)}" alt="${escHtml(item.Name ?? '')}" />`
+        const title    = logoUrl
+            ? `<img class="jt-logo" src="${escUrl(logoUrl)}" alt="${escHtml(item.Name ?? '')}" />`
             : `<h2 class="jt-title">${escHtml(item.Name ?? '')}</h2>`;
         // Subtitle line right under the logo: year • rating (Netflix pattern).
         const metaParts = [];

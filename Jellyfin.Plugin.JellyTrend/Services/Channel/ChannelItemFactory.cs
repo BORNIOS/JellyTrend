@@ -473,7 +473,12 @@ internal static class ChannelItemFactory
     }
 
     private static string BuildItemImageUrl(IServerApplicationHost appHost, Guid itemId, ImageType type)
-        => $"{appHost.GetLocalApiUrl("localhost")}/Items/{itemId}/Images/{type}";
+    {
+        // Match Jellyfin Web's scaled-image contract: constrain the image without
+        // forcing a crop or a plugin-specific encoder quality.
+        var maxWidth = type == ImageType.Backdrop ? 1280 : 400;
+        return $"{appHost.GetLocalApiUrl("localhost")}/Items/{itemId}/Images/{type}/0?maxWidth={maxWidth}";
+    }
 
     private static string? BuildTmdbImageUrl(string? imagePath, Uri baseUrl)
         => string.IsNullOrWhiteSpace(imagePath) ? null : new Uri(baseUrl, imagePath).ToString();
