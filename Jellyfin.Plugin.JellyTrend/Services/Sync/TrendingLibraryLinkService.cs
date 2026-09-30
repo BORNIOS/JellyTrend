@@ -231,6 +231,21 @@ public sealed class TrendingLibraryLinkService
 
     private void HandleUserDataSaved(UserDataSaveEventArgs args)
     {
+        // Channel responses are cached by Jellyfin. When this event affects a title
+        // in the user's recommendation pool, alter just that user's cache key so
+        // the next browse replaces it from the remaining reserve immediately.
+        var recommendationItemId = IsJellyTrendChannelShadow(args.Item)
+            && Guid.TryParse(args.Item.ExternalId, out var libraryItemId)
+            ? libraryItemId
+            : args.Item.Id;
+        if (RecommendationChannelCacheState.InvalidateCandidate(args.UserId, recommendationItemId))
+        {
+            _logger.LogDebug(
+                "JellyTrend: invalidada la caché de Recomendados para {UserId}; cambió el candidato {ItemId}.",
+                args.UserId,
+                recommendationItemId);
+        }
+
         if (args.SaveReason == UserDataSaveReason.PlaybackProgress
             && !ShouldAllowProgressMirror(args.UserId, args.Item.Id))
         {

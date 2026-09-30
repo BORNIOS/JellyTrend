@@ -204,7 +204,7 @@ public sealed class ScriptInjectionService : IHostedService
         return $"    <script src=\"/JellyTrend/jellyTrend.js?v={version}\"></script>";
     }
 
-    private static string ReplaceExistingScriptTag(string html, string currentTag)
+    internal static string ReplaceExistingScriptTag(string html, string currentTag)
     {
         var markerIndex = html.IndexOf(Marker, StringComparison.Ordinal);
         if (markerIndex < 0)
@@ -220,6 +220,17 @@ public sealed class ScriptInjectionService : IHostedService
         if (start < 0 || end < markerIndex)
         {
             return html;
+        }
+
+        // BuildScriptTag owns its indentation. Jellyfin's production index is
+        // minified on one line, so consume whitespace immediately before the tag
+        // rather than relying on a line boundary. This keeps repeated startup
+        // checks idempotent instead of adding four spaces every time.
+        while (start > 0
+            && char.IsWhiteSpace(html[start - 1])
+            && html[start - 1] is not '\r' and not '\n')
+        {
+            start--;
         }
 
         end += "</script>".Length;

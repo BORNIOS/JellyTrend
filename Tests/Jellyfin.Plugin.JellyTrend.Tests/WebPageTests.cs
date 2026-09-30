@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTrend;
+using Jellyfin.Plugin.JellyTrend.Services;
 using Xunit;
 
 namespace Jellyfin.Plugin.JellyTrend.Tests;
@@ -138,6 +139,22 @@ public sealed class WebPageTests
         Assert.Contains("if (!token) return [];", script, StringComparison.Ordinal);
         Assert.Contains("if (!getToken()) return;", script, StringComparison.Ordinal);
         Assert.DoesNotContain("Periodic safety net", script, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// An in-place plugin upgrade must update the versioned script tag once and keep the resulting
+    /// index.html stable across later startups.
+    /// </summary>
+    [Fact]
+    public void BannerScriptTagUpgradeIsIdempotent()
+    {
+        const string oldHtml = "<head><link href=\"main.css\">            <script src=\"/JellyTrend/jellyTrend.js?v=3.0.0.0\"></script>\n</head>";
+        const string currentTag = "    <script src=\"/JellyTrend/jellyTrend.js?v=3.0.1.0\"></script>";
+
+        var upgraded = ScriptInjectionService.ReplaceExistingScriptTag(oldHtml, currentTag);
+
+        Assert.Contains("jellyTrend.js?v=3.0.1.0", upgraded, StringComparison.Ordinal);
+        Assert.Equal(upgraded, ScriptInjectionService.ReplaceExistingScriptTag(upgraded, currentTag));
     }
 
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
