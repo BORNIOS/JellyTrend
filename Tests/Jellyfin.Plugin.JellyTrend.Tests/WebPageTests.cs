@@ -133,6 +133,9 @@ public sealed class WebPageTests
         Assert.Contains("if (!onHomePage() || !items.length) return;", script, StringComparison.Ordinal);
         Assert.Contains("for (const method of ['pushState', 'replaceState'])", script, StringComparison.Ordinal);
         Assert.Contains("window.addEventListener('popstate', handleRouteChange);", script, StringComparison.Ordinal);
+        Assert.Contains("activeFetchController?.abort();", script, StringComparison.Ordinal);
+        Assert.Contains("const ITEMS_CACHE_TTL_MS = 30000;", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Periodic safety net", script, StringComparison.Ordinal);
     }
 
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();

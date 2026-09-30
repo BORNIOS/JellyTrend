@@ -101,15 +101,20 @@
     })();
 
     // ── Fetch trending items from plugin API ─────────────────────────────────
-    async function fetchItems(apiClient) {
+    async function fetchItems(apiClient, signal) {
         const token = apiClient?.accessToken?.() ?? getToken();
         const headers = {};
         if (token) headers['Authorization'] = `MediaBrowser Token="${token}"`;
         try {
-            const r = await fetch('/JellyTrend/Trending', { headers, credentials: 'include' });
+            const r = await fetch('/JellyTrend/Trending', { headers, credentials: 'include', signal });
             if (!r.ok) { console.warn(`[JellyTrend] /Trending → ${r.status}`); return []; }
             return await r.json();
-        } catch (e) { console.warn('[JellyTrend] fetch error', e); return []; }
+        } catch (e) {
+            // Navigating away from Home deliberately aborts the request. It is not
+            // an API failure and should not add noise to the browser console.
+            if (e?.name !== 'AbortError') console.warn('[JellyTrend] fetch error', e);
+            return [];
+        }
     }
 
     // ── Official Jellyfin translations ───────────────────────────────────────
@@ -211,8 +216,25 @@
     let containerRetryTimer = null;
     let lastEmptyAt = 0;
     let lastRenderedIds = '';
-    let lastFetchAt = 0;
-    let bannerRendered = false;   // true once items are painted — stops polling
+    let bannerRendered = false;
+    let activeFetchController = null;
+    let cachedItems = null;
+    let cachedItemsAt = 0;
+    const ITEMS_CACHE_TTL_MS = 30000;
+
+    // Returning Home should be instant and should not repeat an identical API
+    // request. Keep the small client cache aligned with the provider's 30-second
+    // home-query cache; after that, the normal endpoint refreshes the list.
+    async function getItemsForHome(signal) {
+        if (cachedItems && Date.now() - cachedItemsAt < ITEMS_CACHE_TTL_MS) return cachedItems;
+
+        const items = await fetchItems(null, signal);
+        if (items.length) {
+            cachedItems = items;
+            cachedItemsAt = Date.now();
+        }
+        return items;
+    }
 
     // Renders the carousel only when the list actually changed (the server already
     // hides watched titles, so a change means a just-watched item disappeared or
@@ -220,21 +242,25 @@
     function renderBanner(items) {
         // A fetch can finish after Jellyfin's SPA has already navigated away from
         // Home. Never let an in-flight Home request paint into another route.
-        if (!onHomePage() || !items.length) return;
+        if (!onHomePage() || !items.length) return false;
         const ids = items.map(i => String(i.Id)).join('|');
         const section = document.getElementById(SECTION_ID);
-        if (section && ids === lastRenderedIds) return;
+        if (section && ids === lastRenderedIds) return true;
         lastRenderedIds = ids;
         let target = section;
         if (!target) {
             const container = findContainer();
-            if (!container) return;
+            if (!container) {
+                scheduleContainerRetry();
+                return false;
+            }
             target = document.createElement('div');
             target.id = SECTION_ID;
             container.insertAdjacentElement('afterbegin', target);
         }
         target.innerHTML = buildCarouselHTML(items);
         initCarousel(target.querySelector('.jt-swiper'));
+        return true;
     }
 
     async function tryInject() {
@@ -243,27 +269,27 @@
         if (bannerRendered && document.getElementById(SECTION_ID)) return;
         if (injecting) return;
         const now = Date.now();
-        if (now - lastFetchAt < 15000) return;                  // throttle re-fetch
         if (lastEmptyAt && now - lastEmptyAt < 60000) return;   // empty cache — don't hammer /Trending
         injecting = true;
         const requestedRoute = routeSignature();
+        const controller = new AbortController();
+        activeFetchController = controller;
         try {
-            const items = await fetchItems();
-            lastFetchAt = Date.now();
+            const items = await getItemsForHome(controller.signal);
             if (!items.length) { lastEmptyAt = Date.now(); return; }
             if (!onHomePage() || requestedRoute !== routeSignature()) return;
             await loadLocalization();   // official labels ready before rendering
             if (!onHomePage() || requestedRoute !== routeSignature()) return;
-            renderBanner(items);
-            bannerRendered = document.getElementById(SECTION_ID) !== null;
+            bannerRendered = renderBanner(items);
         } finally {
+            if (activeFetchController === controller) activeFetchController = null;
             injecting = false;
         }
     }
 
     // React keeps the home page mounted and only toggles visibility on route
     // changes, so the MutationObserver alone often misses the return to Home.
-    // Retrying briefly (plus the periodic safety net below) re-injects reliably.
+    // A single short retry lets React finish the target container transition.
     function scheduleContainerRetry() {
         if (containerRetryTimer) return;
         containerRetryTimer = setTimeout(() => {
@@ -282,6 +308,8 @@
     function cleanup() {
         document.getElementById(SECTION_ID)?.remove();
         cancelContainerRetry();
+        activeFetchController?.abort();
+        activeFetchController = null;
         bannerRendered = false;   // allow re-inject when user returns to Home
     }
 
@@ -359,26 +387,6 @@
             return result;
         };
     }
-
-    let lastRoute = routeSignature();
-
-    // ── Periodic safety net ──────────────────────────────────────────────────
-    // Re-checks every 2 s while on Home and banner is NOT yet painted.
-    // Once bannerRendered is true the interval body exits immediately via the
-    // tryInject guard, so there is no ongoing network or CPU cost.
-    setInterval(() => {
-        const currentRoute = routeSignature();
-        if (currentRoute !== lastRoute) {
-            lastRoute = currentRoute;
-            handleRouteChange();
-            return;
-        }
-        if (onHomePage()) {
-            if (!bannerRendered || !document.getElementById(SECTION_ID)) tryInject();
-        } else {
-            cancelContainerRetry();
-        }
-    }, 2000);
 
     // ── Fallback: old pluginManager registration ──────────────────────────────
     // Kept for Jellyfin versions that still use HomeSectionType.EditorChoice.
