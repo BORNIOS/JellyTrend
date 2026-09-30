@@ -103,6 +103,10 @@
     // ── Fetch trending items from plugin API ─────────────────────────────────
     async function fetchItems(apiClient, signal) {
         const token = apiClient?.accessToken?.() ?? getToken();
+        // The injected script is loaded before Jellyfin establishes a user
+        // session. Do not issue an anonymous request that can only return 401;
+        // installAuthReadyTrigger will invoke Home injection once the token exists.
+        if (!token) return [];
         const headers = {};
         if (token) headers['Authorization'] = `MediaBrowser Token="${token}"`;
         try {
@@ -265,6 +269,7 @@
 
     async function tryInject() {
         if (!onHomePage()) { cancelContainerRetry(); return; }
+        if (!getToken()) return;
         // Once the banner is rendered and still in the DOM, nothing left to do.
         if (bannerRendered && document.getElementById(SECTION_ID)) return;
         if (injecting) return;

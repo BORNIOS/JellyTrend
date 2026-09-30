@@ -135,6 +135,8 @@ public sealed class WebPageTests
         Assert.Contains("window.addEventListener('popstate', handleRouteChange);", script, StringComparison.Ordinal);
         Assert.Contains("activeFetchController?.abort();", script, StringComparison.Ordinal);
         Assert.Contains("const ITEMS_CACHE_TTL_MS = 30000;", script, StringComparison.Ordinal);
+        Assert.Contains("if (!token) return [];", script, StringComparison.Ordinal);
+        Assert.Contains("if (!getToken()) return;", script, StringComparison.Ordinal);
         Assert.DoesNotContain("Periodic safety net", script, StringComparison.Ordinal);
     }
 

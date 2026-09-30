@@ -64,7 +64,20 @@ public sealed class ScriptInjectionService : IHostedService
 
             if (html.Contains(Marker, StringComparison.Ordinal))
             {
-                JellyTrendLog.Info($"[Banner] Script ya presente en '{indexPath}'.");
+                // Keep the URL version in sync with the deployed assembly. Leaving an
+                // older query string here makes browsers keep an older banner script
+                // after an in-place plugin update.
+                var upgraded = ReplaceExistingScriptTag(html, BuildScriptTag());
+                if (!string.Equals(html, upgraded, StringComparison.Ordinal))
+                {
+                    await File.WriteAllTextAsync(indexPath, upgraded, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+                    JellyTrendLog.Info($"[Banner] Cache-buster actualizado en '{indexPath}'.");
+                }
+                else
+                {
+                    JellyTrendLog.Info($"[Banner] Script ya presente y actualizado en '{indexPath}'.");
+                }
+
                 // The marker may predate this process (for example after an in-place
                 // upgrade).  Do not claim ownership and attempt to rewrite Jellyfin's
                 // installation directory during shutdown.
@@ -189,5 +202,27 @@ public sealed class ScriptInjectionService : IHostedService
     {
         var version = Plugin.Instance?.Version?.ToString() ?? "0";
         return $"    <script src=\"/JellyTrend/jellyTrend.js?v={version}\"></script>";
+    }
+
+    private static string ReplaceExistingScriptTag(string html, string currentTag)
+    {
+        var markerIndex = html.IndexOf(Marker, StringComparison.Ordinal);
+        if (markerIndex < 0)
+        {
+            return html;
+        }
+
+        // Only replace a complete script element that contains our fixed path.
+        // If a hand-edited file contains the marker outside of a script tag, leave
+        // it untouched rather than risking a corrupt Jellyfin index.html.
+        var start = html.LastIndexOf("<script", markerIndex, StringComparison.OrdinalIgnoreCase);
+        var end = html.IndexOf("</script>", markerIndex, StringComparison.OrdinalIgnoreCase);
+        if (start < 0 || end < markerIndex)
+        {
+            return html;
+        }
+
+        end += "</script>".Length;
+        return string.Concat(html.AsSpan(0, start), currentTag, html.AsSpan(end));
     }
 }
