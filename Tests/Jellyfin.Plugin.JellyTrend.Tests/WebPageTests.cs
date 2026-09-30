@@ -119,6 +119,22 @@ public sealed class WebPageTests
         Assert.Equal(Normalize(onDisk), Normalize(embedded));
     }
 
+    /// <summary>
+    /// The banner belongs exclusively to Home. A slow fetch must not render it after
+    /// the SPA has moved to Dashboard, details, or another route.
+    /// </summary>
+    [Fact]
+    public void BannerScriptGuardsInFlightRequestsAndSpaRouteChanges()
+    {
+        var script = File.ReadAllText(TestPaths.BannerScriptFile);
+
+        Assert.Contains("const requestedRoute = routeSignature();", script, StringComparison.Ordinal);
+        Assert.Contains("requestedRoute !== routeSignature()", script, StringComparison.Ordinal);
+        Assert.Contains("if (!onHomePage() || !items.length) return;", script, StringComparison.Ordinal);
+        Assert.Contains("for (const method of ['pushState', 'replaceState'])", script, StringComparison.Ordinal);
+        Assert.Contains("window.addEventListener('popstate', handleRouteChange);", script, StringComparison.Ordinal);
+    }
+
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
 
     private static HashSet<string> IdsDeclared(string html)

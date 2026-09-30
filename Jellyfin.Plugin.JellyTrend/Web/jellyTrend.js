@@ -170,6 +170,10 @@
         return !h || h === '#/' || h === '#/home.html' || h.startsWith('#/home');
     }
 
+    function routeSignature() {
+        return `${location.pathname}${location.search}${location.hash}`;
+    }
+
     // ── Find best injection container ────────────────────────────────────────
     // Tries a priority list of selectors for different Jellyfin web versions.
     function findContainer() {
@@ -214,7 +218,9 @@
     // hides watched titles, so a change means a just-watched item disappeared or
     // the section was removed while leaving Home).
     function renderBanner(items) {
-        if (!items.length) return;
+        // A fetch can finish after Jellyfin's SPA has already navigated away from
+        // Home. Never let an in-flight Home request paint into another route.
+        if (!onHomePage() || !items.length) return;
         const ids = items.map(i => String(i.Id)).join('|');
         const section = document.getElementById(SECTION_ID);
         if (section && ids === lastRenderedIds) return;
@@ -240,13 +246,16 @@
         if (now - lastFetchAt < 15000) return;                  // throttle re-fetch
         if (lastEmptyAt && now - lastEmptyAt < 60000) return;   // empty cache — don't hammer /Trending
         injecting = true;
+        const requestedRoute = routeSignature();
         try {
             const items = await fetchItems();
             lastFetchAt = Date.now();
             if (!items.length) { lastEmptyAt = Date.now(); return; }
+            if (!onHomePage() || requestedRoute !== routeSignature()) return;
             await loadLocalization();   // official labels ready before rendering
+            if (!onHomePage() || requestedRoute !== routeSignature()) return;
             renderBanner(items);
-            bannerRendered = true;
+            bannerRendered = document.getElementById(SECTION_ID) !== null;
         } finally {
             injecting = false;
         }
@@ -318,6 +327,7 @@
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             if (onHomePage()) tryInject();
+            else cleanup();
             injectAdminNav();   // safe to call on every mutation — idempotent
         }, 300);
     });
@@ -330,17 +340,39 @@
     else document.addEventListener('DOMContentLoaded', startObserver);
 
     // ── SPA route change ─────────────────────────────────────────────────────
-    window.addEventListener('hashchange', () => {
+    function handleRouteChange() {
         if (onHomePage()) tryInject();
         else cleanup();
         injectAdminNav();
-    });
+    }
+
+    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('popstate', handleRouteChange);
+
+    // Jellyfin Web may use the History API without emitting hashchange. Observe
+    // those SPA transitions as well so Dashboard and detail views are kept clean.
+    for (const method of ['pushState', 'replaceState']) {
+        const original = history[method];
+        history[method] = function () {
+            const result = original.apply(this, arguments);
+            queueMicrotask(handleRouteChange);
+            return result;
+        };
+    }
+
+    let lastRoute = routeSignature();
 
     // ── Periodic safety net ──────────────────────────────────────────────────
     // Re-checks every 2 s while on Home and banner is NOT yet painted.
     // Once bannerRendered is true the interval body exits immediately via the
     // tryInject guard, so there is no ongoing network or CPU cost.
     setInterval(() => {
+        const currentRoute = routeSignature();
+        if (currentRoute !== lastRoute) {
+            lastRoute = currentRoute;
+            handleRouteChange();
+            return;
+        }
         if (onHomePage()) {
             if (!bannerRendered || !document.getElementById(SECTION_ID)) tryInject();
         } else {
@@ -359,9 +391,14 @@
                 this.priority = 1;
             }
             async render(elem, apiClient) {
+                if (!onHomePage()) {
+                    elem.replaceChildren();
+                    return;
+                }
                 const items = await fetchItems(apiClient);
-                if (!items.length) return;
+                if (!onHomePage() || !items.length) return;
                 await loadLocalization();
+                if (!onHomePage()) return;
                 elem.innerHTML = buildCarouselHTML(items);
                 initCarousel(elem.querySelector('.jt-swiper'));
             }
