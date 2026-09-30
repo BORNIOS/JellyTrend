@@ -65,7 +65,9 @@ public sealed class ScriptInjectionService : IHostedService
             if (html.Contains(Marker, StringComparison.Ordinal))
             {
                 JellyTrendLog.Info($"[Banner] Script ya presente en '{indexPath}'.");
-                _patchedPath = indexPath;
+                // The marker may predate this process (for example after an in-place
+                // upgrade).  Do not claim ownership and attempt to rewrite Jellyfin's
+                // installation directory during shutdown.
                 return;
             }
 
@@ -84,6 +86,10 @@ public sealed class ScriptInjectionService : IHostedService
             _patchedPath = indexPath;
             JellyTrendLog.Info($"[Banner] Script inyectado en '{indexPath}'.");
             _logger.LogInformation("JellyTrend: banner script inyectado en '{P}'.", indexPath);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            JellyTrendLog.Info("[Banner] Parcheo cancelado durante el apagado.");
         }
         catch (Exception ex)
         {
@@ -113,6 +119,12 @@ public sealed class ScriptInjectionService : IHostedService
             var restored = html.Replace(injected, string.Empty, StringComparison.Ordinal);
             await File.WriteAllTextAsync(_patchedPath, restored, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
             JellyTrendLog.Info($"[Banner] Script eliminado de '{_patchedPath}'.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Host shutdown cancellation is expected; it must not be reported as a
+            // banner failure.
+            JellyTrendLog.Info("[Banner] Restauración cancelada durante el apagado.");
         }
         catch (Exception ex)
         {
