@@ -78,6 +78,14 @@ public sealed class TrendingController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<TrendingItemDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<TrendingItemDto>>> GetTrending()
     {
+        // The script is injected by ScriptInjectionService only while banner mode is enabled. This
+        // guard also covers a browser that cached the script (or an index.html patched by an older
+        // version), so disabling the carousel always stops rendering it.
+        if (Plugin.Instance?.Configuration.EnableBannerMode != true)
+        {
+            return Ok(Array.Empty<TrendingItemDto>());
+        }
+
         var cache = await ReadCacheAsync().ConfigureAwait(false);
         if (cache is null)
         {
@@ -118,8 +126,8 @@ public sealed class TrendingController : ControllerBase
     {
         var logoUrl = item.HasImage(ImageType.Logo, 0) ? $"/Items/{item.Id}/Images/Logo/0" : null;
         var discUrl = item.HasImage(ImageType.Disc, 0) ? $"/Items/{item.Id}/Images/Disc/0" : null;
-        var backdropUrl = ResolveImageUrl(item, ImageType.Backdrop, entry.TmdbBackdropPath, TmdbBackdropBaseUrl, 1920, 90);
-        var primaryUrl = ResolveImageUrl(item, ImageType.Primary, entry.TmdbPosterPath, TmdbPosterBaseUrl, 400, 85);
+        var backdropUrl = ResolveImageUrl(item, ImageType.Backdrop, entry.TmdbBackdropPath, TmdbBackdropBaseUrl, 1920);
+        var primaryUrl = ResolveImageUrl(item, ImageType.Primary, entry.TmdbPosterPath, TmdbPosterBaseUrl, 400);
 
         bool? played = null;
         long? positionTicks = null;
@@ -201,22 +209,20 @@ public sealed class TrendingController : ControllerBase
             ColdStartMinWatched = cfg?.ColdStartMinWatched,
             CachedItemCount = cache?.Items.Count ?? 0,
             LastUpdated = cache?.LastUpdated,
-
-            // Almacen: no se supone nada, se informa de lo que hay. Carpeta en uso frente a la de por
-            // defecto, si la configurada es utilizable y existe, version del esquema del proveedor y los
-            // archivos que hay de verdad en disco.
             Storage = new
             {
                 Provider = JellyTrendStore.Active,
                 Backend = JellyTrendStore.Description,
                 SchemaVersion = JellyTrendStore.SchemaVersion,
-                Folder = JellyTrendStorage.Folder,
-                FolderExists = JellyTrendStorage.FolderExists,
+                JsonFilesActive = !JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true,
+                JsonCourtesyBackup = cfg?.EnableJsonCourtesyBackup == true,
+                Folder = (!JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true) ? JellyTrendStorage.Folder : null,
+                FolderExists = (!JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true) && JellyTrendStorage.FolderExists,
                 DefaultFolder = JellyTrendStorage.DefaultFolder,
                 ConfiguredPath = JellyTrendStorage.ConfiguredPath,
                 ConfiguredPathIsUsable = JellyTrendStorage.ConfiguredPathIsUsable,
                 ConfiguredPathExists = JellyTrendStorage.ConfiguredPathExists,
-                Files = JellyTrendStorage.Files()
+                Files = (!JellyTrendStore.Active || cfg?.EnableJsonCourtesyBackup == true ? JellyTrendStorage.Files() : [])
                     .Select(static file => new { file.Name, file.SizeBytes, file.Modified })
                     .ToList()
             }
@@ -379,12 +385,11 @@ public sealed class TrendingController : ControllerBase
         ImageType imageType,
         string? tmdbPath,
         Uri tmdbBaseUrl,
-        int fillWidth,
-        int quality)
+        int maxWidth)
     {
         if (item.HasImage(imageType, 0))
         {
-            return $"/Items/{item.Id}/Images/{imageType}/0?fillWidth={fillWidth}&quality={quality}";
+            return $"/Items/{item.Id}/Images/{imageType}/0?maxWidth={maxWidth}";
         }
 
         return string.IsNullOrWhiteSpace(tmdbPath)

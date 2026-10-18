@@ -218,6 +218,9 @@ public sealed class TrendingSyncTask : IScheduledTask
     // orden de TMDB se conserva para que la fila no aparezca reordenada por tipo.
     private static List<TrendingCacheEntry> ApplyQuota(List<TrendingCacheEntry> items, PluginConfiguration config)
     {
+        // TMDB movie and series matches can resolve to the same local library item. Keep the first
+        // source entry so one PostgreSQL upsert never receives the same primary key twice.
+        items = [.. items.GroupBy(static item => item.ItemId).Select(static group => group.First())];
         var total = Math.Max(1, config.MaxItems);
 
         if (!config.EnableTrendingSeries)

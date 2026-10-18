@@ -60,7 +60,7 @@ siempre: la lista de tendencias ya no es lo importante, el **perfil de cada usua
 - ▶️ **Reproducción 100 % local**: TMDB solo alimenta las listas; la fuente siempre es tu servidor.
 - 📚 **Navegación por temporadas** en el canal de *Trendings* (serie → temporada → episodio).
 - 🔄 **Sincronía biblioteca ↔ canal**: visto, progreso, favoritos y valoración en ambos sentidos.
-- 🔍 **Metadatos enriquecidos** en los ítems del canal (géneros, reparto, estudios, tags, clasificación e imágenes locales), para que no parezcan una copia.
+- 🔍 **Ítems de canal sin duplicados**: el canal conserva carátula, sinopsis, nota e imágenes locales, pero sus sombras se ocultan de la búsqueda, de las páginas de personas/géneros/estudios y del resto de listas de la biblioteca, para que cada título aparezca una sola vez.
 - 🗄️ **Almacén opcional en PostgreSQL** — con el [proveedor de base de datos](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres) los datos viven en el esquema `jellytrend` de tu base, con historial de corridas, y las recomendaciones se calculan con SQL nativo optimizado.
 
 ---
@@ -125,6 +125,8 @@ Las capturas están hechas con el cliente en español; el panel **sigue el idiom
 | **Mostrar series de TV** | Incluye series junto a las películas; desmárcalo para dejar solo películas |
 | **Porcentaje de la lista para series** | Porción reservada a series; las películas toman el resto y los huecos se rellenan |
 | **Activar carrusel en la página de inicio** | Inyecta el carrusel en la página de inicio del cliente web |
+
+> El carrusel se inyecta **en memoria** al servir `index.html`: el plugin no escribe en la carpeta de Jellyfin. Funciona con Jellyfin instalado como servicio de Windows (Network Service/Local Service) y sin permisos sobre `Program Files`.
 
 > El canal se **ofrece** a todos los clientes. Lo que cada usuario ve en su inicio lo decide él
 > mismo en **Perfil → Inicio**, y el plugin no pasa por encima de eso.
@@ -219,6 +221,8 @@ y le saca **dos cosas**:
 ![Los dos canales de JellyTrend y sus filas en el inicio](Screenshots/Channels.png)
 
 <p align="center"><em>Los dos canales en «Mis medios» y sus filas en el inicio: «Últimas - Recomendados» y «Últimas - Tendencias».</em></p>
+
+> Jellyfin guarda los ítems de un canal como entidades de biblioteca («sombras»). JellyTrend las marca como virtuales y las desvincula de personas, géneros, estudios, tags y proveedores: no aparecen en la búsqueda ni en las páginas de un actor, género o estudio, así que cada título sale una sola vez. El detalle del canal conserva título, sinopsis, nota, duración e imágenes.
 
 ### Trendings
 

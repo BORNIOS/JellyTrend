@@ -36,6 +36,7 @@ internal static class RecommendationEngine
     private const int TopGenresForCandidates = 8;
     private const int TopTagsForCandidates = 12;
     private const int TopPeopleForCandidates = 12;
+    private const int MinPersonTitlesForCandidates = 2;
     private const int MaxDiagnosticFacets = 5;
 
     /// <summary>Peso de la popularidad local en el arranque en frio.</summary>
@@ -106,15 +107,16 @@ internal static class RecommendationEngine
 
         if (watched.Count == 0)
         {
-            var coldIds = BuildColdStart(source, user, trendingItemIds, maxItems, topParentIds, nowUtc);
+            var cold = BuildColdStart(source, user, trendingItemIds, maxItems, topParentIds, nowUtc);
             return Report(user, maxItems, new RecommendationResult(
-                coldIds,
+                cold.ItemIds,
                 string.Format(
                     CultureInfo.InvariantCulture,
                     "fuente={0} | alcance={1} bibliotecas | sin historial: fila por popularidad local, calidad y variedad | lista({2})",
                     source.Description,
                     topParentIds.Count,
-                    coldIds.Count)));
+                    cold.ItemIds.Count),
+                cold.Scores));
         }
 
         // Provisional profile, built from the watch history alone, only to decide which facets are
@@ -156,7 +158,7 @@ internal static class RecommendationEngine
 
         var selectedIds = RecommendationSelector.Select(scored, profile, maxItems);
 
-        return Report(user, maxItems, new RecommendationResult(selectedIds, BuildDiagnostics(source, profile, scored, selectedIds)));
+        return Report(user, maxItems, new RecommendationResult(selectedIds, BuildDiagnostics(source, profile, scored, selectedIds), ScoresFor(selectedIds, scored)));
     }
 
     // Deja el resultado en los dos logs: el del servidor (tarea) y el propio del plugin, que es el que
@@ -177,7 +179,7 @@ internal static class RecommendationEngine
     // much the other users watch each title (local popularity), how well rated it is and how recent. The
     // selector still applies its diversity pass, and a title nobody watches and nobody rated is left for
     // the exploration budget instead of filling the row.
-    private static List<Guid> BuildColdStart(
+    private static (List<Guid> ItemIds, List<double> Scores) BuildColdStart(
         CandidateSource source,
         User user,
         IReadOnlySet<Guid> trendingItemIds,
@@ -188,7 +190,7 @@ internal static class RecommendationEngine
         var candidates = source.GetCandidates(user, [], [], [], topParentIds);
         if (candidates.Count == 0)
         {
-            return [];
+            return ([], []);
         }
 
         var popularity = source.GetLocalPopularity(candidates, user);
@@ -204,7 +206,8 @@ internal static class RecommendationEngine
             .Select(candidate => ColdStartScore(candidate, popularity.GetValueOrDefault(candidate.Id), nowUtc))
             .ToList();
 
-        return RecommendationSelector.Select(scored, TasteProfile.Build([], index), maxItems);
+        var selectedIds = RecommendationSelector.Select(scored, TasteProfile.Build([], index), maxItems);
+        return (selectedIds, ScoresFor(selectedIds, scored));
     }
 
     // Sin historial no hay gusto que aplicar: el "parecido" que se reporta es el interes medido en el
@@ -240,7 +243,7 @@ internal static class RecommendationEngine
         DateTime nowUtc)
     {
         var people = storeProfile.HasFacet("actor") || storeProfile.HasFacet("director")
-            ? watched.SelectMany(static item => item.People).Distinct().Take(TopPeopleForCandidates).ToList()
+            ? RecurrentPeople(watched)
             : [];
 
         var candidates = source.GetCandidates(
@@ -273,8 +276,39 @@ internal static class RecommendationEngine
 
         return new RecommendationResult(
             selectedIds,
-            BuildStoreDiagnostics(source, storeProfile, selectionProfile, scored, selectedIds));
+            BuildStoreDiagnostics(source, storeProfile, selectionProfile, scored, selectedIds),
+            ScoresFor(selectedIds, scored));
     }
+
+    private static List<double> ScoresFor(IReadOnlyList<Guid> selectedIds, IReadOnlyList<ScoredCandidate> scored)
+    {
+        var scores = scored.ToDictionary(static candidate => candidate.Movie.Id, static candidate => candidate.Score);
+        return [.. selectedIds.Select(id => scores.GetValueOrDefault(id))];
+    }
+
+    // Una persona que aparece una vez solo describe el reparto de una película. Para ampliar el pool por
+    // personas exige repetición en títulos distintos y ordena por el compromiso acumulado del usuario.
+    private static List<Guid> RecurrentPeople(IReadOnlyList<TasteItem> watched)
+        =>
+        [
+            .. watched
+                .SelectMany(item => item.People
+                    .Where(static person => person != Guid.Empty)
+                    .Distinct()
+                    .Select(person => new { Person = person, Weight = Math.Max(item.Weight, 0d) }))
+                .GroupBy(static entry => entry.Person)
+                .Select(group => new
+                {
+                    Person = group.Key,
+                    Titles = group.Count(),
+                    Weight = group.Sum(static entry => entry.Weight)
+                })
+                .Where(entry => entry.Titles >= MinPersonTitlesForCandidates && entry.Weight > 0d)
+                .OrderByDescending(static entry => entry.Weight)
+                .ThenBy(static entry => entry.Person)
+                .Take(TopPeopleForCandidates)
+                .Select(static entry => entry.Person)
+        ];
 
     // La fuente materializa cada candidato y guarda sus facetas, asi que la cache deberia tenerlas todas;
     // si falta alguna se reconstruye con lo que el propio candidato trae, para no descartar el titulo.

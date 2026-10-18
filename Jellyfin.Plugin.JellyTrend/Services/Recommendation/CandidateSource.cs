@@ -198,7 +198,7 @@ internal sealed class CandidateSource
             }
         }
 
-        var candidates = Materialize(ids);
+        var candidates = Materialize(ids, user);
 
         JellyTrendLog.Info(string.Format(
             CultureInfo.InvariantCulture,
@@ -355,7 +355,7 @@ internal sealed class CandidateSource
     }
 
     // Materializes ids into full items so both modes score exactly the same data.
-    private List<CandidateItem> Materialize(HashSet<Guid> ids)
+    private List<CandidateItem> Materialize(HashSet<Guid> ids, User user)
     {
         if (ids.Count == 0)
         {
@@ -372,6 +372,14 @@ internal sealed class CandidateSource
         // Los ítems virtuales son sombras de canal (los canales de tendencias y recomendados del propio
         // plugin, entre otros): recomendar una sombra de nosotros mismos no aporta nada y ensucia el pool.
         items = items.Where(static item => !item.IsVirtualItem).ToList();
+
+        // IsPlayed=false es solo una primera criba. El proveedor puede devolver ids desactualizados y
+        // Jellyfin puede conservar señales de reproducción sin marcar IsPlayed. La regla final es
+        // estricta: un título abierto, reanudado o terminado nunca puede llegar al selector.
+        var userData = ApiCompat.GetUserData(_userDataManager, items, user);
+        items = items
+            .Where(item => !HasPlaybackHistory(userData.GetValueOrDefault(item.Id)))
+            .ToList();
 
         if (items.Count == 0)
         {
@@ -407,6 +415,13 @@ internal sealed class CandidateSource
 
         return probe.Count > 0;
     }
+
+    private static bool HasPlaybackHistory(UserItemData? data)
+        => data is not null
+            && (data.Played
+                || data.PlayCount > 0
+                || data.PlaybackPositionTicks > 0
+                || data.LastPlayedDate is not null);
 
     private Dictionary<Guid, IReadOnlyList<Guid>> GetPeopleByItem(IReadOnlyList<BaseItem> items)
     {

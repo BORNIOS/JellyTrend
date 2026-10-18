@@ -60,7 +60,7 @@ the same as always: the trending list is no longer the point, each **user's own 
 - ▶️ **100 % local playback**: TMDB only feeds the lists; the source is always your server.
 - 📚 **Season browsing** on the *Trending* channel (series → season → episode).
 - 🔄 **Library ↔ channel sync**: played state, progress, favourites and ratings in both directions.
-- 🔍 **Enriched metadata** on channel items (genres, cast, studios, tags, rating and local images), so they do not look like a copy.
+- 🔍 **Duplicate-free channel items**: the channel keeps artwork, overview, rating and local images, but its shadows are hidden from search, person/genre/studio pages and the rest of the library lists, so every title appears only once.
 - 🗄️ **Optional PostgreSQL store** — with the [database provider](https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres) the data lives in the `jellytrend` schema of your database, with run history, and recommendations are computed with optimized native SQL.
 
 ---
@@ -125,6 +125,8 @@ The screenshots were taken with the client in Spanish; the panel **follows each 
 | **Show TV series** | Include series next to movies; uncheck to keep movies only |
 | **Share of the list for TV series** | Portion reserved for series; movies take the rest and leftover slots are filled |
 | **Enable banner carousel on home** | Injects the carousel into the web client home page |
+
+> The carousel is injected **in memory** while serving `index.html`: the plugin never writes to the Jellyfin folder. It works when Jellyfin runs as a Windows service (Network Service/Local Service) without permissions over `Program Files`.
 
 > The channel is **offered** to every client. Whether a user sees it at home is their own choice
 > in **Profile → Home**, and the plugin never overrides it.
@@ -220,6 +222,8 @@ installed, and then it gets **two things** out of it:
 ![Both JellyTrend channels and their home rows](Screenshots/Channels.png)
 
 <p align="center"><em>Both channels under “My Media” and their home rows: “Latest - Recommended” and “Latest - Trending”.</em></p>
+
+> Jellyfin persists channel items as library entities (“shadows”). JellyTrend marks them virtual and unlinks people, genres, studios, tags and provider ids: they no longer appear in search or in person/genre/studio pages, so every title shows up once. The channel detail keeps title, overview, rating, runtime and images.
 
 ### Trending
 

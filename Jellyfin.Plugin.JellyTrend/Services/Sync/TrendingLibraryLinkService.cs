@@ -31,10 +31,12 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Sync;
 /// </summary>
 public sealed class TrendingLibraryLinkService
     : IHostedService,
+        IDisposable,
         IEventConsumer<PlaybackStopEventArgs>,
         IEventConsumer<PlaybackProgressEventArgs>
 {
     private static readonly TimeSpan ProgressMirrorInterval = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan ShadowNormalizationInterval = TimeSpan.FromMinutes(15);
 
     private readonly ILibraryManager _libraryManager;
     private readonly IUserDataManager _userDataManager;
@@ -42,6 +44,7 @@ public sealed class TrendingLibraryLinkService
     private readonly ILogger<TrendingLibraryLinkService> _logger;
 
     private readonly ConcurrentDictionary<string, DateTime> _lastProgressMirrorUtc = new();
+    private CancellationTokenSource? _lifetime;
     private int _mirrorSaveDepth;
 
     /// <summary>
@@ -72,6 +75,9 @@ public sealed class TrendingLibraryLinkService
     {
         _userDataManager.UserDataSaved += OnUserDataSaved;
 
+        _lifetime = new CancellationTokenSource();
+        _ = Task.Run(() => NormalizeShadowsPeriodicallyAsync(_lifetime.Token), CancellationToken.None);
+
         _ = Task.Run(
             async () =>
             {
@@ -88,6 +94,37 @@ public sealed class TrendingLibraryLinkService
             CancellationToken.None);
 
         return Task.CompletedTask;
+    }
+
+    private async Task NormalizeShadowsPeriodicallyAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(ShadowNormalizationInterval);
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            {
+                try
+                {
+                    // Una sombra creada al navegar un canal existe hasta el siguiente pase programado.
+                    // Este barrido corto evita que se quede en la búsqueda o en una página de personas.
+                    await TrendingShadowMetadataSync
+                        .NormalizeShadowVisibilityAsync(_libraryManager, _logger, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "JellyTrend: no se pudieron ocultar las sombras del resto de la biblioteca.");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Apagado del servidor.
+        }
     }
 
     private async Task RunStartupSyncAsync()
@@ -121,10 +158,24 @@ public sealed class TrendingLibraryLinkService
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
         _userDataManager.UserDataSaved -= OnUserDataSaved;
-        return Task.CompletedTask;
+        if (_lifetime is not null)
+        {
+            await _lifetime.CancelAsync().ConfigureAwait(false);
+            _lifetime.Dispose();
+            _lifetime = null;
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _userDataManager.UserDataSaved -= OnUserDataSaved;
+        _lifetime?.Cancel();
+        _lifetime?.Dispose();
+        _lifetime = null;
     }
 
     private void OnUserDataSaved(object? sender, EventArgs e)
@@ -231,6 +282,21 @@ public sealed class TrendingLibraryLinkService
 
     private void HandleUserDataSaved(UserDataSaveEventArgs args)
     {
+        // Channel responses are cached by Jellyfin. When this event affects a title
+        // in the user's recommendation pool, alter just that user's cache key so
+        // the next browse replaces it from the remaining reserve immediately.
+        var recommendationItemId = IsJellyTrendChannelShadow(args.Item)
+            && Guid.TryParse(args.Item.ExternalId, out var libraryItemId)
+            ? libraryItemId
+            : args.Item.Id;
+        if (RecommendationChannelCacheState.InvalidateCandidate(args.UserId, recommendationItemId))
+        {
+            _logger.LogDebug(
+                "JellyTrend: invalidada la caché de Recomendados para {UserId}; cambió el candidato {ItemId}.",
+                args.UserId,
+                recommendationItemId);
+        }
+
         if (args.SaveReason == UserDataSaveReason.PlaybackProgress
             && !ShouldAllowProgressMirror(args.UserId, args.Item.Id))
         {

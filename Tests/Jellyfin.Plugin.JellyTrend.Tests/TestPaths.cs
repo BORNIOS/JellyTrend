@@ -17,6 +17,9 @@ internal static class TestPaths
     /// <summary>Gets the panel HTML file used by the plugin.</summary>
     internal static string PanelFile => Path.Combine(PluginSourceDirectory, "Web", "configurationPage.html");
 
+    /// <summary>Gets the client script that owns the Home banner lifecycle.</summary>
+    internal static string BannerScriptFile => Path.Combine(PluginSourceDirectory, "Web", "jellyTrend.js");
+
     private static string FindRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

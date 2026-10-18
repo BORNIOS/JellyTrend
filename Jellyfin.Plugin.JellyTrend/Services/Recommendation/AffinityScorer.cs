@@ -165,28 +165,19 @@ internal static class AffinityScorer
             for (var j = i + 1; j < genres.Count; j++)
             {
                 total++;
-                if (profile.HasPair("genre", genres[i], "genre", genres[j]))
-                {
-                    hits++;
-                }
+                hits += profile.PairWeightOf("genre", genres[i], "genre", genres[j]);
             }
 
             if (director is not null)
             {
                 total++;
-                if (profile.HasPair("genre", genres[i], "director", director))
-                {
-                    hits++;
-                }
+                hits += profile.PairWeightOf("genre", genres[i], "director", director);
             }
 
             if (actor is not null)
             {
                 total++;
-                if (profile.HasPair("genre", genres[i], "actor", actor))
-                {
-                    hits++;
-                }
+                hits += profile.PairWeightOf("genre", genres[i], "actor", actor);
             }
         }
 

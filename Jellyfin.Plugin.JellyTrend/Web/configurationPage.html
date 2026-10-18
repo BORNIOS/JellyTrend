@@ -436,26 +436,35 @@
 
                 <div class="jtPanel" data-jt-panel="storage" hidden>
                     <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                        <h2 class="jtCardTitle" data-jt="secStore"></h2>
+                        <div id="jtStoreNote" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; border-left:4px solid #26a69a; color:#80cbc4; font-size:13px; line-height:1.6;"></div>
+                        <div class="fieldDescription" data-jt-html="true" data-jt="descStore_html" style="margin-top:12px"></div>
+                        <div class="checkboxContainer" style="margin-top:14px;">
+                            <label>
+                                <input id="enableJsonCourtesyBackup" type="checkbox" is="emby-checkbox" />
+                                <span data-jt="lblJsonCourtesyBackup"></span>
+                            </label>
+                            <div class="fieldDescription" data-jt-html="true" data-jt="descJsonCourtesyBackup_html"></div>
+                        </div>
+                    </div>
+
+                    <div id="jtDataFolderCard" class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secDataFolder"></h2>
-
                         <table class="jtKV"><tbody id="jtFolderInfo"></tbody></table>
-
                         <div id="jtPathNote" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; border-left:4px solid #26a69a; color:#80cbc4; font-size:13px; line-height:1.6; margin-bottom:14px;"></div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="jsonDataPath">
-                            <span data-jt="lblDataPath"></span>
-                        </label>
-                        <input id="jsonDataPath"
-                               type="text"
-                               is="emby-input"
-                               data-jt-placeholder="phDataPath" />
-                        <div class="fieldDescription" data-jt-html="true" data-jt="descDataPath_html"></div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="jsonDataPath">
+                                <span data-jt="lblDataPath"></span>
+                            </label>
+                            <input id="jsonDataPath"
+                                   type="text"
+                                   is="emby-input"
+                                   data-jt-placeholder="phDataPath" />
+                            <div class="fieldDescription" data-jt-html="true" data-jt="descDataPath_html"></div>
+                        </div>
                     </div>
 
-                    </div>
-
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
+                    <div id="jtFilesCard" class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
                         <h2 class="jtCardTitle" data-jt="secFiles"></h2>
                         <div id="jtFilesSummary" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; color:#a0c4ff; font-size:14px; margin-bottom:12px;"></div>
                         <div id="jtFilesWrap" class="jtTableWrap" style="max-height:320px; overflow:auto; border:1px solid rgba(124,146,196,.28); border-radius:8px; background:rgba(9,14,28,.55)">
@@ -471,14 +480,6 @@
                             </table>
                         </div>
                         <div class="fieldDescription" data-jt-html="true" data-jt="descFiles_html" style="margin-top:10px"></div>
-                    </div>
-
-                    <div class="jt-card" style="background:rgba(18,26,48,.88); border:1px solid rgba(124,146,196,.28); border-left:3px solid #26a69a; border-radius:12px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.2); margin-bottom:16px;">
-                        <h2 class="jtCardTitle" data-jt="secStore"></h2>
-
-                        <div id="jtStoreNote" style="padding:10px 14px; border-radius:6px; background:#1a1a2e; border-left:4px solid #26a69a; color:#80cbc4; font-size:13px; line-height:1.6; margin-bottom:14px;"></div>
-
-                        <div class="fieldDescription" data-jt-html="true" data-jt="descStore_html"></div>
                     </div>
                 </div>
 
@@ -565,7 +566,7 @@
     'use strict';
 
     var pluginId = 'd3b07384-d9a1-4e2b-8c3f-1234567890ab';
-    var state = { wired: false, bootstrapped: false, lastBootstrapAt: 0, retryTimer: null };
+    var state = { wired: false, bootstrapped: false, lastBootstrapAt: 0, retryTimer: null, storageProvider: false };
     var currentLang = 'en';
     var officialLabels = null;   // official Jellyfin UI strings from /Localization/{culture}
 
@@ -649,9 +650,9 @@
             descColdStart_html: 'Until the user has watched this many titles there is no personal profile yet, so the row shows what the rest of the server watches.',
             secStorage: 'Storage',
             lblDataPath: 'JSON folder (optional)',
-            phDataPath: 'Leave empty to use the server data folder',
-            descDataPath_html: 'Absolute folder for the plugin data files. Empty uses the server data folder, which survives a plugin update; a relative path is ignored. Restart to apply.',
-            descStore_html: 'With a database provider installed, all the plugin data lives in its schema and the JSON files are only a courtesy copy.<br><br><a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener" style="font-weight:700;font-size:.95rem;text-decoration:underline;">Provider repository: Jellyfin-Database-Providers-Postgres</a>',
+            phDataPath: 'Jellyfin data directory / JellyTrend',
+            descDataPath_html: 'This starts at Jellyfin’s default <code>{DataPath}/JellyTrend</code> location. Change it only when JSON fallback or optional JSON backups should live elsewhere; relative paths are ignored. Restart to apply a new path.',
+            descStore_html: 'When PostgreSQL Database Provider is available, JellyTrend uses its registered private schema as the only operational store. Without the provider, JellyTrend automatically uses JSON files. JSON copies while PostgreSQL is active are strictly optional.<br><br><a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener" style="font-weight:700;font-size:.95rem;text-decoration:underline;">Provider repository: Jellyfin-Database-Providers-Postgres</a>',
             secRecChannel: 'Recommendations channel',
             secEngine: 'Home row and engine',
             secDataFolder: 'Data folder',
@@ -713,6 +714,8 @@
             errLoadStatus: 'Could not load status.',
             secFiles: 'Files in the data folder',
             descFiles_html: 'The plugin data files, newest first. The scheduled tasks rebuild them, so they can be deleted at any time.',
+            lblJsonCourtesyBackup: 'Write a JSON courtesy backup while PostgreSQL is active',
+            descJsonCourtesyBackup_html: 'Disabled by default. PostgreSQL remains the operational source; enabling this writes an additional diagnostic snapshot to disk.',
             thFileName: 'File',
             thFileSize: 'Size',
             thFileModified: 'Modified',
@@ -726,8 +729,10 @@
             kvChannels: 'Published channels',
             pathCustomOk: 'Custom folder in use.',
             pathProblem: 'The folder set here cannot be used (it is not an absolute path, or it does not exist). The plugin keeps using the default one:',
-            storeProvider: 'Provider detected: JellyTrend is writing its tables in that database and the JSON files are only the courtesy copy.',
-            storeJson: 'No provider detected, so the data lives in the JSON files. Installing the PostgreSQL provider moves it into the database without touching what is already stored.',
+            storeProvider: 'PostgreSQL Database Provider detected: JellyTrend is using its registered private schema.',
+            storeDatabaseOnly: 'JSON files are disabled.',
+            storeCourtesyEnabled: 'JSON backup files are enabled.',
+            storeJson: 'No compatible PostgreSQL Database Provider is active, so JellyTrend is using its JSON files.',
             noteChannel_html: 'Every client offers the channel; the carousel on the home page is enabled by each user in <strong>Profile \u2192 Home</strong>.',
             noteRecChannel_html: 'What each user sees at home is their own choice in <strong>Profile \u2192 Home</strong>. If someone still sees \u201cRecomendados\u201d after unchecking this, that is their own setting.'
         },
@@ -784,9 +789,9 @@
             descColdStart_html: 'Hasta que el usuario no ha visto esta cantidad de títulos no hay perfil propio, así que la fila muestra lo que ve el resto del servidor.',
             secStorage: 'Almacenamiento',
             lblDataPath: 'Carpeta de los JSON (opcional)',
-            phDataPath: 'Vacío = carpeta de datos del servidor',
-            descDataPath_html: 'Carpeta absoluta de los archivos del plugin. Vacío usa la carpeta de datos del servidor, que es la que sobrevive a una actualización; una ruta relativa se ignora. Requiere reiniciar.',
-            descStore_html: 'Con un proveedor de base de datos instalado, todos los datos del plugin viven en su esquema y los archivos JSON quedan solo como copia de cortesía.<br><br><a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener" style="font-weight:700;font-size:.95rem;text-decoration:underline;">Repositorio del proveedor: Jellyfin-Database-Providers-Postgres</a>',
+            phDataPath: 'Carpeta de datos de Jellyfin / JellyTrend',
+            descDataPath_html: 'La ruta inicial es <code>{DataPath}/JellyTrend</code> de Jellyfin. Cámbiala solo si el fallback JSON o las copias JSON opcionales deben vivir en otra ubicación; las rutas relativas se ignoran. Reinicia para aplicar una nueva ruta.',
+            descStore_html: 'Con PostgreSQL Database Provider disponible, JellyTrend usa su esquema privado registrado como único almacén operativo. Sin el proveedor, JellyTrend usa automáticamente archivos JSON. Las copias JSON mientras PostgreSQL está activo son totalmente opcionales.<br><br><a class="jtLink" href="https://github.com/BORNIOS/Jellyfin-Database-Providers-Postgres" target="_blank" rel="noopener" style="font-weight:700;font-size:.95rem;text-decoration:underline;">Repositorio del proveedor: Jellyfin-Database-Providers-Postgres</a>',
             secRecChannel: 'Canal de Recomendados',
             secEngine: 'Fila de inicio y motor',
             secDataFolder: 'Carpeta de datos',
@@ -848,6 +853,8 @@
             errLoadStatus: 'No se pudo cargar el estado.',
             secFiles: 'Archivos de la carpeta de datos',
             descFiles_html: 'Los archivos de datos del plugin, del más reciente al más antiguo. Las tareas programadas los regeneran, así que se pueden borrar en cualquier momento.',
+            lblJsonCourtesyBackup: 'Guardar una copia JSON de cortesía mientras PostgreSQL está activo',
+            descJsonCourtesyBackup_html: 'Desactivado por defecto. PostgreSQL sigue siendo la fuente operativa; al activarlo se escribe un snapshot adicional de diagnóstico en disco.',
             thFileName: 'Archivo',
             thFileSize: 'Tamaño',
             thFileModified: 'Modificado',
@@ -861,8 +868,10 @@
             kvChannels: 'Canales publicados',
             pathCustomOk: 'Se está usando la carpeta personalizada.',
             pathProblem: 'La carpeta indicada no se puede usar (no es una ruta absoluta o no existe). El plugin sigue con la carpeta por defecto:',
-            storeProvider: 'Proveedor detectado: JellyTrend está escribiendo sus tablas en esa base y los archivos JSON son solo la copia de cortesía.',
-            storeJson: 'No hay proveedor detectado, así que los datos viven en los archivos JSON. Instalar el proveedor PostgreSQL los traslada a la base sin tocar lo que ya está guardado.',
+            storeProvider: 'PostgreSQL Database Provider detectado: JellyTrend usa su esquema privado registrado.',
+            storeDatabaseOnly: 'Los archivos JSON están desactivados.',
+            storeCourtesyEnabled: 'Las copias JSON están activadas.',
+            storeJson: 'No hay un PostgreSQL Database Provider compatible activo, por lo que JellyTrend usa sus archivos JSON.',
             noteChannel_html: 'Todos los clientes ofrecen el canal; el carrusel de inicio lo activa cada usuario en <strong>Perfil \u2192 Inicio</strong>.',
             noteRecChannel_html: 'Lo que cada usuario ve en su inicio lo elige él mismo en <strong>Perfil \u2192 Inicio</strong>. Si alguien sigue viendo \u201cRecomendados\u201d tras desmarcar esto, es su propio ajuste.'
         }
@@ -1225,6 +1234,7 @@
                 var poolFactor = q('recommendationPoolFactor');
                 var coldStart = q('coldStartMinWatched');
                 var dataPath = q('jsonDataPath');
+                var courtesyBackup = q('enableJsonCourtesyBackup');
 
                 if (apiKey) apiKey.value = cfg.TmdbApiKey || '';
                 if (max) max.value = cfg.MaxItems || 20;
@@ -1242,7 +1252,8 @@
                 if (rotation) rotation.value = cfg.RecommendationRotationHours === undefined || cfg.RecommendationRotationHours === null ? 1 : cfg.RecommendationRotationHours;
                 if (poolFactor) poolFactor.value = cfg.RecommendationPoolFactor || 2;
                 if (coldStart) coldStart.value = cfg.ColdStartMinWatched || 10;
-                if (dataPath) dataPath.value = cfg.JsonDataPath || '';
+                if (dataPath) dataPath.value = cfg.JsonDataPath || dataPath.dataset.defaultPath || '';
+                if (courtesyBackup) courtesyBackup.checked = cfg.EnableJsonCourtesyBackup === true;
             })
             .catch(function (err) {
                 setStatus(t('errLoadCfg') + (err && err.message || err), true);
@@ -1275,6 +1286,7 @@
                 var poolFactor = q('recommendationPoolFactor');
                 var coldStart = q('coldStartMinWatched');
                 var dataPath = q('jsonDataPath');
+                var courtesyBackup = q('enableJsonCourtesyBackup');
 
                 cfg.TmdbApiKey = apiKey ? apiKey.value : cfg.TmdbApiKey;
                 cfg.MaxItems = max ? (Number.parseInt(max.value, 10) || 20) : cfg.MaxItems;
@@ -1293,6 +1305,7 @@
                 cfg.RecommendationPoolFactor = poolFactor ? intInRange(poolFactor.value, 1, 10, 2) : cfg.RecommendationPoolFactor;
                 cfg.ColdStartMinWatched = coldStart ? intInRange(coldStart.value, 1, 200, 10) : cfg.ColdStartMinWatched;
                 cfg.JsonDataPath = dataPath ? dataPath.value.trim() : cfg.JsonDataPath;
+                cfg.EnableJsonCourtesyBackup = courtesyBackup ? courtesyBackup.checked : cfg.EnableJsonCourtesyBackup;
 
                 return saveConfig(cfg);
             })
@@ -1374,7 +1387,6 @@
                     box.textContent =
                         (ready ? '\u2713 ' : '\u26a0 ') + t('heading') + ' ' + (s.Version || '\u2014') +
                         '\n' + t('kvStoreActive') + ': ' + (st.Provider ? escapeText(st.Backend || '') + ' (v' + (st.SchemaVersion || 0) + ')' : t('valNo')) +
-                        '\n' + t('kvDataFolder') + ': ' + escapeText(st.Folder || t('msgNoFolder')) + ' \u00b7 ' + (st.FolderExists ? t('valExists') : t('valMissing')) +
                         '\nTMDB: ' + escapeText(s.TmdbLanguage || '\u2014') + ' \u00b7 ' + escapeText(s.TmdbRegion || '\u2014') + ' \u00b7 ' + t('stTmdbKey') + ': ' + (s.TmdbKeyConfigured ? t('valYes') : t('msgKeyMissing')) +
                         '\n' + t('stCached') + ': ' + (s.CachedItemCount || 0) + ' \u00b7 ' + t('stLastSync') + ': ' + (s.LastUpdated ? new Date(s.LastUpdated).toLocaleString() : t('valNever')) +
                         '\n' + t('kvChannels') + ': ' + publishedChannels(s) +
@@ -1386,10 +1398,20 @@
                         });
                 }
 
+                var jsonFilesActive = st.JsonFilesActive === true;
+                state.storageProvider = st.Provider === true;
+                var dataPathInput = q('jsonDataPath');
+                if (dataPathInput && !dataPathInput.value && st.DefaultFolder) {
+                    dataPathInput.value = st.DefaultFolder;
+                    dataPathInput.dataset.defaultPath = st.DefaultFolder;
+                }
+                var dataFolderCard = q('jtDataFolderCard');
+                var filesCard = q('jtFilesCard');
+                if (dataFolderCard) dataFolderCard.hidden = !jsonFilesActive;
+                if (filesCard) filesCard.hidden = !jsonFilesActive;
+
                 var folder = q('jtFolderInfo');
                 if (folder) {
-                    // Una sola carpeta, la que se esta usando, y de donde sale. Repetir la de por defecto,
-                    // la configurada y dos comprobaciones de la misma ruta era ruido.
                     folder.innerHTML =
                         row('kvDataFolder', escapeText(st.Folder || t('msgNoFolder')) + ' \u00b7 ' + (st.FolderExists ? t('valExists') : t('valMissing'))) +
                         row('kvPathOrigin', st.ConfiguredPath ? t('valCustom') : t('valDefault'));
@@ -1417,7 +1439,9 @@
                     storeNote.style.background = st.Provider ? '#1a2a1a' : '#2a2418';
                     storeNote.style.borderLeft = '4px solid ' + (st.Provider ? '#66bb6a' : '#f3c969');
                     storeNote.style.color = st.Provider ? '#a5d6a7' : '#f3c969';
-                    storeNote.textContent = st.Provider ? t('storeProvider') : t('storeJson');
+                    storeNote.textContent = st.Provider
+                        ? t('storeProvider') + (st.JsonCourtesyBackup ? ' ' + t('storeCourtesyEnabled') : ' ' + t('storeDatabaseOnly'))
+                        : t('storeJson');
                 }
 
                 // Archivos que hay de verdad en la carpeta, en vez de suponer: nombre, tamano y fecha.
@@ -1643,6 +1667,17 @@
         var userSelect = q('jtUserSelect');
         if (userSelect) {
             userSelect.addEventListener('change', function () { loadUserRecommendations(userSelect.value); });
+        }
+
+        var courtesyBackup = q('enableJsonCourtesyBackup');
+        if (courtesyBackup) {
+            courtesyBackup.addEventListener('change', function () {
+                var showJsonStorage = courtesyBackup.checked || !state.storageProvider;
+                var dataFolderCard = q('jtDataFolderCard');
+                var filesCard = q('jtFilesCard');
+                if (dataFolderCard) dataFolderCard.hidden = !showJsonStorage;
+                if (filesCard) filesCard.hidden = !showJsonStorage;
+            });
         }
 
         state.wired = true;

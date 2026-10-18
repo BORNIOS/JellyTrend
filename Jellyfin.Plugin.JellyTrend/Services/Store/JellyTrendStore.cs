@@ -95,8 +95,10 @@ public static class JellyTrendStore
             _description = provider.DescribeBackend();
             JellyTrendLog.Info($"[Almacen] Datos persistentes en {_description}");
 
-            // Copia de cortesia: si el proveedor desaparece, lo que ya estaba guardado queda en disco.
-            StoreDump.Write();
+            if (Plugin.Instance?.Configuration.EnableJsonCourtesyBackup == true)
+            {
+                StoreDump.Write();
+            }
 
             return true;
         }
@@ -152,6 +154,13 @@ public static class JellyTrendStore
         {
             fromStore.Normalize();
             return fromStore;
+        }
+
+        // PostgreSQL is the authoritative store once it is active. Do not silently revive an old JSON
+        // file when a database read has no rows or fails.
+        if (Active)
+        {
+            return null;
         }
 
         var path = JellyTrendStorage.TrendingFile;
@@ -351,10 +360,10 @@ public static class JellyTrendStore
     {
         ArgumentNullException.ThrowIfNull(affinities);
 
-        // Copia de cortesia: el perfil se guarda SIEMPRE en disco, tambien con el almacen externo activo.
-        // Si el proveedor desaparece (se desinstala, se cambia a SQLite, falla), la capa 3 sigue teniendo
-        // perfil que leer en lugar de empezar de cero.
-        WriteProfileFile(userId, affinities);
+        if (!Active || Plugin.Instance?.Configuration.EnableJsonCourtesyBackup == true)
+        {
+            WriteProfileFile(userId, affinities);
+        }
 
         var facets = new string[affinities.Count];
         var values = new string[affinities.Count];
@@ -388,7 +397,7 @@ public static class JellyTrendStore
         var json = Guard(provider => provider.GetAffinities(userId), null, "leer el perfil");
         var stored = ParseProfile(json);
 
-        return stored.Count > 0 ? stored : ReadProfileFile(userId);
+        return Active ? stored : (stored.Count > 0 ? stored : ReadProfileFile(userId));
     }
 
     /// <summary>
@@ -404,18 +413,19 @@ public static class JellyTrendStore
     /// </summary>
     /// <param name="userId">User the recommendations belong to.</param>
     /// <param name="itemIds">Recommended item ids, best first.</param>
-    public static void WriteRecommendations(Guid userId, IReadOnlyList<Guid> itemIds)
+    /// <param name="scores">Ranking score aligned with <paramref name="itemIds"/>.</param>
+    /// <param name="runId">Database run that produced the recommendations, when available.</param>
+    public static void WriteRecommendations(Guid userId, IReadOnlyList<Guid> itemIds, IReadOnlyList<double>? scores = null, Guid runId = default)
     {
         ArgumentNullException.ThrowIfNull(itemIds);
 
         var ids = itemIds.ToArray();
-        var scores = new double[ids.Length];
         var generatedAt = DateTime.UtcNow;
 
         Guard(
             provider =>
             {
-                provider.ReplaceUserRecommendations(userId, ids, scores, generatedAt, Guid.Empty);
+                provider.ReplaceUserRecommendations(userId, ids, scores?.ToArray() ?? [], generatedAt, runId);
                 return true;
             },
             false,
@@ -593,7 +603,9 @@ public static class JellyTrendStore
         }
         catch (Exception ex)
         {
-            Drop($"{operation}: {ex.Message}");
+            // A database error must be visible and must not silently switch the process to stale JSON.
+            // The provider remains active so a later operation can recover after a transient failure.
+            JellyTrendLog.Warn($"[Almacen] Error en PostgreSQL al {operation}; se conserva el almacen PostgreSQL: {ex.Message}");
             return fallback;
         }
     }

@@ -88,38 +88,38 @@ public sealed class TasteProfileBuilderTests
     }
 
     /// <summary>
-    /// La calidad no puede recomendar por si sola: un 9.2 de rating no supera a los generos que el
-    /// usuario si consume. Con la normalizacion por familia los dos valen 1 dentro de la suya, asi que la
-    /// comparacion se hace sobre lo acumulado antes de normalizar, que es donde vive el peso acordado.
+    /// La tabla de afinidades representa evidencia observada: un valor que aparece una vez no puede
+    /// declararse igual de fuerte que uno presente en decenas de títulos.
     /// </summary>
     [Fact]
-    public void QualitySignalsStayBelowTasteSignals()
+    public void GlobalNormalizationPreservesCrossFamilyEvidence()
     {
-        var profile = TasteProfileBuilder.BuildRaw([Item(1.0, genres: ["Terror"], rating: 9.2)]);
+        var items = Enumerable.Range(0, 80)
+            .Select(index => Item(1.0, genres: ["Terror"], actors: index == 0 ? ["Cooper Tomlinson"] : []))
+            .ToList();
+        var profile = TasteProfileBuilder.Build(items);
 
-        var genre = profile.Single(record => record.Facet == Genre).Weight;
-        var rating = profile.Single(record => record.Facet == "rating").Weight;
+        var genre = profile.Single(record => record.Facet == Genre && record.Value == "Terror" && record.PairedFacet is null).Weight;
+        var actor = profile.Single(record => record.Facet == Actor && record.Value == "Cooper Tomlinson" && record.PairedFacet is null).Weight;
 
-        Assert.True(genre > rating, "el genero consumido debe pesar mas que el rating del titulo");
+        Assert.Equal(1.00, genre, precision: 4);
+        Assert.True(actor < 0.01, $"una aparición aislada no puede igualar 80 coincidencias de género ({actor:F4})");
     }
 
     /// <summary>
-    /// Cada familia se normaliza contra si misma: el valor mas fuerte de cada una vale 1. Con una
-    /// normalizacion global el genero aplastaba al resto y el reparto aportaba una treintava parte de lo
-    /// que le toca.
+    /// La escala es única para que el peso persistido sea explicable y comparable entre familias.
     /// </summary>
     [Fact]
-    public void EveryFamilyIsNormalizedOnItsOwn()
+    public void StoredWeightsUseOneComparableScale()
     {
         var profile = TasteProfileBuilder.Build(
             [Item(1.0, genres: ["Terror"], actors: ["Ana"], directors: ["Dani"], rating: 9.2)]);
 
-        foreach (var family in new[] { Genre, Actor, "director", "rating" })
-        {
-            Assert.Equal(
-                1.00,
-                profile.Where(record => record.Facet == family && record.PairedFacet is null).Max(record => record.Weight));
-        }
+        Assert.Equal(1.00, profile.Max(record => record.Weight), precision: 4);
+        Assert.True(
+            profile.Single(record => record.Facet == Genre && record.PairedFacet is null).Weight
+                > profile.Single(record => record.Facet == Actor && record.PairedFacet is null).Weight,
+            "la familia de género conserva más evidencia que una aparición individual de actor");
     }
 
     private static ProfileItem Item(

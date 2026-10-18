@@ -89,6 +89,34 @@ public sealed class RecommendationSourceTests
     }
 
     /// <summary>
+    /// El contrato del proveedor dice "sin ver", pero la exclusión definitiva se hace contra UserData:
+    /// una respuesta atrasada no puede volver a mostrar un título que tenga cualquier reproducción.
+    /// </summary>
+    [Fact]
+    public void ProviderCandidateWithPlaybackHistoryIsAlwaysExcluded()
+    {
+        var library = FakeProxy.Create<ILibraryManager, LibraryFake>(fake =>
+        {
+            fake.Unwatched = [Movie(UnwatchedId, "Ya abierto", played: false, "Terror")];
+        });
+        var userData = FakeProxy.Create<IUserDataManager, UserDataFake>(fake =>
+        {
+            fake.Data = new Dictionary<Guid, UserItemData>
+            {
+                [UnwatchedId] = new() { Key = UnwatchedId.ToString("N"), PlayCount = 1, LastPlayedDate = Now }
+            };
+        });
+        var provider = new StubProvider(
+            throwOnCall: false,
+            answer: [new RecommendationItem(UnwatchedId, "55", ["Terror"], [], [], 8f, null)]);
+        var source = CandidateSource.Create(library, userData, new ProviderState(provider), NullLogger.Instance, Store());
+
+        var candidates = source.GetCandidates(NewUser(), ["Terror"], [], [], []);
+
+        Assert.Empty(candidates);
+    }
+
+    /// <summary>
     /// El proveedor roto es un estado del entorno, no del usuario: se descarta una vez y no se vuelve a
     /// preguntar por los demas usuarios de la ejecucion.
     /// </summary>

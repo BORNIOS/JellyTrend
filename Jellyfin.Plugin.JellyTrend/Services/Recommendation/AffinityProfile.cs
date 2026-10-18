@@ -117,6 +117,17 @@ internal sealed class AffinityProfile
         => _pairs.ContainsKey(PairKey(facet, value, pairedFacet, pairedValue));
 
     /// <summary>
+    /// Gets the learned strength of a combined affinity.
+    /// </summary>
+    /// <param name="facet">First facet.</param>
+    /// <param name="value">First value.</param>
+    /// <param name="pairedFacet">Second facet.</param>
+    /// <param name="pairedValue">Second value.</param>
+    /// <returns>Strength in the normalized profile, or 0 when the pair is unknown.</returns>
+    public double PairWeightOf(string facet, string value, string pairedFacet, string pairedValue)
+        => _pairs.GetValueOrDefault(PairKey(facet, value, pairedFacet, pairedValue));
+
+    /// <summary>
     /// Gets the strongest values of a facet, used to discover the candidate pool.
     /// </summary>
     /// <param name="facet">Facet name.</param>

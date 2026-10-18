@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTrend;
+using Jellyfin.Plugin.JellyTrend.Services;
 using Xunit;
 
 namespace Jellyfin.Plugin.JellyTrend.Tests;
@@ -117,6 +118,74 @@ public sealed class WebPageTests
         var onDisk = File.ReadAllText(TestPaths.PanelFile);
 
         Assert.Equal(Normalize(onDisk), Normalize(embedded));
+    }
+
+    /// <summary>
+    /// The banner belongs exclusively to Home. A slow fetch must not render it after
+    /// the SPA has moved to Dashboard, details, or another route.
+    /// </summary>
+    [Fact]
+    public void BannerScriptGuardsInFlightRequestsAndSpaRouteChanges()
+    {
+        var script = File.ReadAllText(TestPaths.BannerScriptFile);
+
+        Assert.Contains("const requestedRoute = routeSignature();", script, StringComparison.Ordinal);
+        Assert.Contains("requestedRoute !== routeSignature()", script, StringComparison.Ordinal);
+        Assert.Contains("if (!onHomePage() || !items.length) return;", script, StringComparison.Ordinal);
+        Assert.Contains("for (const method of ['pushState', 'replaceState'])", script, StringComparison.Ordinal);
+        Assert.Contains("window.addEventListener('popstate', handleRouteChange);", script, StringComparison.Ordinal);
+        Assert.Contains("activeFetchController?.abort();", script, StringComparison.Ordinal);
+        Assert.Contains("const ITEMS_CACHE_TTL_MS = 30000;", script, StringComparison.Ordinal);
+        Assert.Contains("if (!token) return [];", script, StringComparison.Ordinal);
+        Assert.Contains("if (!getToken()) return;", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Periodic safety net", script, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// An in-place plugin upgrade must update the versioned script tag once and keep the resulting
+    /// index.html stable across later startups.
+    /// </summary>
+    [Fact]
+    public void BannerScriptTagUpgradeIsIdempotent()
+    {
+        const string oldHtml = "<head><link href=\"main.css\">            <script src=\"/JellyTrend/jellyTrend.js?v=3.0.0.0\"></script>\n</head>";
+        const string currentTag = "    <script src=\"/JellyTrend/jellyTrend.js?v=3.0.1.0\"></script>";
+
+        var upgraded = ScriptInjectionService.ReplaceExistingScriptTag(oldHtml, currentTag);
+
+        Assert.Contains("jellyTrend.js?v=3.0.1.0", upgraded, StringComparison.Ordinal);
+        Assert.Equal(upgraded, ScriptInjectionService.ReplaceExistingScriptTag(upgraded, currentTag));
+    }
+
+    /// <summary>
+    /// The injected tag must live under the server base URL when Jellyfin is mounted under one.
+    /// </summary>
+    [Fact]
+    public void InjectedScriptRespectsTheServerBaseUrl()
+    {
+        Assert.StartsWith("    <script src=\"/JellyTrend/jellyTrend.js?v=", ScriptInjectionService.BuildScriptTag("/web/"), StringComparison.Ordinal);
+        Assert.StartsWith("    <script src=\"/jellyfin/JellyTrend/jellyTrend.js?v=", ScriptInjectionService.BuildScriptTag("/jellyfin/web/"), StringComparison.Ordinal);
+        Assert.StartsWith("    <script src=\"/jellyfin/JellyTrend/jellyTrend.js?v=", ScriptInjectionService.BuildScriptTag("/jellyfin/web/index.html"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Injection happens in memory: the tag is added once, an existing one is upgraded in place,
+    /// and a second pass is a no-op.
+    /// </summary>
+    [Fact]
+    public void InjectScriptAddsOrUpgradesTheTagWithoutDuplicatingIt()
+    {
+        const string html = "<html><head><title>x</title></head><body></body></html>";
+        var first = ScriptInjectionService.InjectScript(html, "/web/");
+
+        Assert.Single(Regex.Matches(first, "jellyTrend.js").Cast<Match>());
+        Assert.Equal(first, ScriptInjectionService.InjectScript(first, "/web/"));
+
+        const string stale = "<html><head><script src=\"/JellyTrend/jellyTrend.js?v=3.0.0.0\"></script></head><body></body></html>";
+        var upgraded = ScriptInjectionService.InjectScript(stale, "/web/");
+
+        Assert.DoesNotContain("?v=3.0.0.0", upgraded, StringComparison.Ordinal);
+        Assert.Single(Regex.Matches(upgraded, "jellyTrend.js").Cast<Match>());
     }
 
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();

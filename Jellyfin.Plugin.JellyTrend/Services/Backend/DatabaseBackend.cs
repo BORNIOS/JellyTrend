@@ -2,6 +2,7 @@ using System;
 
 using Jellyfin.Plugin.JellyTrend.Api;
 using Jellyfin.Plugin.JellyTrend.Services.Recommendation;
+using Jellyfin.Plugin.JellyTrend.Services.Store;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,7 +28,7 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Backend;
 /// </remarks>
 public sealed class DatabaseBackend
 {
-    private const string NoProviderLabel = "ILibraryManager (sin proveedor externo)";
+    private const string NoProviderLabel = "Jellyfin ILibraryManager (fuente de biblioteca)";
 
     private string _recommendationLabel = NoProviderLabel;
     private string _recommendationState = string.Empty;
@@ -64,7 +65,7 @@ public sealed class DatabaseBackend
     /// <summary>Gets the recommendation backend as one short phrase: who it is and how it is doing.</summary>
     public string Recommendation
         => RecommendationProvider is null
-            ? "ILibraryManager (sin proveedor externo)"
+            ? NoProviderLabel
             : string.IsNullOrEmpty(_recommendationState) ? _recommendationLabel : $"{_recommendationLabel} {_recommendationState}";
 
     /// <summary>
@@ -90,11 +91,21 @@ public sealed class DatabaseBackend
             out var indexLabel);
         _indexLabel = indexLabel;
 
-        Store = Detect<IJellyTrendStoreProvider>(
+        var schemaHost = ForeignProviderDiscovery.FindForeignContract(
+            "Jellyfin.Database.Providers.Postgres.Api.IPluginSchemaHost",
             services,
             loggerFactory,
-            out var storeLabel);
-        _storeLabel = storeLabel;
+            out var schemaHostLabel);
+        if (schemaHost is not null)
+        {
+            Store = new PostgresSchemaStore(schemaHost.Value.Instance, schemaHost.Value.Contract);
+            _storeLabel = $"PostgreSQL privado ({schemaHostLabel})";
+        }
+        else
+        {
+            Store = Detect<IJellyTrendStoreProvider>(services, loggerFactory, out var storeLabel);
+            _storeLabel = storeLabel;
+        }
 
         // Presente no significa utilizable: queda "comprobando" hasta que la sonda real confirme que
         // devuelve datos (ver DatabaseBackendStartupService).

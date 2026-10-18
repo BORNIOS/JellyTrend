@@ -1,7 +1,7 @@
 /**
  * JellyTrend – Trending Banner Carousel
  * Served at /JellyTrend/jellyTrend.js
- * Injected into <head> of index.html by ScriptInjectionMiddleware.
+ * Injected into <head> of index.html in memory by ScriptInjectionService.
  *
  * Primary strategy: MutationObserver watches for home-screen DOM to appear,
  * then injects the Trending section directly at the top (works on all Jellyfin
@@ -42,6 +42,22 @@
             if (!api) return null;
             return typeof api.accessToken === 'function' ? api.accessToken() : (api.accessToken ?? null);
         } catch (_) { return null; }
+    }
+
+    // Keep local artwork on the same URL path and option contract used by
+    // Jellyfin Web. This lets the active web client choose its normal scaled
+    // image URL instead of the plugin inventing encoder settings.
+    function getScaledImageUrl(item, imageUrl, type, options) {
+        if (!imageUrl || !imageUrl.startsWith('/Items/')) return imageUrl;
+
+        try {
+            const api = window.ApiClient ?? window.top?.ApiClient ?? window.parent?.ApiClient;
+            if (api && typeof api.getScaledImageUrl === 'function') {
+                return api.getScaledImageUrl(item.Id, { type, ...options });
+            }
+        } catch (_) { /* use the API URL supplied by the server */ }
+
+        return imageUrl;
     }
 
     // ── Auth-ready trigger via XHR intercept ─────────────────────────────────
@@ -85,15 +101,24 @@
     })();
 
     // ── Fetch trending items from plugin API ─────────────────────────────────
-    async function fetchItems(apiClient) {
+    async function fetchItems(apiClient, signal) {
         const token = apiClient?.accessToken?.() ?? getToken();
+        // The injected script is loaded before Jellyfin establishes a user
+        // session. Do not issue an anonymous request that can only return 401;
+        // installAuthReadyTrigger will invoke Home injection once the token exists.
+        if (!token) return [];
         const headers = {};
         if (token) headers['Authorization'] = `MediaBrowser Token="${token}"`;
         try {
-            const r = await fetch('/JellyTrend/Trending', { headers, credentials: 'include' });
+            const r = await fetch('/JellyTrend/Trending', { headers, credentials: 'include', signal });
             if (!r.ok) { console.warn(`[JellyTrend] /Trending → ${r.status}`); return []; }
             return await r.json();
-        } catch (e) { console.warn('[JellyTrend] fetch error', e); return []; }
+        } catch (e) {
+            // Navigating away from Home deliberately aborts the request. It is not
+            // an API failure and should not add noise to the browser console.
+            if (e?.name !== 'AbortError') console.warn('[JellyTrend] fetch error', e);
+            return [];
+        }
     }
 
     // ── Official Jellyfin translations ───────────────────────────────────────
@@ -154,6 +179,10 @@
         return !h || h === '#/' || h === '#/home.html' || h.startsWith('#/home');
     }
 
+    function routeSignature() {
+        return `${location.pathname}${location.search}${location.hash}`;
+    }
+
     // ── Find best injection container ────────────────────────────────────────
     // Tries a priority list of selectors for different Jellyfin web versions.
     function findContainer() {
@@ -191,54 +220,81 @@
     let containerRetryTimer = null;
     let lastEmptyAt = 0;
     let lastRenderedIds = '';
-    let lastFetchAt = 0;
-    let bannerRendered = false;   // true once items are painted — stops polling
+    let bannerRendered = false;
+    let activeFetchController = null;
+    let cachedItems = null;
+    let cachedItemsAt = 0;
+    const ITEMS_CACHE_TTL_MS = 30000;
+
+    // Returning Home should be instant and should not repeat an identical API
+    // request. Keep the small client cache aligned with the provider's 30-second
+    // home-query cache; after that, the normal endpoint refreshes the list.
+    async function getItemsForHome(signal) {
+        if (cachedItems && Date.now() - cachedItemsAt < ITEMS_CACHE_TTL_MS) return cachedItems;
+
+        const items = await fetchItems(null, signal);
+        if (items.length) {
+            cachedItems = items;
+            cachedItemsAt = Date.now();
+        }
+        return items;
+    }
 
     // Renders the carousel only when the list actually changed (the server already
     // hides watched titles, so a change means a just-watched item disappeared or
     // the section was removed while leaving Home).
     function renderBanner(items) {
-        if (!items.length) return;
+        // A fetch can finish after Jellyfin's SPA has already navigated away from
+        // Home. Never let an in-flight Home request paint into another route.
+        if (!onHomePage() || !items.length) return false;
         const ids = items.map(i => String(i.Id)).join('|');
         const section = document.getElementById(SECTION_ID);
-        if (section && ids === lastRenderedIds) return;
+        if (section && ids === lastRenderedIds) return true;
         lastRenderedIds = ids;
         let target = section;
         if (!target) {
             const container = findContainer();
-            if (!container) return;
+            if (!container) {
+                scheduleContainerRetry();
+                return false;
+            }
             target = document.createElement('div');
             target.id = SECTION_ID;
             container.insertAdjacentElement('afterbegin', target);
         }
         target.innerHTML = buildCarouselHTML(items);
         initCarousel(target.querySelector('.jt-swiper'));
+        return true;
     }
 
     async function tryInject() {
         if (!onHomePage()) { cancelContainerRetry(); return; }
+        if (!getToken()) return;
         // Once the banner is rendered and still in the DOM, nothing left to do.
         if (bannerRendered && document.getElementById(SECTION_ID)) return;
         if (injecting) return;
         const now = Date.now();
-        if (now - lastFetchAt < 15000) return;                  // throttle re-fetch
         if (lastEmptyAt && now - lastEmptyAt < 60000) return;   // empty cache — don't hammer /Trending
         injecting = true;
+        const requestedRoute = routeSignature();
+        const controller = new AbortController();
+        activeFetchController = controller;
         try {
-            const items = await fetchItems();
-            lastFetchAt = Date.now();
+            const items = await getItemsForHome(controller.signal);
             if (!items.length) { lastEmptyAt = Date.now(); return; }
+            if (!onHomePage() || requestedRoute !== routeSignature()) return;
             await loadLocalization();   // official labels ready before rendering
-            renderBanner(items);
-            bannerRendered = true;
+            if (!onHomePage() || requestedRoute !== routeSignature()) return;
+            bannerRendered = renderBanner(items);
         } finally {
+            if (activeFetchController === controller) activeFetchController = null;
             injecting = false;
         }
     }
 
     // React keeps the home page mounted and only toggles visibility on route
     // changes, so the MutationObserver alone often misses the return to Home.
-    // Retrying briefly (plus the periodic safety net below) re-injects reliably.
+    // A single short retry lets React finish the target container transition.
     function scheduleContainerRetry() {
         if (containerRetryTimer) return;
         containerRetryTimer = setTimeout(() => {
@@ -257,6 +313,8 @@
     function cleanup() {
         document.getElementById(SECTION_ID)?.remove();
         cancelContainerRetry();
+        activeFetchController?.abort();
+        activeFetchController = null;
         bannerRendered = false;   // allow re-inject when user returns to Home
     }
 
@@ -302,6 +360,7 @@
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             if (onHomePage()) tryInject();
+            else cleanup();
             injectAdminNav();   // safe to call on every mutation — idempotent
         }, 300);
     });
@@ -314,23 +373,25 @@
     else document.addEventListener('DOMContentLoaded', startObserver);
 
     // ── SPA route change ─────────────────────────────────────────────────────
-    window.addEventListener('hashchange', () => {
+    function handleRouteChange() {
         if (onHomePage()) tryInject();
         else cleanup();
         injectAdminNav();
-    });
+    }
 
-    // ── Periodic safety net ──────────────────────────────────────────────────
-    // Re-checks every 2 s while on Home and banner is NOT yet painted.
-    // Once bannerRendered is true the interval body exits immediately via the
-    // tryInject guard, so there is no ongoing network or CPU cost.
-    setInterval(() => {
-        if (onHomePage()) {
-            if (!bannerRendered || !document.getElementById(SECTION_ID)) tryInject();
-        } else {
-            cancelContainerRetry();
-        }
-    }, 2000);
+    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('popstate', handleRouteChange);
+
+    // Jellyfin Web may use the History API without emitting hashchange. Observe
+    // those SPA transitions as well so Dashboard and detail views are kept clean.
+    for (const method of ['pushState', 'replaceState']) {
+        const original = history[method];
+        history[method] = function () {
+            const result = original.apply(this, arguments);
+            queueMicrotask(handleRouteChange);
+            return result;
+        };
+    }
 
     // ── Fallback: old pluginManager registration ──────────────────────────────
     // Kept for Jellyfin versions that still use HomeSectionType.EditorChoice.
@@ -343,9 +404,14 @@
                 this.priority = 1;
             }
             async render(elem, apiClient) {
+                if (!onHomePage()) {
+                    elem.replaceChildren();
+                    return;
+                }
                 const items = await fetchItems(apiClient);
-                if (!items.length) return;
+                if (!onHomePage() || !items.length) return;
                 await loadLocalization();
+                if (!onHomePage()) return;
                 elem.innerHTML = buildCarouselHTML(items);
                 initCarousel(elem.querySelector('.jt-swiper'));
             }
@@ -405,15 +471,22 @@
     }
 
     function buildSlide(item) {
-        const backdrop = item.BackdropImageUrl ? `url('${escUrl(item.BackdropImageUrl)}')` : 'none';
+        const backdropUrl = getScaledImageUrl(item, item.BackdropImageUrl, 'Backdrop', {
+            maxWidth: Math.max(1, Math.round(window.innerWidth))
+        });
+        const logoUrl = getScaledImageUrl(item, item.LogoImageUrl, 'Logo', {
+            maxWidth: 352,
+            maxHeight: 88
+        });
+        const backdrop = backdropUrl ? `url('${escUrl(backdropUrl)}')` : 'none';
         const isSeries = item.Type === 'Series';
         const badge    = isSeries ? t('badgeTv') : t('badgeMovie');
         const badgeIcon = isSeries ? 'live_tv' : 'movie';
         const overview = item.Overview
             ? `<p class="jt-overview">${escHtml(item.Overview)}</p>` : '';
         // Netflix-style: use the item's logo when available, otherwise fall back to the title.
-        const title    = item.LogoImageUrl
-            ? `<img class="jt-logo" src="${escUrl(item.LogoImageUrl)}" alt="${escHtml(item.Name ?? '')}" />`
+        const title    = logoUrl
+            ? `<img class="jt-logo" src="${escUrl(logoUrl)}" alt="${escHtml(item.Name ?? '')}" />`
             : `<h2 class="jt-title">${escHtml(item.Name ?? '')}</h2>`;
         // Subtitle line right under the logo: year • rating (Netflix pattern).
         const metaParts = [];

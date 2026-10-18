@@ -116,4 +116,10 @@ public class PluginConfiguration : BasePluginConfiguration
     /// accepted; a relative one is ignored so the data never lands next to the process.
     /// </summary>
     public string JsonDataPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether an explicit JSON snapshot is written while PostgreSQL is the active store.
+    /// Disabled by default: PostgreSQL is the only operational data source when it is available.
+    /// </summary>
+    public bool EnableJsonCourtesyBackup { get; set; }
 }

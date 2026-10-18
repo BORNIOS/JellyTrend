@@ -96,16 +96,15 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         get
         {
             // Con el almacen en base de datos no hay archivos que mirar: manda el sello que deja cada
-            // escritura. El prefijo sube a JT4 para descartar la cache que dejo la version anterior, que
-            // servia una lista vacia con una version que ya no cambiaba.
+            // escritura. El prefijo sube a JT5 porque la clave también cambia al ver un candidato.
             if (JellyTrendStore.Active)
             {
-                return "JT4-" + JellyTrendStore.RecommendationStamp;
+                return "JT5-" + JellyTrendStore.RecommendationStamp;
             }
 
             var lastModified = RecommendationStorage.GetLastModifiedUtc();
             var ticks = lastModified == DateTime.MinValue ? 0 : lastModified.Ticks;
-            return "JT4-" + ticks.ToString(CultureInfo.InvariantCulture);
+            return "JT5-" + ticks.ToString(CultureInfo.InvariantCulture);
         }
     }
 
@@ -138,9 +137,12 @@ public sealed class RecommendedChannel : IChannel, ISupportsLatestMedia, IRequir
         // lugar de servir el tramo anterior. Sin rotacion se mantiene la clave de siempre y no se
         // descarta ninguna cache.
         var rotation = RotationWindow();
+        var resolved = Guid.TryParse(userId, out var parsed) ? parsed : Guid.Empty;
+        var playbackRevision = RecommendationChannelCacheState.GetRevision(resolved);
+        var prefix = "u" + userId + "-p" + playbackRevision.ToString(CultureInfo.InvariantCulture);
         return rotation == 0
-            ? "u" + userId
-            : "u" + userId + "-r" + rotation.ToString(CultureInfo.InvariantCulture);
+            ? prefix
+            : prefix + "-r" + rotation.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>

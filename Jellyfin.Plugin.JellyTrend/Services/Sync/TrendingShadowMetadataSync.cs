@@ -19,12 +19,17 @@ namespace Jellyfin.Plugin.JellyTrend.Services.Sync;
 
 /// <summary>
 /// Jellyfin solo aplica <c>UpdatePeopleAsync</c> al crear ítems sombra del canal; los ya existentes
-/// no reciben reparto ni metadatos desde <see cref="MediaBrowser.Controller.Channels.ChannelItemInfo"/>.
-/// Copiamos metadatos clave, el reparto y las imágenes LOCALES desde la película de biblioteca hacia el
-/// sombra, en cualquiera de los canales de JellyTrend (tendencias y recomendaciones).
+/// no reciben metadatos desde <see cref="MediaBrowser.Controller.Channels.ChannelItemInfo"/>.
+/// Copia metadatos de presentación e imágenes LOCALES desde el ítem de biblioteca hacia la sombra,
+/// en cualquiera de los canales de JellyTrend (tendencias y recomendaciones), y mantiene la sombra
+/// fuera del resto de la biblioteca (búsqueda, personas, géneros, estudios y tags).
 /// </summary>
 public static class TrendingShadowMetadataSync
 {
+    // Una sombra puede desaparecer entre la consulta y el guardado (el canal la recrea). El pase
+    // periódico y el de sincronización tampoco deben solaparse: comparten las mismas filas.
+    private static readonly SemaphoreSlim NormalizationGate = new(1, 1);
+
     /// <summary>
     /// Copies key metadata, cast and local images from each trending cache entry to its channel
     /// shadow item, for every JellyTrend channel (trending and recommendations) where the shadow
@@ -92,6 +97,8 @@ public static class TrendingShadowMetadataSync
                 logger.LogDebug(ex, "JellyTrend: traza de la sincronizacion del sombra {ItemId}.", entry.ItemId);
             }
         }
+
+        await NormalizeShadowVisibilityAsync(libraryManager, logger, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -152,6 +159,8 @@ public static class TrendingShadowMetadataSync
                 logger.LogDebug(ex, "JellyTrend: traza de la sincronizacion del sombra {ItemId}.", id);
             }
         }
+
+        await NormalizeShadowVisibilityAsync(libraryManager, logger, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task SyncLibraryItemAsync(
@@ -171,6 +180,139 @@ public static class TrendingShadowMetadataSync
 
             await SyncOneAsync(libraryManager, library, shadow, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Hides every JellyTrend channel shadow from the rest of the library. Jellyfin persists channel
+    /// items as regular library entities, so search, person pages and genre/studio/tag listings can
+    /// return both the real item and its shadow. Marking the shadow virtual removes it from search,
+    /// suggestions and "recently added"; clearing its facet links removes it from person/genre/
+    /// studio/tag pages and from provider-id based matching.
+    /// </summary>
+    /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    internal static async Task NormalizeShadowVisibilityAsync(
+        ILibraryManager libraryManager,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        await NormalizationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            foreach (var channelFolderId in ChannelIdentity.GetAllChannelFolderIds(libraryManager))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var shadows = libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    ChannelIds = [channelFolderId],
+                    IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Season]
+                });
+
+                var hidden = 0;
+                foreach (var shadow in shadows)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
+                    {
+                        if (await HideShadowAsync(libraryManager, shadow, cancellationToken).ConfigureAwait(false))
+                        {
+                            hidden++;
+                        }
+                    }
+                    catch (Exception ex) when (string.Equals(ex.GetType().Name, "DbUpdateConcurrencyException", StringComparison.Ordinal))
+                    {
+                        // El canal recreó la sombra entre la consulta y el guardado; el siguiente pase la ve.
+                        logger.LogDebug(
+                            "JellyTrend: la sombra {ItemId} cambió durante la limpieza; se reintenta en el siguiente pase.",
+                            shadow.Id);
+                    }
+                }
+
+                if (hidden > 0)
+                {
+                    logger.LogDebug(
+                        "JellyTrend: {Count} sombras ocultas del resto de la biblioteca en el canal {ChannelId}.",
+                        hidden,
+                        channelFolderId);
+                }
+            }
+        }
+        finally
+        {
+            NormalizationGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Removes one shadow from every library surface except the channel itself.
+    /// </summary>
+    /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
+    /// <param name="shadow">The channel shadow item.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><c>true</c> when the shadow had to be persisted.</returns>
+    internal static async Task<bool> HideShadowAsync(
+        ILibraryManager libraryManager,
+        BaseItem shadow,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(libraryManager);
+        ArgumentNullException.ThrowIfNull(shadow);
+
+        var changed = false;
+
+        if (!shadow.IsVirtualItem)
+        {
+            shadow.IsVirtualItem = true;
+            changed = true;
+        }
+
+        if (shadow.Genres is { Length: > 0 })
+        {
+            shadow.Genres = [];
+            changed = true;
+        }
+
+        if (shadow.Studios is { Length: > 0 })
+        {
+            shadow.Studios = [];
+            changed = true;
+        }
+
+        if (shadow.Tags is { Length: > 0 })
+        {
+            shadow.Tags = [];
+            changed = true;
+        }
+
+        if (shadow.ProviderIds is { Count: > 0 })
+        {
+            shadow.ProviderIds.Clear();
+            changed = true;
+        }
+
+        if (libraryManager.GetPeople(shadow).Count > 0)
+        {
+            await libraryManager.UpdatePeopleAsync(shadow, [], cancellationToken).ConfigureAwait(false);
+            changed = true;
+        }
+
+        // Una sombra huérfana no tiene padre con el que persistir; su limpieza se pospone al
+        // siguiente pase, que también lo elimina si ya no corresponde a ningún ítem de la biblioteca.
+        if (changed && shadow.ParentId != Guid.Empty)
+        {
+            var parent = libraryManager.GetItemById(shadow.ParentId);
+            if (parent is not null)
+            {
+                await libraryManager
+                    .UpdateItemAsync(shadow, parent, ItemUpdateType.MetadataEdit, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        return changed;
     }
 
     /// <summary>
@@ -282,22 +424,16 @@ public static class TrendingShadowMetadataSync
         CancellationToken cancellationToken)
     {
         // Solo se persiste cuando algo cambió. Sin esto, cada sync reescribe TODAS las sombras
-        // (reparto + metadatos + imágenes) y con Postgres lento provoca timeouts que abortan
+        // (metadatos + imágenes) y con Postgres lento provoca timeouts que abortan
         // parte del pase → series que se quedan sin imágenes.
         var changed = false;
 
-        // Reparto: se reescribe cuando el sombra no lleva el mismo reparto que la biblioteca. Se compara
-        // el conjunto (persona, papel) y no el numero: contar dejaba pasar un reparto cambiado con la
-        // misma cantidad de personas.
-        var people = libraryManager.GetPeople(library);
-        if (people.Count > 0 && !SamePeople(libraryManager.GetPeople(shadow), people))
-        {
-            await libraryManager.UpdatePeopleAsync(shadow, people, cancellationToken).ConfigureAwait(false);
-            changed = true;
-        }
-
+        // Reparto, géneros, estudios, tags y provider ids NO se copian a propósito: con ellos el
+        // sombra aparece en las páginas de personas/géneros/estudios además del ítem real. El canal
+        // solo necesita la presentación (nombre, sinopsis, imágenes, nota); las asociaciones las
+        // limpia HideShadowAsync.
         changed |= SyncCoreMetadata(shadow, library);
-        changed |= SyncCollections(shadow, library);
+        changed |= SyncProductionLocations(shadow, library);
         changed |= SyncNumericFields(shadow, library);
 
         if (library is Video libVideo && shadow is Video shVideo)
@@ -383,36 +519,12 @@ public static class TrendingShadowMetadataSync
         return changed;
     }
 
-    private static bool SyncCollections(BaseItem shadow, BaseItem library)
+    private static bool SyncProductionLocations(BaseItem shadow, BaseItem library)
     {
         var changed = false;
-        if (!SameStrings(shadow.Genres, library.Genres))
-        {
-            shadow.Genres = library.Genres?.ToArray() ?? Array.Empty<string>();
-            changed = true;
-        }
-
-        if (!SameStrings(shadow.Studios, library.Studios))
-        {
-            shadow.Studios = library.Studios?.ToArray() ?? Array.Empty<string>();
-            changed = true;
-        }
-
-        if (!SameStrings(shadow.Tags, library.Tags))
-        {
-            shadow.Tags = library.Tags?.ToArray() ?? Array.Empty<string>();
-            changed = true;
-        }
-
         if (!SameStrings(shadow.ProductionLocations, library.ProductionLocations))
         {
             shadow.ProductionLocations = library.ProductionLocations?.ToArray() ?? Array.Empty<string>();
-            changed = true;
-        }
-
-        if (!SameProviderIds(shadow.ProviderIds, library.ProviderIds))
-        {
-            shadow.ProviderIds = new Dictionary<string, string>(library.ProviderIds, StringComparer.OrdinalIgnoreCase);
             changed = true;
         }
 
@@ -562,23 +674,6 @@ public static class TrendingShadowMetadataSync
         return changed;
     }
 
-    // Compara el reparto por persona, tipo y papel, en cualquier orden: la posicion en la lista no
-    // significa nada para la biblioteca, pero si importa que la persona este.
-    private static bool SamePeople(IReadOnlyList<PersonInfo> shadow, IReadOnlyList<PersonInfo> library)
-    {
-        if (shadow.Count != library.Count)
-        {
-            return false;
-        }
-
-        var shadowKeys = shadow.Select(Key).OrderBy(static key => key, StringComparer.Ordinal).ToList();
-        var libraryKeys = library.Select(Key).OrderBy(static key => key, StringComparer.Ordinal).ToList();
-
-        return shadowKeys.SequenceEqual(libraryKeys, StringComparer.Ordinal);
-
-        static string Key(PersonInfo person) => $"{person.Id:N}|{person.Type}|{person.Role}";
-    }
-
     // Una sombra cuyo item de biblioteca ya no existe se queda para siempre en el canal: no entra en
     // ninguna lista, asi que ninguna sincronizacion la vuelve a mirar. Se borra para que el canal
     // contenga exactamente lo que la biblioteca tiene.
@@ -642,24 +737,6 @@ public static class TrendingShadowMetadataSync
         }
 
         return a.SequenceEqual(b, StringComparer.Ordinal);
-    }
-
-    private static bool SameProviderIds(Dictionary<string, string> a, Dictionary<string, string> b)
-    {
-        if (a.Count != b.Count)
-        {
-            return false;
-        }
-
-        foreach (var pair in a)
-        {
-            if (!b.TryGetValue(pair.Key, out var value) || !string.Equals(value, pair.Value, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// <summary>
