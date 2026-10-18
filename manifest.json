@@ -55,6 +55,14 @@
         "sourceUrl": "https://github.com/BORNIOS/JellyTrend/releases/download/v3.0.0/Jellyfin.Plugin.JellyTrend-3.0.0.0.zip",
         "checksum": "b46356b845d4f09b29a6fbf7e2252d5d",
         "timestamp": "2026-09-19T01:33:29Z"
+      },
+      {
+        "version": "3.0.1.0",
+        "changelog": "Novedades en 3.0.1\n\nReproducción\n- Android TV: los ítems de los canales vuelven a reproducirse. El plugin deja que Jellyfin asigne el id correcto a las fuentes; antes Android TV devolvía un id que no coincidía y la petición acababa en NoCompatibleStream.\n- El canal de Recomendados refresca su caché al reproducir un título, sin esperar a la siguiente rotación.\n\nSin duplicados\n- Las sombras de los canales se marcan como virtuales y se desvinculan de personas, géneros, estudios, tags y provider ids.\n- Ya no aparecen en la búsqueda, páginas de actores/géneros/estudios, sugerencias, Últimas añadidas ni Continuar viendo. El detalle del canal conserva título, sinopsis, nota, duración e imágenes.\n- La limpieza es automática en cada sincronización, al arrancar y cada 15 minutos.\n\nCarrusel\n- Inyección en memoria: ya no se modifica jellyfin-web/index.html. Funciona con Jellyfin como servicio de Windows (Servicio de red) y sin permisos de escritura sobre Program Files.\n- Carga dirigida por eventos, solo en Inicio, sin peticiones anónimas y con URLs de imagen escaladas por Jellyfin.\n- Si el carrusel está desactivado, el endpoint no devuelve datos aunque el navegador tenga el script cacheado.\n\nAlmacenamiento y recomendaciones\n- PostgreSQL es el almacén autoritativo cuando el proveedor está activo; la copia JSON es opcional y viene desactivada.\n- Migraciones automáticas al esquema privado (versión 5).\n- Afinidades con normalización global, personas recurrentes, puntuaciones persistidas y exclusión estricta de títulos vistos o en curso.\n\nCompatibilidad\n- Jellyfin 12.1.x con .NET 10 (targetAbi 12.1.0.0). Para Jellyfin 10.11.x usa la versión 2.0.4.\n- Tras actualizar, ejecuta una vez las tareas de sincronización o reinicia para normalizar las sombras existentes.\n\nValidación: build Release sin advertencias; 95/95 pruebas correctas.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/BORNIOS/JellyTrend/releases/download/v3.0.1/Jellyfin.Plugin.JellyTrend-3.0.1.0.zip",
+        "checksum": "0a8aff224cd84b8ff27c3cc739d24b18",
+        "timestamp": "2026-10-18T03:07:06Z"
       }
     ]
   }
