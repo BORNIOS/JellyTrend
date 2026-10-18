@@ -17,12 +17,11 @@ owner: ".:BORNIOS:."
 artifacts:
   - "Jellyfin.Plugin.JellyTrend.dll"
 changelog: >
-  Novedades en 3.0.0:
-  - El motor aprende el gusto de cada usuario (afinidades y pares de titulos) y puntua cada titulo de la biblioteca contra ese perfil.
-  - Arranque en frio por popularidad local hasta alcanzar el minimo de titulos vistos, configurable.
-  - Reserva y rotacion: la lista guardada es mas larga que la fila y va cambiando de punto de partida.
-  - Reparto de la lista de Trendings entre series y peliculas, con relleno para no quedarse corta.
-  - Items de canal materializados para todos los usuarios y cache por usuario en los dos canales.
-  - Panel nuevo de cuatro pestanas (Trendings, Recomendaciones, Almacenamiento y Actividad), bilingue.
-  - Almacen opcional en el esquema jellytrend del PostgreSQL Database Provider, con historial de corridas.
+  Novedades en 3.0.1:
+  - Reproducción en Android TV: los ítems de los canales vuelven a abrirse. Jellyfin asigna el id del ítem de canal a las fuentes de medios y Android TV lo devuelve en PlaybackInfo; el plugin ya no fuerza el id del ítem de biblioteca.
+  - Sin duplicados: las sombras de los canales se marcan como virtuales y se desvinculan de personas, géneros, estudios, tags y provider ids, así que no aparecen en la búsqueda ni en las páginas de actores/géneros. El detalle del canal conserva título, sinopsis, nota, duración e imágenes.
+  - Banner sin permisos de escritura: el script se inyecta en memoria al servir index.html; ya no se modifica jellyfin-web y funciona con Jellyfin como servicio de Windows (Servicio de red).
+  - PostgreSQL como almacén autoritativo, con copia JSON opcional y sin retorno silencioso a archivos obsoletos.
+  - Recomendaciones: normalización global de afinidades, personas recurrentes, puntuaciones persistidas y exclusión estricta de títulos ya vistos o en curso.
+  - Carrusel: carga dirigida por eventos, solo en Inicio, sin peticiones anónimas y con URLs de imagen escaladas por Jellyfin.
   - Compatibilidad: Jellyfin 12.1.x con .NET 10. Para Jellyfin 10.11.x usa la version 2.0.4.

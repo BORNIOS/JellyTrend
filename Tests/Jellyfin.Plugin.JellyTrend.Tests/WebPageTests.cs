@@ -157,6 +157,37 @@ public sealed class WebPageTests
         Assert.Equal(upgraded, ScriptInjectionService.ReplaceExistingScriptTag(upgraded, currentTag));
     }
 
+    /// <summary>
+    /// The injected tag must live under the server base URL when Jellyfin is mounted under one.
+    /// </summary>
+    [Fact]
+    public void InjectedScriptRespectsTheServerBaseUrl()
+    {
+        Assert.StartsWith("    <script src=\"/JellyTrend/jellyTrend.js?v=", ScriptInjectionService.BuildScriptTag("/web/"), StringComparison.Ordinal);
+        Assert.StartsWith("    <script src=\"/jellyfin/JellyTrend/jellyTrend.js?v=", ScriptInjectionService.BuildScriptTag("/jellyfin/web/"), StringComparison.Ordinal);
+        Assert.StartsWith("    <script src=\"/jellyfin/JellyTrend/jellyTrend.js?v=", ScriptInjectionService.BuildScriptTag("/jellyfin/web/index.html"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Injection happens in memory: the tag is added once, an existing one is upgraded in place,
+    /// and a second pass is a no-op.
+    /// </summary>
+    [Fact]
+    public void InjectScriptAddsOrUpgradesTheTagWithoutDuplicatingIt()
+    {
+        const string html = "<html><head><title>x</title></head><body></body></html>";
+        var first = ScriptInjectionService.InjectScript(html, "/web/");
+
+        Assert.Single(Regex.Matches(first, "jellyTrend.js").Cast<Match>());
+        Assert.Equal(first, ScriptInjectionService.InjectScript(first, "/web/"));
+
+        const string stale = "<html><head><script src=\"/JellyTrend/jellyTrend.js?v=3.0.0.0\"></script></head><body></body></html>";
+        var upgraded = ScriptInjectionService.InjectScript(stale, "/web/");
+
+        Assert.DoesNotContain("?v=3.0.0.0", upgraded, StringComparison.Ordinal);
+        Assert.Single(Regex.Matches(upgraded, "jellyTrend.js").Cast<Match>());
+    }
+
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
 
     private static HashSet<string> IdsDeclared(string html)

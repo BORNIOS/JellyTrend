@@ -78,6 +78,14 @@ public sealed class TrendingController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<TrendingItemDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<TrendingItemDto>>> GetTrending()
     {
+        // The script is injected by ScriptInjectionService only while banner mode is enabled. This
+        // guard also covers a browser that cached the script (or an index.html patched by an older
+        // version), so disabling the carousel always stops rendering it.
+        if (Plugin.Instance?.Configuration.EnableBannerMode != true)
+        {
+            return Ok(Array.Empty<TrendingItemDto>());
+        }
+
         var cache = await ReadCacheAsync().ConfigureAwait(false);
         if (cache is null)
         {

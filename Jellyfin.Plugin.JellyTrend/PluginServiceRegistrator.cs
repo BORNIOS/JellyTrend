@@ -10,6 +10,7 @@ using MediaBrowser.Controller.Events;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Plugins;
 using MediaBrowser.Model.Tasks;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -54,11 +55,11 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ConsumptionRefreshConsumer>();
         serviceCollection.AddSingleton<IEventConsumer<PlaybackStopEventArgs>, ConsumptionRefreshConsumer>();
 
-        // ScriptInjectionService patches index.html on disk at startup so the banner
-        // script is served without any pipeline middleware (IStartupFilter is not
-        // reliable for dynamically loaded plugins).
+        // ScriptInjectionService injects the banner script into the web entry point at request
+        // time. It only needs read access: nothing is written to the installation directory, so it
+        // works when Jellyfin runs as a Windows service under Network Service/Local Service.
         serviceCollection.AddSingleton<ScriptInjectionService>();
-        serviceCollection.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ScriptInjectionService>());
+        serviceCollection.AddSingleton<IStartupFilter>(sp => sp.GetRequiredService<ScriptInjectionService>());
 
         // JellyTrendLog is initialized directly in Plugin.cs constructor — no hosted service needed.
     }

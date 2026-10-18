@@ -60,14 +60,9 @@ internal static class ChannelItemFactory
             PremiereDate = item.PremiereDate,
             OriginalTitle = item.OriginalTitle,
             OfficialRating = item.OfficialRating,
-            Genres = item.Genres is { Length: > 0 } g ? [.. g] : [],
-            Studios = item.Studios is { Length: > 0 } s ? [.. s] : [],
-            Tags = item.Tags is { Length: > 0 } t ? [.. t] : [],
-            HomePageUrl = item.HomePageUrl,
-            ProviderIds = new Dictionary<string, string>(item.ProviderIds)
+            HomePageUrl = item.HomePageUrl
         };
 
-        AddPeople(libraryManager, info, item);
         return info;
     }
 
@@ -111,14 +106,9 @@ internal static class ChannelItemFactory
             DateCreated = item.DateCreated,
             OriginalTitle = item.OriginalTitle,
             OfficialRating = item.OfficialRating,
-            Genres = item.Genres is { Length: > 0 } g ? [.. g] : [],
-            Studios = item.Studios is { Length: > 0 } s ? [.. s] : [],
-            Tags = item.Tags is { Length: > 0 } t ? [.. t] : [],
-            HomePageUrl = item.HomePageUrl,
-            ProviderIds = new Dictionary<string, string>(item.ProviderIds)
+            HomePageUrl = item.HomePageUrl
         };
 
-        AddPeople(libraryManager, info, item);
         return info;
     }
 
@@ -178,10 +168,6 @@ internal static class ChannelItemFactory
                 continue;   // skip specials (season 0)
             }
 
-            var providerIds = season.ProviderIds.Count > 0
-                ? new Dictionary<string, string>(season.ProviderIds)
-                : new Dictionary<string, string>(series.ProviderIds);
-
             result.Add(new ChannelItemInfo
             {
                 Id = season.Id.ToString(),
@@ -195,11 +181,7 @@ internal static class ChannelItemFactory
                 IndexNumber = season.IndexNumber,
                 ProductionYear = season.ProductionYear,
                 PremiereDate = season.PremiereDate,
-                DateCreated = season.DateCreated,
-                Genres = series.Genres is { Length: > 0 } g ? [.. g] : [],
-                Studios = series.Studios is { Length: > 0 } s ? [.. s] : [],
-                Tags = series.Tags is { Length: > 0 } t ? [.. t] : [],
-                ProviderIds = providerIds
+                DateCreated = season.DateCreated
             });
         }
 
@@ -242,20 +224,6 @@ internal static class ChannelItemFactory
                 continue;
             }
 
-            Dictionary<string, string> providerIds;
-            if (episode.ProviderIds.Count > 0)
-            {
-                providerIds = new Dictionary<string, string>(episode.ProviderIds);
-            }
-            else if (series is not null)
-            {
-                providerIds = new Dictionary<string, string>(series.ProviderIds);
-            }
-            else
-            {
-                providerIds = [];
-            }
-
             result.Add(new ChannelItemInfo
             {
                 Id = episode.Id.ToString(),
@@ -274,11 +242,7 @@ internal static class ChannelItemFactory
                 DateCreated = episode.DateCreated,
                 IndexNumber = episode.IndexNumber,
                 ParentIndexNumber = episode.ParentIndexNumber,
-                Genres = series is not null && series.Genres is { Length: > 0 } g ? [.. g] : [],
-                Studios = series is not null && series.Studios is { Length: > 0 } s ? [.. s] : [],
-                Tags = series is not null && series.Tags is { Length: > 0 } t ? [.. t] : [],
-                OfficialRating = episode.OfficialRating ?? series?.OfficialRating,
-                ProviderIds = providerIds
+                OfficialRating = episode.OfficialRating ?? series?.OfficialRating
             });
         }
 
@@ -318,7 +282,7 @@ internal static class ChannelItemFactory
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="mediaSourceManager">The media source manager.</param>
-    /// <param name="id">The channel item id (a library item id).</param>
+    /// <param name="id">The channel item's external id, which is the library item id.</param>
     /// <returns>The media sources, or an empty sequence when the item has no playable file.</returns>
     public static IEnumerable<MediaSourceInfo> GetMediaInfo(
         ILibraryManager libraryManager,
@@ -339,14 +303,15 @@ internal static class ChannelItemFactory
         var sources = mediaSourceManager.GetStaticMediaSources(item, true, null);
         if (sources.Count > 0)
         {
-            return sources;
+            return ForChannelItem(sources);
         }
 
         return
         [
             new MediaSourceInfo
             {
-                Id = id,
+                // The id is assigned by Jellyfin: see ForChannelItem.
+                Id = string.Empty,
                 Name = item.Name,
                 Path = item.Path,
                 Protocol = MediaProtocol.File,
@@ -365,26 +330,19 @@ internal static class ChannelItemFactory
         ];
     }
 
-    /// <summary>
-    /// Adds the item's cast and creators (actors first) to the channel item so the detail
-    /// view shows real people instead of an empty, shadow-like cast.
-    /// </summary>
-    /// <param name="libraryManager">The library manager.</param>
-    /// <param name="info">The channel item to enrich.</param>
-    /// <param name="item">The source library item.</param>
-    private static void AddPeople(ILibraryManager libraryManager, ChannelItemInfo info, BaseItem item)
+    // Jellyfin completes the identifiers in ChannelManager.NormalizeMediaSources: the first source
+    // receives the channel item id and the rest get stable path-based ids. Returning the library
+    // item id here makes clients that send it back miss the dynamic source: Android TV takes the
+    // id of the item's media source (the placeholder carrying the channel item id) and PlaybackInfo
+    // filters by it, so the request ends as NoCompatibleStream.
+    private static IReadOnlyList<MediaSourceInfo> ForChannelItem(IReadOnlyList<MediaSourceInfo> sources)
     {
-        var people = libraryManager.GetPeople(item)
-            .Where(p => p.Type is PersonKind.Actor or PersonKind.Director or PersonKind.Writer)
-            .OrderByDescending(p => p.Type == PersonKind.Actor)
-            .ThenBy(p => p.SortOrder ?? int.MaxValue)
-            .Take(24)
-            .ToList();
-
-        if (people.Count > 0)
+        foreach (var source in sources)
         {
-            info.People = people;
+            source.Id = string.Empty;
         }
+
+        return sources;
     }
 
     private static string ResolveItemImageUrl(

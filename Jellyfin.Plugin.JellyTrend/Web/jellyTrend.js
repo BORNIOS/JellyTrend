@@ -1,7 +1,7 @@
 /**
  * JellyTrend – Trending Banner Carousel
  * Served at /JellyTrend/jellyTrend.js
- * Injected into <head> of index.html by ScriptInjectionMiddleware.
+ * Injected into <head> of index.html in memory by ScriptInjectionService.
  *
  * Primary strategy: MutationObserver watches for home-screen DOM to appear,
  * then injects the Trending section directly at the top (works on all Jellyfin
